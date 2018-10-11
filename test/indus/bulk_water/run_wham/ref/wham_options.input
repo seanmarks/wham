@@ -1,0 +1,22 @@
+
+# Names of primary and secondary OPs
+OrderParameter_x x    # Ntilde_v
+OrderParameter_y N_v
+
+Temperature    300.0
+
+# Expected format: t(ps), N_v, Ntilde_v
+DataColumn_x 3 
+DataColumn_y 2
+
+# Bins for x = Ntilde_v
+NumBins_x    50
+Min_x         0.0
+Max_x        50.0
+BinStyle_x   left
+
+# Bins for y = N_v
+NumBins_y    50
+Min_y         0.0
+Max_y        50.0
+BinStyle_y  left
