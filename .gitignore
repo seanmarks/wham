@@ -28,5 +28,11 @@
 
 # Executables
 *.exe
-*.out
 *.app
+
+# vim temp files
+.swp
+
+# temp/local directories
+bck*
+tmp*
