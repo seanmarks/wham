@@ -1,9 +1,9 @@
 
 # Names of primary and secondary OPs
-OrderParameter_x x    # Ntilde_v
-OrderParameter_y N_v
+#OrderParameter_x Ntilde_v
+#OrderParameter_y N_v
 
-Temperature    300.0
+Temperature 300.0
 
 # Expected format: t(ps), N_v, Ntilde_v
 DataColumn_x 3 

@@ -15,9 +15,6 @@ python "${scripts_dir}/make_wham_plots.py" -T $T \
        -avg_x_0   $avg_x_0   -std_dev_x_0   $std_dev_x_0 \
        -avg_n_v_0 $avg_n_v_0 -std_dev_n_v_0 $std_dev_n_v_0
 
-# FIXME
-exit 0
-
 python "${scripts_dir}/make_wham_reweighted_plots.py" -T $T \
        -avg_x_0   $avg_x_0   -std_dev_x_0   $std_dev_x_0 \
        -avg_n_v_0 $avg_n_v_0 -std_dev_n_v_0 $std_dev_n_v_0

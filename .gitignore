@@ -36,3 +36,6 @@
 # temp/local directories
 bck*
 tmp*
+
+# Ignore image files in test directory
+test/**/*.png

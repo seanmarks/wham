@@ -123,13 +123,16 @@ class Wham
 	};
 
 	// Stores wham.solve() results
-	struct WhamHistogram
+	struct WhamResults
 	{
 		std::vector<double> x_bins;
-		std::vector<double> p_wham;
-		std::vector<double> f_wham;
+		std::vector<double> p_x_wham;
+		std::vector<double> f_x_wham;
 		std::vector<double> error_f;        // standard errors
-		std::vector<int>    sample_counts; // standard errors
+		std::vector<int>    sample_counts;
+
+		std::vector<double> f_opt;         // consensus free energies
+		std::vector<double> info_entropy;  // entropy between f_x_biased and f_x_rebiased
 	};
 
 
@@ -140,18 +143,42 @@ class Wham
 
 	// Evaluate objective function
 	// - Requires member variables log_N_ and log_M_ be set in order to work
-	double evalObjectiveFunction(const ColumnVector& df);
+	double evalObjectiveFunction(const ColumnVector& df) const;
 
 	// Compute derivatives of objective function
 	// - Must call evalObjectiveFunction before this one, to set log_sigma_0_
-	const ColumnVector evalObjectiveDerivatives(const ColumnVector& df);
+	const ColumnVector evalObjectiveDerivatives(const ColumnVector& df) const;
 
 	//----- I/O -----//
+
+	// TODO Make private? These rely on internal state variables
 
 	// Print sets of "raw" (i.e. non-consensus) histograms for all simulations, including:
 	//  - Biased free energy distributions
 	//  - Unbiased free energy distributions (using only same-simulation data)
-	void printRawDistributions();
+	void printRawDistributions() const;
+
+	void printWhamResults() const;
+
+	void print_f_x_y_and_f_y(
+		// Consensus distributions for F(x,y)
+		const Bins& bins_x,
+		const Bins& bins_y,
+		const std::vector<std::vector<double>>& p_x_y_wham,
+		const std::vector<std::vector<double>>& f_x_y_wham,
+		const std::vector<std::vector<int>>&    sample_counts_x_y,
+		// Reweighted results for F(y)
+		const std::vector<double>& p_y_wham,
+		const std::vector<double>& f_y_wham,
+		const std::vector<int>& sample_counts_y
+	) const;
+
+	// If the probability p > 0, print free energy f; else print "nan"
+	void print_free_energy(std::ofstream& ofs, const double f, const double p) const {
+		if ( p > 0.0 ) { ofs << f; }
+		else           { ofs << "nan";  }
+	};
+
 
  private:
 	// Input files
@@ -162,7 +189,7 @@ class Wham
 
 	std::vector<Wham::Simulation> simulations_;
 	Wham::WhamOptions wham_options_;
-	Wham::WhamHistogram wham_results_;
+	Wham::WhamResults wham_results_;
 
 	// 
 	std::vector<Bias> biases_;
@@ -171,8 +198,8 @@ class Wham
 	Bins bins_x_;
 	Bins bins_y_;
 
-	// Histogram of the total number of samples in each bin, across all simulations
-	std::vector<int>    global_sample_counts_; // aka "M_l"
+	// Histogram of the total number of samples in each x-bin, across all simulations
+	std::vector<int> sample_counts_x_;
 
 
 	//----- Precompute/save useful quantities for speed -----//
@@ -212,7 +239,8 @@ class Wham
 	// - Formula:
 	//     sigma_0(x_{j,i}) = sum_{r=1}^m exp{ log(c_r) + f_r - u_{bias,r}(x_{j,i}) }
 	// TODO linearize for speed
-	std::vector<std::vector<double>> log_sigma_0_;
+	mutable std::vector<double> f_bias_last_;
+	mutable std::vector<std::vector<double>> log_sigma_0_;
 
 	// Buffers
 	mutable std::vector<double> args_buffer_;
@@ -294,6 +322,7 @@ class Wham
 	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
 	void compute_consensus_f_x(
 		const std::vector<std::vector<double>>& x,
+		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
 		const std::vector<double>& f_opt,  // consensus free energies to use
 		const int k,                       // index of simulation ensemble (-1 --> unbiased)
 		const Bins& bins_x,
@@ -305,31 +334,25 @@ class Wham
 
 	// Compute the consensus distribution F_k^{WHAM}(x,y), where k is the index
 	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
+	// - Grids use 'ij' organization, i.e. grid[i][j] corresponds to (x_bins[i], y_bins[j])
 	// TODO generalize to n dimensions and combine with compute_consensus_f_x
 	void compute_consensus_f_x_y(
 		const std::vector<std::vector<double>>& x,
 		const std::vector<std::vector<double>>& y,
+		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
 		const std::vector<double>& f_opt,  // consensus free energies to use
 		const int k,  // index of simulation ensemble (-1 --> unbiased)
 		const Bins& bins_x,
 		const Bins& bins_y,
 		// Consensus distributions for F_k(x,y)
-		std::vector<std::vector<double>>& x_grid,
-		std::vector<std::vector<double>>& y_grid,
 		std::vector<std::vector<double>>& p_x_y_wham,
 		std::vector<std::vector<double>>& f_x_y_wham,
-		std::vector<std::vector<int>>&    sample_counts,
-		//
+		std::vector<std::vector<int>>&    sample_counts_x_y,
+		// Reweighted results for F_k(y)
 		std::vector<double>& p_y_wham,
-		std::vector<double>& f_y_wham
+		std::vector<double>& f_y_wham,
+		std::vector<int>& sample_counts_y
 	) const;
-
-	// If the probability p > 0, print free energy f; else print "nan"
-	std::ofstream& print_free_energy(std::ofstream& ofs, const double f, const double p) const {
-		if ( p > 0.0 ) { ofs << f; }
-		else           { ofs << "nan";  }
-		return ofs;
-	};
 
 	//----- Constants -----//
 
