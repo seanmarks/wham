@@ -1,50 +1,35 @@
-50.8001 51.2484 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-52.0481 47.8508 48.3437 52.9595 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan 49.7808 45.5837 45.9016 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan 46.7221 43.4298 43.8114 48.3739 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan 44.625 41.4549 41.7765 45.4434 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan 42.9276 39.5393 40.0071 44.2425 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan 40.8803 37.8506 38.1204 41.3542 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan 39.0319 36.0986 36.6036 39.6847 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan 37.1839 34.2507 34.7923 38.2929 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan 35.3847 32.6279 33.0583 36.8612 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan 33.4688 31.0724 31.2878 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan 32.2335 29.2048 29.7048 33.0228 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan 30.2556 27.1844 27.8147 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan 31.7528 27.98 25.4516 25.914 29.3196 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan 29.2645 25.7023 23.5298 23.6108 27.4373 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan 24.2696 21.3415 21.6644 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 22.0238 19.4625 19.7932 23.5208 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 19.9927 17.4195 17.6825 22.9424 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 17.8855 15.1939 15.6707 19.4009 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 15.7533 13.1542 13.7759 17.9593 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 14.3846 11.4918 11.8739 15.5718 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 15.9377 12.4 9.6082 10.0221 14.0209 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 10.5874 7.93285 8.41482 12.6624 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 9.18436 6.74854 6.93779 10.4336 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 8.20399 5.38402 5.64239 8.5529 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.71682 4.37808 4.54059 7.77786 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 9.43114 5.97999 3.58678 3.7356 6.37909 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 5.58091 2.97719 3.03944 5.99423 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4.64024 2.47041 2.64868 5.95545 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 7.56827 5.20719 2.69849 2.59102 5.98999 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 7.3504 5.13836 2.51101 2.46873 5.24373 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 5.12044 2.66272 2.81551 5.36915 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.21534 3.17093 3.12433 6.21538 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.62076 3.84816 3.73037 5.70445 nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4.91599 4.5413 6.62074 nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.62074 5.36798 nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.62074 nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
-nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+52.3244 52.741 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+53.5552 49.3235 49.5558 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan 50.015 46.8144 47.2359 51.6278 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan 48.1125 44.6996 45.173 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan 45.2772 42.7142 42.9213 47.1089 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan 44.0648 40.7977 41.277 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan 41.6807 39.0904 39.3658 43.1475 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan 40.3187 37.3081 37.3964 41.269 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan 38.3527 35.4811 35.7236 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan 36.2479 33.5702 33.681 38.597 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan 34.6821 31.6518 31.9655 36.6353 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan 32.6851 29.6147 30.1862 34.2902 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan 31.0659 27.9292 28.319 32.3311 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan 28.6306 26.032 26.2541 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan 26.8836 24.1668 24.5942 27.4243 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan 25.09 22.1314 22.5651 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan 25.7569 22.5969 20.0208 20.3659 23.6591 24.6843 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 20.3739 17.8018 18.331 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 18.3404 15.8606 16.1598 20.5927 nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 16.7282 13.6195 14.0585 nan nan nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 18.2253 14.0838 11.7234 11.9032 15.2931 nan nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 15.5796 12.6535 9.72562 10.1954 13.3017 nan nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 10.7049 8.27335 8.46898 12.5442 nan nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 13.1175 9.40145 6.75706 7.17356 9.93731 nan nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 7.826 5.44153 5.78441 9.56481 nan nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 7.29156 4.58285 4.67124 8.05856 nan nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 9.64235 6.15411 3.77039 3.9788 6.61419 nan nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 5.29949 3.05574 3.08018 6.38188 nan nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 8.32306 5.60037 2.56283 2.72816 6.09816 nan nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 7.68172 5.55686 2.45728 2.43492 5.05581 nan nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4.97605 2.37849 2.46898 4.93873 nan nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 5.24145 2.7649 2.93471 5.23673 nan 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.21575 3.30692 2.99658 5.2346 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.21531 3.91271 3.52971 
+nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6.62074 3.8799 

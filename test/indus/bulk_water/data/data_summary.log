@@ -1,9 +1,10 @@
-# Data_set  Time_series                 Xtc_File     t0(ps)  tf(ps)
-nstar_29.8  unbiased/time_samples.out   dummy.xtc    200.0   2000.0
-nstar_24.3  nstar_24.3/plumed.out       dummy.xtc    200.0   2000.0
-nstar_18.8  nstar_18.8/plumed.out       dummy.xtc    200.0   2000.0
-nstar_13.3  nstar_13.3/plumed.out       dummy.xtc    200.0   2000.0
-nstar_7.8   nstar_7.8/plumed.out        dummy.xtc    200.0   2000.0
-nstar_2.3   nstar_2.3/plumed.out        dummy.xtc    200.0   2000.0
-nstar_-3.2  nstar_-3.2/plumed.out       dummy.xtc    200.0   2000.0
-nstar_-8.7  nstar_-8.7/plumed.out       dummy.xtc    200.0   2000.0
+# Data_set   Time_series                 Xtc_File     t0(ps)  tf(ps)
+# - "nstar_30.0" - unbiased simulation 
+nstar_30.0   unbiased/time_samples.out   dummy.xtc    500.0   2000.0
+nstar_25.0   nstar_25.0/plumed.out       dummy.xtc    200.0   2000.0
+nstar_20.0   nstar_20.0/plumed.out       dummy.xtc    200.0   2000.0
+nstar_15.0   nstar_15.0/plumed.out       dummy.xtc    200.0   2000.0
+nstar_10.0   nstar_10.0/plumed.out       dummy.xtc    200.0   2000.0
+nstar_5.0    nstar_5.0/plumed.out        dummy.xtc    200.0   2000.0
+nstar_0.0    nstar_0.0/plumed.out        dummy.xtc    200.0   2000.0
+nstar_-5.0   nstar_-5.0/plumed.out       dummy.xtc    200.0   2000.0

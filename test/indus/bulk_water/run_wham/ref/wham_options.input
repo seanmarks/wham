@@ -10,13 +10,13 @@ DataColumn_x 3
 DataColumn_y 2
 
 # Bins for x = Ntilde_v
-NumBins_x    50
+NumBins_x    35
 Min_x         0.0
-Max_x        50.0
+Max_x        35.0
 BinStyle_x   left
 
 # Bins for y = N_v
-NumBins_y    50
+NumBins_y    35
 Min_y         0.0
-Max_y        50.0
+Max_y        35.0
 BinStyle_y  left

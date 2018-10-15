@@ -3,11 +3,11 @@
 # Run from the directory containing the WHAM output files
 
 T=273.0
-# x = lambda-tilde_CH
-avg_x_0=29.8188
-std_dev_x_0=2.36484
-avg_n_v_0=29.8188
-std_dev_n_v_0=2.36484
+# x = Ntilde_v
+avg_x_0=29.9657
+std_dev_x_0=2.12469
+avg_n_v_0=29.954
+std_dev_n_v_0=2.258
 
 scripts_dir="${HOME}/scripts/bias_lambda/wham"
 
