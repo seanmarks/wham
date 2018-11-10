@@ -1,32 +1,51 @@
 #include "Wham.h"
 
-Wham::Wham(
-	const std::string& options_file, const std::string& data_summary_file,
-	const std::string& biasing_parameters_file, const std::string& time_series_y_files_list
-):
-	options_file_(options_file),
-	data_summary_file_(data_summary_file),
-	biasing_parameters_file_(biasing_parameters_file),
-	time_series_y_files_list_(time_series_y_files_list)
+Wham::Wham(const std::string& options_file):
+	options_file_(options_file)
 {
 	// Read settings
-	parseOptionsFile(options_file);
-	readDataSummary(data_summary_file);
+	parseOptionsFile(options_file_);
+	readDataSummary(data_summary_file_);  // sets the number of simulations
 
-	// Read time series
-	readRawDataFiles();
-	readAuxiliaryTimeSeries(time_series_y_files_list);
+	//----- Read time series -----//
+	order_parameters_.resize(1);
+	order_parameters_.back().name_ = wham_options_.x_name;
+	
+	int num_simulations = simulations_.size();
+	std::vector<std::string> time_series_files_x;
+	for ( int i=0; i<num_simulations; ++i ) { 
+		time_series_files_x.push_back( simulations_[i].data_file );
+	}
+	readTimeSeries( time_series_files_x, wham_options_.col_x, 
+	                order_parameters_[index_x_] );
+	order_parameters_[index_x_].bins_ = bins_x_;
+
+	if ( not time_series_y_files_list_.empty() ) {
+		// Read time series for y
+		order_parameters_.resize(2);
+		order_parameters_.back().name_ = wham_options_.y_name;
+		std::vector<std::string> time_series_files_y;
+		for ( int i=0; i<num_simulations; ++i ) { 
+			time_series_files_y.push_back( simulations_[i].data_file_y );
+		}
+		readTimeSeries( time_series_files_y, wham_options_.col_y, 
+										order_parameters_[index_y_] );
+		order_parameters_[index_y_].bins_ = bins_y_;
+	}
+
+
+	//----- Biasing Potentials -----//
 
 	// Parse the biases present, and evaluate each sample using each
 	// of the biases
-	createBiases(biasing_parameters_file);
+	createBiases(biasing_parameters_file_);
 	evaluateBiases();
+
 
 	//----- Precompute some constants (TODO: move to function -----//
 
 	// Total number of samples
 	num_samples_total_ = 0;
-	int num_simulations = u_bias_as_other_.size();
 	for ( int j=0; j<num_simulations; ++j ) {
 		num_samples_total_ += u_bias_as_other_[j].size();
 	}
@@ -41,29 +60,17 @@ Wham::Wham(
 	}
 
 
-	// Make histograms based on the raw data
-	// - TODO Move to solve() or output functions ?
-	constructRawDataHistograms();
-
-	// FIXME DEBUG
-	std::cout << "DONE SETUP\n";
-	std::cout << "u_bias_as_other_.size() = " << u_bias_as_other_.size() 
-	          << " (should be " << num_simulations << ")\n";
-	for ( int j=0; j<num_simulations; ++j ) {
-		int num_samples = u_bias_as_other_[j].size();
-		std::cout << "  u_bias_as_other_[" << j << "].size() = " << num_samples
-		          << " (should be " << simulations_[j].x_samples.size() << ")\n";
-		for ( int i=0; i<num_samples; ++i ) {
-			if ( static_cast<int>( u_bias_as_other_[j][i].size() ) != num_simulations ) {
-				throw std::runtime_error("SIZE MISMATCH");
-			}
-		}
-	}
+	// Analyze the raw data
+	// TODO multiple OPs
+	analyzeRawData( order_parameters_[index_x_] );
 }
 
 
 void Wham::parseOptionsFile(const std::string& options_file)
 {
+	// TODO multiple OPs
+	// TODO input revamp
+
 	// Defaults
 	wham_options_.round_t = true;
 	wham_options_.x_name  = "x";
@@ -103,6 +110,11 @@ void Wham::parseOptionsFile(const std::string& options_file)
 			lineStream >> wham_options_.T;
 			wham_options_.kBT = K_B_ * wham_options_.T;
 		}
+		// Input files
+		else if ( token == "DataSummary" )       { lineStream >> data_summary_file_; }
+		else if ( token == "BiasingParameters" ) { lineStream >> biasing_parameters_file_; }
+		else if ( token == "AuxVarFiles" )       { lineStream >> time_series_y_files_list_; }
+		// x and y data
 		else if ( token == "OrderParameter_x" ) { lineStream >> wham_options_.x_name;  }
 		else if ( token == "OrderParameter_y" ) { lineStream >> wham_options_.y_name;  }
 		else if ( token == "DataColumn_x") { 
@@ -140,7 +152,7 @@ void Wham::parseOptionsFile(const std::string& options_file)
 
 	ifs.close();
 
-	// Set up bins
+	// Set up bins (TODO: allow OP to parse its own bin settings?)
 	bins_x_.set_bins(x_min, x_max, num_bins_x, bin_style_x);
 	bins_y_.set_bins(y_min, y_max, num_bins_y, bin_style_y);
 }
@@ -187,114 +199,17 @@ void Wham::readDataSummary(const std::string& data_summary_file)
 		simulations_.back().kBT  = wham_options_.kBT;
 		simulations_.back().beta = 1.0/( simulations_.back().kBT );
 	}
-}
 
-
-void Wham::readRawDataFiles()
-{
-	// Working variables
-	std::string line, token;
-	double x, time, t_min, t_max;
-
-	int num_simulations = simulations_.size();
-	for ( int i=0; i<num_simulations; ++i ) {
-		std::ifstream ifs( simulations_[i].data_file );
-		if ( not ifs.is_open() ) {
-			throw std::runtime_error("Failed to open data file \'" + simulations_[i].data_file + "\'");
+	// Time series files for y TODO multiple OPs
+	if ( not time_series_y_files_list_.empty() ) {
+		std::ifstream list_ifs(time_series_y_files_list_);
+		if ( not list_ifs.is_open() ) {
+			throw std::runtime_error("Failed to open file with y series \'" + time_series_y_files_list_ + "\'");
 		}
 
-		t_min  = simulations_[i].t_min;
-		t_max  = simulations_[i].t_max;
-
-		while ( getline(ifs, line) ) {
-			std::stringstream ss(line);
-			ss >> token;
-
-			// Ignore comments and blank lines
-			if ( line.empty() or token[0] == '#' ) {
-				continue;
-			}
-
-			// Get the time
-			time = std::stod(token);
-			if ( wham_options_.round_t ) { time = round(time); }
-
-			// Check for production phase
-			if ( time >= t_min and time <= t_max) {
-				// Parse line
-				std::vector<double> data(1, time);
-				while ( ss >> token ) {
-					data.push_back( std::stod(token) );
-				}
-				if ( static_cast<int>(data.size()) < wham_options_.col_x + 1 ) {
-					throw std::runtime_error("col_x exceeds the number of columns in a data file");
-				}
-
-				// Store data
-				x = data[ wham_options_.col_x ];
-				simulations_[i].times.push_back( time );
-				simulations_[i].x_samples.push_back( x );
-				simulations_[i].nv_samples.push_back( -1 ); // FIXME
-			}
-		}
-		ifs.close();
-
-		// User feedback
-		std::cout << " Data Set: " << simulations_[i].data_set_label << "\n";
-		std::cout << "   File: " << simulations_[i].data_file << "\n";
-		std::cout << "   Using " << simulations_[i].x_samples.size() << " data points.\n";
-	}
-}
-
-
-void Wham::readAuxiliaryTimeSeries(const std::string& time_series_y_files_list)
-{
-	//----- Get names of files -----//
-
-	std::ifstream list_ifs(time_series_y_files_list);
-	if ( not list_ifs.is_open() ) {
-		throw std::runtime_error("Failed to open file with y series \'" + time_series_y_files_list + "\'");
-	}
-
-	int i = 0;
-	std::string line, token;
-	while ( getline(list_ifs, line) ) {
-		// Ignore possible comments and blank lines
-		std::stringstream ss(line);
-		ss >> token;
-		if ( line.empty() or token[0] == '#' ) {
-			// Comment or empty line
-			continue;
-		}
-
-		ss >> simulations_[i].data_file_y;
-		if ( time_series_y_files_list == data_summary_file_ ) {
-			// Path is relative
-			std::string data_summary_path = get_dir(data_summary_file_);
-			simulations_[i].data_file_y = get_realpath(data_summary_path + "/" + simulations_[i].data_file_y);
-		}
-
-		++i;
-	}
-	list_ifs.close();
-	// TODO check # simulations and data label
-
-
-	//----- Read time series -----//
-
-	int num_simulations = simulations_.size();
-	for ( int i=0; i<num_simulations; ++i ) {
-		std::ifstream ifs( simulations_[i].data_file_y );
-		if ( not ifs.is_open() ) {
-			throw std::runtime_error("Failed to open data file \'" + simulations_[i].data_file_y + "\'");
-		}
-
-		int index = 0;
-		double time, y;
-		double t_min = simulations_[i].t_min;
-		double t_max = simulations_[i].t_max;
-
-		while ( getline(ifs, line) ) {
+		int i = 0;
+		std::string line, token;
+		while ( getline(list_ifs, line) ) {
 			// Ignore possible comments and blank lines
 			std::stringstream ss(line);
 			ss >> token;
@@ -303,37 +218,43 @@ void Wham::readAuxiliaryTimeSeries(const std::string& time_series_y_files_list)
 				continue;
 			}
 
-			// Get the time
-			time = std::stod(token);
-			if ( wham_options_.round_t ) { time = round(time); }
-
-			if ( time >= t_min and time <= t_max) {
-				// Production phase: check times vs. primary OP file
-				if ( time != simulations_[i].times[index] ) {
-					std::stringstream err_ss;
-					err_ss << "Mismatch between primary OP file (" << simulations_[i].data_file << ")\n"
-					       << "and secondary file (" << simulations_[i].data_file_y << ")\n"
-					       << "Expected t=" << simulations_[i].times[index] << " ps, read " 
-					          << time << " ps\n";
-				}
-
-				// Parse line
-				std::vector<double> data(1, time);
-				while ( ss >> token ) {
-					data.push_back( std::stod(token) );
-				}
-				if ( static_cast<int>(data.size()) < wham_options_.col_y + 1 ) {
-					throw std::runtime_error("Not enough samples for y in a row");
-				}
-
-				// Store data
-				y = data[ wham_options_.col_y ];
-				simulations_[i].y_samples.push_back( y );
-
-				++index;
+			ss >> simulations_[i].data_file_y;
+			if ( time_series_y_files_list_ == data_summary_file_ ) {
+				// Path is relative
+				std::string data_summary_path = get_dir(data_summary_file_);
+				simulations_[i].data_file_y = get_realpath(data_summary_path + "/" + simulations_[i].data_file_y);
 			}
+
+			++i;
 		}
-		ifs.close();
+		list_ifs.close();
+	}
+}
+
+
+void Wham::readTimeSeries(
+		const std::vector<std::string>& data_files, const int data_col, 
+		OrderParameter& order_parameter
+) const
+{
+	// Input checks
+	int num_files       = data_files.size();
+	int num_simulations = simulations_.size();
+	if ( num_simulations != num_files ) {
+		throw std::runtime_error("number of data files doesn't match number of simulations");
+	}
+
+	order_parameter.time_series_.clear();
+	for ( int i=0; i<num_simulations; ++i ) {
+		order_parameter.time_series_.push_back( 
+			TimeSeries( data_files[i], data_col, 
+			            simulations_[i].t_min, simulations_[i].t_max, wham_options_.round_t )
+		);
+
+		// User feedback
+		std::cout << " Data Set: " << simulations_[i].data_set_label << "\n";
+		std::cout << "   File: " << data_files[i] << "\n";
+		std::cout << "   Using " << order_parameter.time_series_.back().size() << " data points.\n";
 	}
 }
 
@@ -391,8 +312,8 @@ void Wham::createBiases(const std::string& biasing_parameters_file)
 
 void Wham::evaluateBiases()
 {
+	// TODO multiple biased OPs
 	// TODO linearize
-	// TODO need a better way to organize data for when multiple OPs are biased
 
 	int num_simulations = simulations_.size();
 	u_bias_as_other_.resize( num_simulations );
@@ -400,14 +321,15 @@ void Wham::evaluateBiases()
 	std::vector<double> args(1);  // working variable
 
 	for ( int j=0; j<num_simulations; ++j ) {
-		int num_samples = simulations_[j].x_samples.size();
+		const TimeSeries& time_series = order_parameters_[index_x_].time_series_[j];
+		int num_samples = time_series.size();
 		u_bias_as_other_[j].resize(num_samples);
 
 		for ( int i=0; i<num_samples; ++i ) {
 			u_bias_as_other_[j][i].resize( num_simulations );
 
 			// Evaluate this sample using each of the biases
-			args = {{ simulations_[j].x_samples[i] }};
+			args = {{ time_series[i] }};
 			for ( int r=0; r<num_simulations; ++r ) {
 				u_bias_as_other_[j][i][r] = biases_[r].evaluate( args );
 			}
@@ -418,24 +340,26 @@ void Wham::evaluateBiases()
 
 
 // After reading input files, use to generate histograms of raw data from biased simulations
-void Wham::constructRawDataHistograms()
+// - TODO Move to OrderParameter
+void Wham::analyzeRawData(OrderParameter& x)
 {
-	int num_simulations = static_cast<int>( simulations_.size() );
-	int num_bins_x = bins_x_.get_num_bins();
+	const Bins& bins = order_parameters_[index_x_].bins_;
+	int num_bins = bins.get_num_bins();
 
 	// Allocate memory
-	for ( int i=0; i<num_simulations; ++i ) {
-		simulations_[i].x_bins = bins_x_.get_bins();
-		simulations_[i].sample_counts.resize(num_bins_x, 0);
-		simulations_[i].p_biased.resize(num_bins_x);
-		simulations_[i].f_biased.resize(num_bins_x);
-		simulations_[i].f_unbiased.resize(num_bins_x);
-	}
+	int num_simulations = static_cast<int>( simulations_.size() );
+	x.p_biased_.resize(num_simulations);
+	x.f_biased_.resize(num_simulations);
+	x.p_unbiased_.resize(num_simulations);
+	x.f_unbiased_.resize(num_simulations);
+	x.sample_counts_.resize(num_simulations);
 
 	std::vector<double> u_bias_tmp;
 	for ( int i=0; i<num_simulations; ++i ) {
+		const TimeSeries& samples = x.time_series_[i];
+		int num_samples = samples.size();
+
 		// Assemble the biasing potential values for this simulation
-		int num_samples = static_cast<int>( simulations_[i].x_samples.size() );
 		u_bias_tmp.resize(num_samples);
 		for ( int j=0; j<num_samples; ++j ) {
 			u_bias_tmp[j] = u_bias_as_other_[i][j][i];
@@ -443,29 +367,25 @@ void Wham::constructRawDataHistograms()
 
 		// Unbiased results, using only data from this simulation
 		manually_unbias_f_x( 
-				simulations_[i].x_samples, u_bias_tmp, simulations_[i].f_bias_guess, bins_x_, 
-		    simulations_[i].p_unbiased, simulations_[i].f_unbiased, simulations_[i].sample_counts );
+				samples, u_bias_tmp, simulations_[i].f_bias_guess, bins,
+		    x.p_unbiased_[i], x.f_unbiased_[i], x.sample_counts_[i] );
 
 		// Derive remaining histograms
-		double bin_size_x = bins_x_.get_bin_size();
-		double num_samples_d = static_cast<double>( simulations_[i].x_samples.size() );
-		for ( int b=0; b<num_bins_x; ++b ) {
-			simulations_[i].p_biased[b] = (simulations_[i].sample_counts[b])/(bin_size_x*num_samples_d);
-			simulations_[i].f_biased[b] = -log( simulations_[i].p_biased[b] );
+		double bin_size = bins.get_bin_size();
+		double num_samples_d = static_cast<double>( num_samples );
+		x.p_biased_[i].resize(num_bins);
+		x.f_biased_[i].resize(num_bins);
+		for ( int b=0; b<num_bins; ++b ) {
+			x.p_biased_[i][b] = (x.sample_counts_[i][b])/(bin_size*num_samples_d);
+			x.f_biased_[i][b] = -log( x.p_biased_[i][b] );
 		}
-
-		// Statistics for this simulation
-		simulations_[i].avg_x = average( simulations_[i].x_samples );
-		simulations_[i].var_x = variance( simulations_[i].x_samples );
-		simulations_[i].avg_nv = average( simulations_[i].nv_samples );
-		simulations_[i].var_nv = variance( simulations_[i].nv_samples );
 	}
 
 	// Construct a histogram of the total number of data points in each bin, across all simulations
-	sample_counts_x_.assign(num_bins_x, 0);
+	order_parameters_[index_x_].global_sample_counts_.assign(num_bins, 0);
 	for ( int i=0; i<num_simulations; ++i ) {
-		for ( int b=0; b<num_bins_x; ++b ) {
-			sample_counts_x_[b] += simulations_[i].sample_counts[b];
+		for ( int b=0; b<num_bins; ++b ) {
+			x.global_sample_counts_[b] += x.sample_counts_[i][b];
 		}
 	}
 }
@@ -520,23 +440,16 @@ void Wham::solve()
 
 	//----- Consensus histogram -----//
 
-	int num_bins_x = bins_x_.get_num_bins();
-	wham_results_.x_bins = bins_x_.get_bins();
+	int num_bins_x = order_parameters_[index_x_].bins_.get_num_bins();
+	wham_results_.x_bins = order_parameters_[index_x_].bins_.get_bins();
 	wham_results_.p_x_wham.assign(num_bins_x, 0.0);
 	wham_results_.f_x_wham.assign(num_bins_x, 0.0);
 	wham_results_.error_f.assign(num_bins_x, 0.0);
-	wham_results_.sample_counts = sample_counts_x_;
+	wham_results_.sample_counts = order_parameters_[index_x_].global_sample_counts_;
 	wham_results_.f_opt = f_opt;
 
-	// FIXME wasteful to reformat data like this
-	std::vector<std::vector<double>> x_samples(num_simulations);
-	std::vector<std::vector<double>> y_samples(num_simulations);
-	for ( int j=0; j<num_simulations; ++j ) {
-		x_samples[j] = simulations_[j].x_samples;
-		y_samples[j] = simulations_[j].y_samples;
-	}
-
-	compute_consensus_f_x( x_samples, u_bias_as_other_, f_opt, unbiased_ensemble_index_, bins_x_,
+	const std::vector<TimeSeries>& x_samples = order_parameters_[index_x_].time_series_;
+	compute_consensus_f_x( x_samples, u_bias_as_other_, f_opt, unbiased_ensemble_index_, order_parameters_[index_x_].bins_,
 	                       wham_results_.p_x_wham, wham_results_.f_x_wham, wham_results_.sample_counts );
 
 
@@ -544,12 +457,11 @@ void Wham::solve()
 
 	// TODO move to function
 	std::vector<int> sample_counts_tmp;
+	order_parameters_[index_x_].p_rebiased_.resize(num_simulations);
+	order_parameters_[index_x_].f_rebiased_.resize(num_simulations);
 	for ( int k=0; k<num_simulations; ++k ) {
-		simulations_[k].f_rebiased.resize(num_bins_x);
-		simulations_[k].p_rebiased.resize(num_bins_x);
-
-		compute_consensus_f_x( x_samples, u_bias_as_other_, f_opt, k, bins_x_,
-													 simulations_[k].p_rebiased, simulations_[k].f_rebiased,
+		compute_consensus_f_x( x_samples, u_bias_as_other_, f_opt, k, order_parameters_[index_x_].bins_,
+													 order_parameters_[index_x_].p_rebiased_[k], order_parameters_[index_x_].f_rebiased_[k],
 		                       sample_counts_tmp );
 	}
 
@@ -561,11 +473,12 @@ void Wham::solve()
 	wham_results_.info_entropy.assign(num_simulations, 0.0);
 	for ( int i=0; i<num_simulations; ++i ) {
 		for ( int b=0; b<num_bins_x; ++b ) {
-			const double& p_biased   = simulations_[i].p_biased[b];
-			const double& f_rebiased = simulations_[i].f_rebiased[b];
+			const double& p_biased   = order_parameters_[index_x_].p_biased_[i][b];
+			const double& f_biased   = order_parameters_[index_x_].f_biased_[i][b];
+			const double& f_rebiased = order_parameters_[index_x_].f_rebiased_[i][b];
 
 			if ( p_biased > 0.0 and std::isfinite(f_rebiased) ) {
-				wham_results_.info_entropy[i] -= p_biased*( simulations_[i].f_biased[b] - f_rebiased);
+				wham_results_.info_entropy[i] -= p_biased*( f_biased - f_rebiased);
 			}
 		}
 	}
@@ -577,21 +490,26 @@ void Wham::solve()
 
 	//----- Reweight to get F_0(y) -----//
 
-	std::vector<double> p_y_wham, f_y_wham;
-	std::vector<int> sample_counts_y;
-	std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
-	std::vector<std::vector<int>> sample_counts_x_y;
+	if ( not time_series_y_files_list_.empty() ) {
+		const std::vector<TimeSeries>& y_samples = order_parameters_[index_y_].time_series_;
+		std::vector<double> p_y_wham, f_y_wham;
+		std::vector<int> sample_counts_y;
+		std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
+		std::vector<std::vector<int>> sample_counts_x_y;
 
-	compute_consensus_f_x_y( 
-		x_samples, y_samples, u_bias_as_other_, f_opt, unbiased_ensemble_index_, bins_x_, bins_y_,
-		// Output
-		p_x_y_wham, f_x_y_wham, sample_counts_x_y,
-		p_y_wham, f_y_wham, sample_counts_y );
+		compute_consensus_f_x_y( 
+			x_samples, y_samples, u_bias_as_other_, f_opt, unbiased_ensemble_index_, 
+			order_parameters_[index_x_].bins_, order_parameters_[index_y_].bins_,
+			// Output
+			p_x_y_wham, f_x_y_wham, sample_counts_x_y,
+			p_y_wham, f_y_wham, sample_counts_y );
 
-	// Print results
-	print_f_x_y_and_f_y(
-		bins_x_, bins_y_, p_x_y_wham, f_x_y_wham, sample_counts_x_y,
-		p_y_wham, f_y_wham, sample_counts_y );
+		// Print results
+		print_f_x_y_and_f_y(
+			order_parameters_[index_x_].bins_, order_parameters_[index_y_].bins_,
+			p_x_y_wham, f_x_y_wham, sample_counts_x_y,
+			p_y_wham, f_y_wham, sample_counts_y );
+	}
 }
 
 
@@ -699,6 +617,7 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	// Recompute log(sigma) as necessary
 	if ( f != f_bias_last_ ) {
 		compute_log_sigma( f, u_bias_as_other_, unbiased_ensemble_index_, log_sigma_0_ );
+		f_bias_last_ = f;
 	}
 
 	// First, compute derivatives of the objective fxn (A) wrt. the biasing free
@@ -781,7 +700,7 @@ double Wham::log_sum_exp(const std::vector<double>& args) const
 
 // TODO way to merge with compute_consensus_f_x?
 void Wham::manually_unbias_f_x(
-	const std::vector<double>& x, const std::vector<double>& u_bias, const double f,
+	const TimeSeries& x, const std::vector<double>& u_bias, const double f,
 	const Bins& bins_x,
 	// Output
 	std::vector<double>& p_x, std::vector<double>& f_x, std::vector<int>& sample_counts
@@ -826,7 +745,7 @@ void Wham::manually_unbias_f_x(
 
 
 void Wham::compute_consensus_f_x(
-	const std::vector<std::vector<double>>& x, 
+	const std::vector<TimeSeries>& x, 
 	const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
 	const std::vector<double>& f_opt, const int k, const Bins& bins_x,
 	// Output
@@ -879,7 +798,7 @@ void Wham::compute_consensus_f_x(
 
 
 void Wham::compute_consensus_f_x_y(
-	const std::vector<std::vector<double>>& x, const std::vector<std::vector<double>>& y,
+	const std::vector<TimeSeries>& x, const std::vector<TimeSeries>& y,
 	const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
 	const std::vector<double>& f_opt, const int k, const Bins& bins_x, const Bins& bins_y,
 	// Consensus distributions for F_k(x,y)
@@ -938,8 +857,14 @@ void Wham::compute_consensus_f_x_y(
 			}
 		}
 
+		// FIXME cludgy
+		std::vector<TimeSeries> time_series_tmp;
+		for ( int j=0; j<num_simulations; ++j ) {
+			time_series_tmp.push_back( TimeSeries(y_given_x_a[j]) );
+		}
+
 		// Compute consensus distribution for this slice (note: here, 'x' is actually y)
-		compute_consensus_f_x( y_given_x_a, u_bias_as_other_given_x_a, f_opt, k, bins_y,
+		compute_consensus_f_x( time_series_tmp, u_bias_as_other_given_x_a, f_opt, k, bins_y,
 		                       p_x_y_wham[a], f_x_y_wham[a], sample_counts_x_y[a] );
 		for ( int b=0; b<num_bins_y; ++b ) {
 			// Include normalization for x (the above function only normalizes for bin_size_y)
@@ -996,7 +921,7 @@ Wham::BinStyle Wham::parseBinStyle(const std::string& bin_style_token) const
 }
 
 
-void Wham::printRawDistributions() const
+void Wham::printRawDistributions(const OrderParameter& x) const
 {
 	int num_simulations = static_cast<int>( simulations_.size() );
 	if ( num_simulations < 1 ) {
@@ -1007,7 +932,7 @@ void Wham::printRawDistributions() const
 	std::stringstream header_stream;
 
 	std::stringstream table_header_stream;
-	table_header_stream << "# " << wham_options_.x_name << " | " << wham_options_.x_name << "_star=";
+	table_header_stream << "# " << x.name_ << " | " << x.name_ << "_star=";
 	for ( int i=0; i<num_simulations; ++i ) {
 		table_header_stream << "\t";
 		table_header_stream << std::setw(8) << std::setprecision(5) << simulations_[i].x_star;  // FIXME xstar
@@ -1017,20 +942,21 @@ void Wham::printRawDistributions() const
 	// Working variables
 	std::string file_name;
 	std::ofstream ofs;
-	int num_bins_x = bins_x_.get_num_bins();  // All simulations are binned the same way
+	const Bins& bins = x.bins_;
+	int num_bins = bins.get_num_bins();  // All simulations are binned the same way
 
 	//----- Print biased free energy distributions -----//
 
-	file_name = "F_" + wham_options_.x_name + "_biased.out";
+	file_name = "F_" + x.name_ + "_biased.out";
 	ofs.open( file_name );
 	ofs << "# Biased free energy distributions: "
-      << " F_i(" << wham_options_.x_name << ") [k_B*T]\n";
+      << " F_i(" << x.name_ << ") [k_B*T]\n";
 	ofs << header_stream.str() << table_header_stream.str();
-	for ( int b=0; b<num_bins_x; ++b ) {
-		ofs << bins_x_[b];
+	for ( int b=0; b<num_bins; ++b ) {
+		ofs << bins[b];
 		for ( int i=0; i<num_simulations; ++i ) {
 			ofs << "\t";
-			ofs << std::setw(8) << std::setprecision(5) << simulations_[i].f_biased[b];
+			ofs << std::setw(8) << std::setprecision(5) << x.f_biased_[i][b];
 		}
 		ofs << "\n";
 	}
@@ -1038,16 +964,16 @@ void Wham::printRawDistributions() const
 
 	//----- Print unbiased free energy distributions (non-consensus) -----//
 
-	file_name = "F_" + wham_options_.x_name + "_unbiased.out";
+	file_name = "F_" + x.name_ + "_unbiased.out";
 	ofs.open( file_name );
 	ofs << "# Unbiased free energy distributions: "
-      << " F_{0,i}(" << wham_options_.x_name << ") [k_B*T]\n";
+      << " F_{0,i}(" << x.name_ << ") [k_B*T]\n";
 	ofs << header_stream.str() << table_header_stream.str();
-	for ( int b=0; b<num_bins_x; ++b ) {
-		ofs << bins_x_[b];
+	for ( int b=0; b<num_bins; ++b ) {
+		ofs << bins[b];
 		for ( int k=0; k<num_simulations; ++k ) {
 			ofs << "\t" << std::setw(8) << std::setprecision(5);
-			print_free_energy(ofs, simulations_[k].f_unbiased[b], simulations_[k].p_unbiased[b]);
+			print_free_energy(ofs, x.f_unbiased_[k][b], x.p_unbiased_[k][b]);
 		}
 		ofs << "\n";
 	}
@@ -1061,11 +987,11 @@ void Wham::printRawDistributions() const
 	ofs << header_stream.str();
 	ofs << "# " << wham_options_.x_name << "_star" << "\tavg\tvar\tavg(Nv)\tvar(Nv)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		ofs << std::setw(8) << std::setprecision(5) << simulations_[i].x_star << "\t" // FIXME xstar
-		    << std::setw(8) << std::setprecision(5) << simulations_[i].avg_x  << "\t"
-		    << std::setw(8) << std::setprecision(5) << simulations_[i].var_x  << "\t"
-		    << std::setw(8) << std::setprecision(5) << simulations_[i].avg_nv << "\t"
-		    << std::setw(8) << std::setprecision(5) << simulations_[i].var_nv << "\n";
+		ofs << std::setw(8) << std::setprecision(5) << 0.0 << "\t" // FIXME xstar
+		    << std::setw(8) << std::setprecision(5) << x.time_series_[i].average()  << "\t"
+		    << std::setw(8) << std::setprecision(5) << x.time_series_[i].variance()  << "\t"
+		    << std::setw(8) << std::setprecision(5) << 0.0  << "\t"
+		    << std::setw(8) << std::setprecision(5) << 0.0  << "\n";  // TODO delete?
 	}
 	ofs.close();
 }
@@ -1073,12 +999,14 @@ void Wham::printRawDistributions() const
 
 void Wham::printWhamResults() const
 {
+	const OrderParameter& x = order_parameters_[index_x_];
+
 	// Working variables
 	std::stringstream header_stream;
 	std::string file_name;
 	std::ofstream ofs;
 	const int num_simulations = simulations_.size();
-	const int num_bins_x      = bins_x_.get_num_bins();
+	const int num_bins_x      = x.bins_.get_num_bins();
 
 	// Print F_0(x)
 	file_name = "F_" + wham_options_.x_name + "_WHAM.out";
@@ -1107,24 +1035,24 @@ void Wham::printWhamResults() const
 
 	// "Rebiased" free energy distributions
 	std::stringstream table_header_stream;
-	table_header_stream << "# " << wham_options_.x_name << " | " << wham_options_.x_name << "_star=";
+	table_header_stream << "# " << x.name_ << " | " << x.name_ << "_star=";
 	for ( int i=0; i<num_simulations; ++i ) {
 		table_header_stream << "\t";
 		table_header_stream << std::setw(8) << std::setprecision(5) << simulations_[i].x_star;  // FIXME xstar
 	}
 	table_header_stream << "\n";
 
-	file_name = "F_" + wham_options_.x_name + "_rebiased.out";
+	file_name = "F_" + x.name_ + "_rebiased.out";
 	
 	ofs.open( file_name );
 	ofs << "# \"Rebiased\" free energy distributions: "
-      << " F_{rebias,i}(" << wham_options_.x_name << ") [k_B*T]\n";
+      << " F_{rebias,i}(" << x.name_ << ") [k_B*T]\n";
 	ofs << header_stream.str() << table_header_stream.str();
 	for ( int b=0; b<num_bins_x; ++b ) {
-		ofs << bins_x_[b];
+		ofs << x.bins_[b];
 		for ( int k=0; k<num_simulations; ++k ) {
 			ofs << "\t" << std::setw(8) << std::setprecision(5);
-			print_free_energy(ofs, simulations_[k].f_rebiased[b], simulations_[k].p_rebiased[b]);
+			print_free_energy(ofs, x.f_rebiased_[k][b], x.p_rebiased_[k][b]);
 		}
 		ofs << "\n";
 	}
@@ -1137,10 +1065,12 @@ void Wham::printWhamResults() const
 	ofs << "# data_set   avg(x)   var(x)   avg(N)   var(N)   info_entropy\n";
 	for ( int i=0; i<num_simulations; ++i ) {
 		ofs << simulations_[i].data_set_label << "\t"
-		    << simulations_[i].avg_x << "\t"
-		    << simulations_[i].var_x << "\t"
-		    << simulations_[i].avg_nv << "\t"
-		    << simulations_[i].var_nv << "\t"
+		    << x.time_series_[i].average() << "\t"
+		    << x.time_series_[i].variance() << "\t"
+		    << 0.0 << "\t"
+		    << 0.0 << "\t"
+				/*
+				*/
 		    << wham_results_.info_entropy[i] << "\n";
 	}
 	ofs.close(); ofs.clear();

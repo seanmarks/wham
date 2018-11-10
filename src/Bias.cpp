@@ -4,13 +4,14 @@ Bias::Bias(const std::vector<std::string>& input_tokens, const double kBT):
 	kBT_(kBT), beta_(1.0/kBT_)
 {
 	// TODO make more sophisticated
-	if ( input_tokens.size() != 2 ) {
-		throw std::runtime_error("Bias expects 2 tokens\n");
+	if ( input_tokens.size() != 3 ) {
+		throw std::runtime_error("Bias expects 3 tokens (for now)\n");
 	}
 
 	// TODO assumes harmonic potential
-	double x_star = std::stod( input_tokens[0] );
-	double kappa  = std::stod( input_tokens[1] );
+	std::string type = input_tokens[0];
+	double x_star = std::stod( input_tokens[1] );
+	double kappa  = std::stod( input_tokens[2] );
 	kappa *= beta_;  // convert from kJ/mol to kBT
 
 	std::unique_ptr<Potential> tmp_ptr( new HarmonicPotential(x_star, kappa) );

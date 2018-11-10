@@ -31,21 +31,16 @@
 int main(int argc, char* argv[]) 
 {
 	// Input checking
-	if ( argc < 5 ) {
-		std::cerr << "Usage:  ./WHAM.exe <options_file> <data_summary> "
-		          << "<biasing_params_file> <time_series_y_files_list>";
+	if ( argc < 2 ) {
+		std::cerr << "Usage:  ./WHAM.exe <options_file>";
 		return 1;
 	}
 
 	std::string options_file(argv[1]);
-	std::string data_summary_file(argv[2]);
-	std::string biasing_parameters_file(argv[3]);
-	std::string time_series_y_files_list(argv[4]);
 
 	//----- Run Wham -----//
 
-	Wham wham(options_file, data_summary_file, biasing_parameters_file,
-	          time_series_y_files_list);
+	Wham wham(options_file);
 	wham.printRawDistributions();
 	wham.solve();
 

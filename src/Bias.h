@@ -11,7 +11,7 @@
 class Bias 
 {
  public:
-	Bias(const std::vector<std::string>& input_tokens, const double kBT);
+	Bias(const std::vector<std::string>& input_tokens, const double kBT = 1.0);
 
 	// Returns the total bias at x, in kBT
 	double evaluate(const std::vector<double>& x) const;
@@ -46,6 +46,40 @@ class Bias
 
 	 private:
 		double x_star_, kappa_;  // kappa in kBT
+	};
+
+	// Left (one-sided) harmonic potential
+	class LeftHarmonicPotential : public Potential
+	{
+	 public:
+		LeftHarmonicPotential(const double x_left, const double k_left) :
+			Potential(), x_left_(x_left), k_left_(k_left) {};
+
+		virtual double evaluate(const double x) const override
+		{
+			if ( x > x_left_ ) {
+				return 0.0;
+			}
+			else {
+				double delta_x = x - x_left_;
+				return 0.5*k_left_*delta_x*delta_x;
+			}
+		}
+
+	 private:
+		double x_left_, k_left_;  // k_left in kBT
+	};
+
+	// Dummy potential (for unbiased variables)
+	class ZeroPotential : public Potential
+	{
+	 public:
+		ZeroPotential() {};
+
+		virtual double evaluate(const double x) const override 
+		{
+			return 0.0;
+		}
 	};
 
 	//-----------------------------//

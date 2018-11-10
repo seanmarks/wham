@@ -8,8 +8,9 @@
  *   - Currently **assumes** a harmonic bias on the OP of choice
  * TODO
  *   - Allow u_bias-values as input
+ *   - Check all time series for all order parameters for internal consistency
  *
- * INPUT:
+ * INPUT: (TODO update)
  *   1. wham_options.input
  *      - Key-value pairs
  *          col_y: column of the rewighting variable "y" in the time series files
@@ -53,6 +54,7 @@
 // Project headers
 #include "Bias.h"
 #include "Bins.h"
+#include "OrderParameter.h"
 #include "WhamDlibWrappers.h"
 
 class Wham
@@ -63,10 +65,7 @@ class Wham
 	using ColumnVector = dlib::matrix<double,0,1>;
 
 	Wham(
-		const std::string& options_file,
-		const std::string& data_summary_file,
-		const std::string& biasing_parameters_file,
-		const std::string& time_series_y_files_list
+		const std::string& options_file
 	);
 
 	// Struct with everything the WHAM algorithm needs to know about a simulation
@@ -80,35 +79,9 @@ class Wham
 		double f_bias;       // Free energy of adding bias (in kBT): f_bias = -ln(Q_i/Q_0)
 		double f_bias_guess; // First estimate of biasing free energy
 
-		// Raw output
-		std::string data_file;        // File with raw data
-		std::vector<double> times;     // t [ps]:            [numSamples x 1]
-		std::vector<double> x_samples; // x(t):              [numSamples x 1]
-		std::vector<double> u_bias;    // U_bias(t) [k_B*T]: [numSamples x 1]
-		std::vector<double> nv_samples;
-
-		// Auxiliary order parameter
-		std::string         data_file_y;
-		std::vector<double> y_samples;   // y(t):  [numSamples x 1]
-
-		// Order parameter statistics (for e.g. plotting Gaussians)
-		double avg_x, var_x;
-		double avg_nv, var_nv;
-
-		//----- Histograms -----//
-
-		// - All have size [num_bins_x x 1]
-		std::vector<double> x_bins;           // bin centers, x_l
-		std::vector<int>    sample_counts;    // Number of samples in each bin, n_{i,l}
-		// Biased free energy distribution: beta*F_{biased,i} = -ln[P_i(x_l)]
-		std::vector<double> f_biased;
-		std::vector<double> p_biased;
-		// beta*F_{0,i} = unbiased using data only from simulation i
-		std::vector<double> f_unbiased;
-		std::vector<double> p_unbiased;
-		// Re-apply i-th bias to consensus distribution, F_{0,WHAM}
-		std::vector<double> f_rebiased;
-		std::vector<double> p_rebiased;
+		// Files with time series
+		std::string data_file;     // x
+		std::string data_file_y;   // y
 	};
 
 	struct WhamOptions
@@ -152,11 +125,15 @@ class Wham
 	//----- I/O -----//
 
 	// TODO Make private? These rely on internal state variables
+	// TODO multiple OPs
+	void printRawDistributions() const {
+		printRawDistributions( order_parameters_[index_x_] );
+	}
 
 	// Print sets of "raw" (i.e. non-consensus) histograms for all simulations, including:
 	//  - Biased free energy distributions
 	//  - Unbiased free energy distributions (using only same-simulation data)
-	void printRawDistributions() const;
+	void printRawDistributions(const OrderParameter& x) const;
 
 	void printWhamResults() const;
 
@@ -191,8 +168,17 @@ class Wham
 	Wham::WhamOptions wham_options_;
 	Wham::WhamResults wham_results_;
 
+	// Organizes time series data and distributions for each OP
+	std::vector<OrderParameter> order_parameters_;
+	const int index_x_ = 0;
+	const int index_y_ = 1;  // TODO delete
+
 	// 
-	std::vector<Bias> biases_;
+	std::vector<Bias> biases_;  // [num_simulations x 1]
+
+	// Indices of the order parameters that were biased
+	// - Used to evaluate the bias from each sample under each ensemble
+	std::vector<int> biased_order_parameters_;
 
 	// Objects for managing histogram bins
 	Bins bins_x_;
@@ -215,7 +201,7 @@ class Wham
 	double inv_num_samples_total_;
 
 	// c[r] = fraction of samples from simulation 'r'
-	//      = (num. samples from simulation r)/num_total
+	//      = (num. samples from simulation r)/(num. total)
 	std::vector<double> c_;
 	std::vector<double> log_c_;
 
@@ -258,17 +244,19 @@ class Wham
 	// - **WARNING** clears all stored data
 	void readDataSummary(const std::string& data_summary_file);
 
-	// Reads the biasing parameters (**assumes** harmonic bias)
+	// Create Bias objects according to the given file
 	void createBiases(const std::string& biasing_parameters_file);
 
-	// Reads the time series data for the primary (biased) variable, x
-	void readRawDataFiles();
+	// Reads in all time series data for the indicated order parameter
+	void readTimeSeries(
+		const std::vector<std::string>& data_files, 
+		const int data_col,
+		OrderParameter& order_parameter
+	) const;
 
-	// Reads the time series data for the auxiliary variable, y
-	void readAuxiliaryTimeSeries(const std::string& time_series_y_files_list);
-
-	// After reading input files, use to generate histograms of raw data from biased simulations
-	void constructRawDataHistograms();
+	// After reading input files, use this to analyze the raw data
+	// and populate the OrderParameter object
+	void analyzeRawData(OrderParameter& x);
 
 
 	//----- Helper Functions -----//
@@ -308,7 +296,7 @@ class Wham
 	// Compute F_0(x) using only the data provided
 	// TODO way to merge with compute_consensus_f_x?
 	void manually_unbias_f_x(
-		const std::vector<double>& x,       // samples from a single simulation
+		const TimeSeries& x,   // samples from a single simulation
 		const std::vector<double>& u_bias,  // bias corresponding to x-samples
 		const double f,                     // free energy of biasing (usually a guess)
 		const Bins& bins_x,
@@ -321,7 +309,7 @@ class Wham
 	// Compute the consensus distribution F_k^{WHAM}(x), where k is the index
 	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
 	void compute_consensus_f_x(
-		const std::vector<std::vector<double>>& x,
+		const std::vector<TimeSeries>& x,
 		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
 		const std::vector<double>& f_opt,  // consensus free energies to use
 		const int k,                       // index of simulation ensemble (-1 --> unbiased)
@@ -337,8 +325,8 @@ class Wham
 	// - Grids use 'ij' organization, i.e. grid[i][j] corresponds to (x_bins[i], y_bins[j])
 	// TODO generalize to n dimensions and combine with compute_consensus_f_x
 	void compute_consensus_f_x_y(
-		const std::vector<std::vector<double>>& x,
-		const std::vector<std::vector<double>>& y,
+		const std::vector<TimeSeries>& x,
+		const std::vector<TimeSeries>& y,
 		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
 		const std::vector<double>& f_opt,  // consensus free energies to use
 		const int k,  // index of simulation ensemble (-1 --> unbiased)

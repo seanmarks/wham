@@ -20,6 +20,8 @@ CXX= g++
 OBJECTS= Bias.o \
          Bins.o \
          main.o \
+         OrderParameter.o \
+         TimeSeries.o \
          Wham.o \
          WhamDlibWrappers.o 
 
