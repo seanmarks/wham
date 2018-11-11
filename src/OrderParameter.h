@@ -64,7 +64,7 @@ class OrderParameter
 	std::vector<std::vector<int>>    sample_counts_;
 
 	// WHAM results
-	std::vector<double> f_x_wham_, p_x_wham_;
+	std::vector<double> f_x_wham_, p_x_wham_, error_f_x_wham_;  // TODO errors
 	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
 
 	// Number of samples in each bin, across all simulations

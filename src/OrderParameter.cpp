@@ -1,6 +1,5 @@
 #include "OrderParameter.h"
 
-// FIXME need production phase ranges here, and rounding option
 OrderParameter::OrderParameter(
 		const ParameterPack& input_pack, const std::vector<Range>& production_phases,
 		const bool use_floored_times

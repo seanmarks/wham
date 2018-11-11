@@ -43,10 +43,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <memory>    // unique_ptr
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -86,9 +88,12 @@ class Wham
 
 	struct WhamOptions
 	{
-		double T;        // temperature (K)
-		double kBT;
+		WhamOptions(): floor_t(true), tol(1.0e-7) {};
+
+		double T;        // default temperature (K) assumed for simulations
+		double kBT;      // k_B*T
 		bool   floor_t;  // whether to round times down to the nearest ps
+		double tol;      // tolerance for solver
 	};
 
 	// Stores wham.solve() results
@@ -131,18 +136,14 @@ class Wham
 	//  - Unbiased free energy distributions (using only same-simulation data)
 	void printRawDistributions(const OrderParameter& x) const;
 
-	void printWhamResults() const;
+	void printWhamResults(const OrderParameter& x) const;
 
-	void print_f_x_y_and_f_y(
+	void print_f_x_y(
 		const OrderParameter& x, const OrderParameter& y,
 		// Consensus distributions for F(x,y)
 		const std::vector<std::vector<double>>& p_x_y_wham,
 		const std::vector<std::vector<double>>& f_x_y_wham,
-		const std::vector<std::vector<int>>&    sample_counts_x_y,
-		// Reweighted results for F(y)
-		const std::vector<double>& p_y_wham,
-		const std::vector<double>& f_y_wham,
-		const std::vector<int>& sample_counts_y
+		const std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
 
 	// If the probability p > 0, print free energy f; else print "nan"
@@ -158,6 +159,10 @@ class Wham
 	ParameterPack input_parameter_pack_;
 
 	std::string data_summary_file_;
+	int col_data_label_;         // column with data label
+	int col_t_min_, col_t_max_;  // columns with production phase bounds
+	int col_T_;                  // column with temperature
+
 	std::string biasing_parameters_file_;
 
 	std::vector<Wham::Simulation> simulations_;
@@ -205,7 +210,7 @@ class Wham
 	//   u_bias_as_other[j][i][r] = u_{bias,r}( x_{j,i} )
 	//      j = 1, ..., m    (m = num_simulations)
 	//      i = 1, ..., n_j  (n_j = # samples from simulation j)
-	//      r = 1, ..., m
+	//      r = 1, ..., m    (m = number of biasing potentials)
 	// TODO linearize for speed
 	std::vector<std::vector<std::vector<double>>> u_bias_as_other_;
 
@@ -322,11 +327,7 @@ class Wham
 		// Consensus distributions for F_k(x,y)
 		std::vector<std::vector<double>>& p_x_y_wham,
 		std::vector<std::vector<double>>& f_x_y_wham,
-		std::vector<std::vector<int>>&    sample_counts_x_y,
-		// Reweighted results for F_k(y)
-		std::vector<double>& p_y_wham,
-		std::vector<double>& f_y_wham,
-		std::vector<int>& sample_counts_y
+		std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
 
 	//----- Constants -----//

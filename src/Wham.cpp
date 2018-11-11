@@ -1,24 +1,97 @@
 #include "Wham.h"
 
 Wham::Wham(const std::string& options_file):
-	options_file_(options_file)
+	options_file_(options_file),
+	// Columns in data summary file
+	// TODO add input options to change these
+	col_data_label_(0),
+	col_t_min_(3), col_t_max_(col_t_min_+1), col_T_(-1)
 {
-	// Read settings
-	parseOptionsFile(options_file_);
+
+	// Read input file into a ParameterPack
+	InputParser input_parser;
+	input_parser.parseFile(options_file_, input_parameter_pack_);
+
+	using KeyType = ParameterPack::KeyType;
+
+	input_parameter_pack_.readNumber("Temperature", KeyType::Required, wham_options_.T);
+	wham_options_.kBT = K_B_ * wham_options_.T;
+
+	input_parameter_pack_.readNumber("SolverTolerance", KeyType::Required, wham_options_.tol);
+
+	// Read the data summary, which contains:
+	//   (1) data set labels
+	//   (2) production phase
+	// This sets the number of simulations expected
+	input_parameter_pack_.readString("DataSummaryFile", KeyType::Required, data_summary_file_);
+	readDataSummary(data_summary_file_);
+	int num_simulations = simulations_.size();
+
+	// FIXME cludgy reformatting
+	using Range = std::array<double,2>;
+	std::vector<Range> production_phases(num_simulations);
+	for ( int i=0; i<num_simulations; ++i ) {
+		production_phases[i] = {{ simulations_[i].t_min, simulations_[i].t_max }};
+	}
+
+	//----- Order Parameters -----//
+
+	// Register order parameters
+	// - When they are constructed, they read in their own time series data
+	std::vector<const ParameterPack*> op_pack_ptrs = 
+			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
+	order_parameters_.clear();
+	int num_ops = op_pack_ptrs.size();
+	if ( num_ops < 1 ) {
+		throw std::runtime_error("no order parameters were registered");
+	}
+	for ( int i=0; i<num_ops; ++i ) {
+		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[i]), production_phases, wham_options_.floor_t) );
+	}
+
+	// Check order parameters and the data they read in
+	// TODO for each OP, check number of samples in each time series: they should all agree
+	for ( int i=0; i<num_ops; ++i ) {
+		for ( int j=i+1; j<num_ops; ++j ) {
+			if ( order_parameters_[i].name_ == order_parameters_[j].name_ ) {
+				throw std::runtime_error("order parameter " + order_parameters_[i].name_ + " was defined more than once");
+			}
+		}
+	}
+
+
+#ifdef DEBUG
+	std::cout << "DEBUG: " << num_ops << " order parameters registered\n";
+	for ( int i=0; i<num_ops; ++i ) {
+		int num_time_series = order_parameters_[i].time_series_.size();
+		std::cout << "  op = " << order_parameters_[i].name_ << ": " << num_time_series << " time series\n";
+		for ( int j=0; j<num_time_series; ++j ) {
+			std::cout << "    file = " << order_parameters_[i].time_series_[j].get_file() << "\n"
+			          << "    size = " << order_parameters_[i].time_series_[j].size() << " data points\n";
+		}
+	}
+#endif /* DEBUG */
 
 
 	//----- Biasing Potentials -----//
+
+	// Read the biasing parameters file 
+	input_parameter_pack_.readString("BiasingParametersFile", KeyType::Required, 
+	                                 biasing_parameters_file_);
+
 
 	// Parse the biases present, and evaluate each sample using each
 	// of the biases
 	createBiases(biasing_parameters_file_);
 	evaluateBiases();
+	if ( simulations_.size() != biases_.size() ) {
+		throw std::runtime_error("number of biases does not match number of simulations");
+	}
 
 
-	//----- Precompute some constants (TODO: move to function -----//
+	//----- Precompute some constants (TODO: move to function?) -----//
 
 	// Total number of samples
-	int num_simulations = simulations_.size();
 	num_samples_total_ = 0;
 	for ( int j=0; j<num_simulations; ++j ) {
 		num_samples_total_ += u_bias_as_other_[j].size();
@@ -33,11 +106,7 @@ Wham::Wham(const std::string& options_file):
 		log_c_[r] = log( c_[r] );
 	}
 
-
 	// Analyze the raw data
-	// TODO multiple OPs
-	// TODO move to OrderParameter?
-	int num_ops = order_parameters_.size();
 	for ( int i=0; i<num_ops; ++i ) {
 		analyzeRawData( order_parameters_[i] );
 	}
@@ -46,72 +115,12 @@ Wham::Wham(const std::string& options_file):
 }
 
 
-void Wham::parseOptionsFile(const std::string& options_file)
-{
-	// TODO multiple OPs
-	// TODO input revamp (and move to constructor?)
-
-	// Defaults
-	wham_options_.floor_t = true;
-
-	// Read input file into a ParameterPack
-	InputParser input_parser;
-	input_parser.parseFile(options_file, input_parameter_pack_);
-
-	using KeyType = ParameterPack::KeyType;
-	std::string line, token, lowercase_token;
-
-	input_parameter_pack_.readNumber("Temperature", KeyType::Required, wham_options_.T);
-	wham_options_.kBT = K_B_ * wham_options_.T;
-
-	// Read the data summary, which contains:
-	// (1) data set labels
-	// (2) production phase
-	input_parameter_pack_.readString("DataSummaryFile", KeyType::Required, data_summary_file_);
-	readDataSummary(data_summary_file_);  // sets the number of simulations
-
-	// FIXME cludgy reformatting
-	using Range = std::array<double,2>;
-	int num_simulations = simulations_.size();
-	std::vector<Range> production_phases(num_simulations);
-	for ( int i=0; i<num_simulations; ++i ) {
-		production_phases[i] = {{ simulations_[i].t_min, simulations_[i].t_max }};
-	}
-
-	// Register order parameters
-	// - When they are constructed, they read in their own time series data
-	// - TODO check uniqueness
-	std::vector<const ParameterPack*> op_pack_ptrs = 
-			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
-	order_parameters_.clear();
-	int num_ops = op_pack_ptrs.size();
-	for ( int i=0; i<num_ops; ++i ) {
-		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[i]), production_phases, wham_options_.floor_t) );
-	}
-
-	// Read the biasing parameters file 
-	input_parameter_pack_.readString("BiasingParametersFile", KeyType::Required, 
-	                                 biasing_parameters_file_);
-
-
-	//-----  FIXME DEBUG -----//
-
-	std::cout << "DEBUG: " << num_ops << " order parameters registered\n";
-	for ( int i=0; i<num_ops; ++i ) {
-		int num_time_series = order_parameters_[i].time_series_.size();
-		std::cout << "  op = " << order_parameters_[i].name_ << ": " << num_time_series << " time series\n";
-		for ( int j=0; j<num_time_series; ++j ) {
-			std::cout << "    file = " << order_parameters_[i].time_series_[j].get_file() << "\n"
-			          << "    size = " << order_parameters_[i].time_series_[j].size() << " data points\n";
-		}
-	}
-}
-
-
-// FIXME
 void Wham::readDataSummary(const std::string& data_summary_file)
 {
 	simulations_.clear();
+
+	// Largest column index of interest
+	int max_col = std::max( { col_data_label_, col_t_min_, col_T_ }, std::less<int>() );
 
 	// Get the location of the data summary file
 	std::string data_summary_path = FileSystem::get_basename(data_summary_file);
@@ -122,33 +131,46 @@ void Wham::readDataSummary(const std::string& data_summary_file)
 	}
 
 	std::string line, token, rel_path;
+	std::vector<std::string> tokens;
 
 	while ( getline(ifs, line) ) {
 		std::stringstream ss(line);
 		ss >> token;
 
 		if ( line.empty() or token[0] == '#' ) {
-			continue;
+			continue;  // skip empty lines and comments
+		}
+		
+		// Tokenize the line
+		tokens = {{ token }};
+		while ( ss >> token ) {
+			tokens.push_back( token );
+		}
+
+		// Check that the appropriate number of tokens was parsed
+		int num_tokens = tokens.size();
+		if ( max_col >= num_tokens ) {
+			throw std::runtime_error("a line in the data summary has too few columns");
 		}
 
 		// Create a new simulation
 		simulations_.push_back( Simulation() );
-		simulations_.back().data_set_label = token;
+		Simulation& new_sim = simulations_.back();  // convenient alias
 
-		// Samples file (path relative to data summary location)
-		ss >> rel_path;  // samples file
-		//simulations_.back().data_file = FileSystem::get_realpath(data_summary_path + "/" + rel_path);
-
-		// xtc file (ignore)
-		ss >> token;
+		// Data set label
+		new_sim.data_set_label = tokens[col_data_label_];
 
 		// Production phase
-		ss >> simulations_.back().t_min;
-		ss >> simulations_.back().t_max;
+		new_sim.t_min = std::stod( tokens[col_t_min_] );
+		new_sim.t_max = std::stod( tokens[col_t_max_] );
 
-		// TODO read from input for simulations at different temperatures?
-		simulations_.back().kBT  = wham_options_.kBT;
-		simulations_.back().beta = 1.0/( simulations_.back().kBT );
+		// Temperature (optional; defaults to value from WHAM options file)
+		double kBT = wham_options_.kBT;
+		if ( col_T_ >= 0 ) {
+			simulations_.back().kBT = K_B_ * std::stod(tokens[col_T_]);
+		}
+		new_sim.kBT  = kBT;
+		new_sim.beta = 1.0/kBT;
 	}
 }
 
@@ -170,7 +192,6 @@ void Wham::createBiases(const std::string& biasing_parameters_file)
 	int index = 0;
 
 	biases_.clear();
-	std::vector<std::string> bias_tokens;
 	const char comment_char = '#';
 
 	while ( getline(ifs, line) ) {
@@ -193,17 +214,8 @@ void Wham::createBiases(const std::string& biasing_parameters_file)
 			throw std::runtime_error( err_ss.str() ); 
 		}
 
-		// Create a new bias using the remaining tokens
-		bias_tokens.resize(0);
-		while ( ss >> token ) {
-			if ( token[0] != comment_char ) {
-				bias_tokens.push_back( token );
-			}
-			else {
-				break;  // Rest of the line is a comment
-			}
-		}
-		biases_.push_back( Bias(bias_tokens, simulations_[index].kBT) );
+		// Create a new bias using the line
+		biases_.push_back( Bias(line, simulations_[index].kBT) );
 
 		++index;
 	}
@@ -212,25 +224,58 @@ void Wham::createBiases(const std::string& biasing_parameters_file)
 
 void Wham::evaluateBiases()
 {
-	// TODO multiple biased OPs
 	// TODO linearize
 
+	int num_ops_total = order_parameters_.size();  // number registered
 	int num_simulations = simulations_.size();
 	u_bias_as_other_.resize( num_simulations );
 
-	std::vector<double> args(1);  // working variable
-
+	// First, figure out which order parameters are needed for each bias
+	std::vector<std::vector<int>> op_indices(num_simulations);
 	for ( int j=0; j<num_simulations; ++j ) {
-		const TimeSeries& time_series = order_parameters_[index_x_].time_series_[j];
-		int num_samples = time_series.size();
+		// Names of order parameters needed
+		const std::vector<std::string> op_names = biases_[j].get_order_parameter_names();
+		int num_ops = op_names.size();
+		if ( num_ops <= 0 ) {
+			throw std::runtime_error("a bias has no terms registered: this should not happen!");
+		}
+
+		// Search order parameter registry for matches
+		op_indices[j].resize(num_ops);
+		for ( int a=0; a<num_ops; ++a ) {
+			bool found = false;
+			for ( int b=0; b<num_ops_total; ++b ) {
+				if ( op_names[a] == order_parameters_[b].name_ ) {
+					op_indices[j][a] = b;
+					found = true;
+				}
+			}
+
+			if ( not found) {
+				throw std::runtime_error( "Error evaluating biases: order parameter \'" + 
+				                          op_names[a] + "\' is not registered" );
+			}
+		}
+	}
+
+	// Now, for each sample, evaluate the bias experienced in each of the simulations
+	std::vector<double> args;
+	for ( int j=0; j<num_simulations; ++j ) {
+		int num_samples = order_parameters_[0].time_series_[j].size();
 		u_bias_as_other_[j].resize(num_samples);
 
 		for ( int i=0; i<num_samples; ++i ) {
 			u_bias_as_other_[j][i].resize( num_simulations );
 
-			// Evaluate this sample using each of the biases
-			args = {{ time_series[i] }};
+			// Evaluate sample i from simulation j using each of the biases r
 			for ( int r=0; r<num_simulations; ++r ) {
+				// Pull together the order parameter values needed for this bias
+				int num_ops_for_bias = op_indices[r].size();
+				args.resize( num_ops_for_bias );
+				for ( int s=0; s<num_ops_for_bias; ++s ) {
+					args[s] = order_parameters_[ op_indices[r][s] ].time_series_[j][i];
+				}
+
 				u_bias_as_other_[j][i][r] = biases_[r].evaluate( args );
 			}
 		}
@@ -240,7 +285,7 @@ void Wham::evaluateBiases()
 
 
 // After reading input files, use to generate histograms of raw data from biased simulations
-// - TODO Move to OrderParameter
+// - TODO Move to OrderParameter?
 void Wham::analyzeRawData(OrderParameter& x)
 {
 	const Bins& bins = x.bins_;
@@ -306,7 +351,6 @@ void Wham::solve()
 	for ( int j=0; j<num_simulations; ++j ) {
 		f_init[j] = simulations_[j].f_bias_guess - f_shift;
 	}
-	double tol = 1.0e-7; // TODO make input parameter
 
 	// Compute differences btw. successive windows for initial guess
 	int num_vars = num_simulations - 1;
@@ -319,16 +363,19 @@ void Wham::solve()
 	WhamDlibDerivWrapper derivatives_wrapper(*this);
 
 	// Call dlib to perform the optimization
-	double min_A = dlib::find_min( dlib::bfgs_search_strategy(), 
-	                               dlib::objective_delta_stop_strategy(tol).be_verbose(),
-	                               evaluate_wrapper,
-	                               derivatives_wrapper,
-	                               df,
-	                               std::numeric_limits<double>::lowest() );
+	double min_A = dlib::find_min( 
+			dlib::bfgs_search_strategy(), 
+			dlib::objective_delta_stop_strategy(wham_options_.tol).be_verbose(),
+			evaluate_wrapper,
+			derivatives_wrapper,
+			df,
+			std::numeric_limits<double>::lowest() 
+	);
 
 	// Compute optimal free energies of biasing from the differences between windows
 	std::vector<double> f_opt(num_simulations);
 	convert_df_to_f(df, f_opt);
+	wham_results_.f_opt = f_opt;
 
 	// Report results 
 	std::cout << "min[A] = " << min_A << "\n";
@@ -337,80 +384,103 @@ void Wham::solve()
 		std::cout << i << ":  " << f_opt[i] << "  (initial: " << f_init[i] << ")\n"; 
 	}
 
-
-	//----- Consensus histogram -----//
-
-	int num_bins_x = order_parameters_[index_x_].bins_.get_num_bins();
-	wham_results_.x_bins = order_parameters_[index_x_].bins_.get_bins();
-	wham_results_.p_x_wham.assign(num_bins_x, 0.0);
-	wham_results_.f_x_wham.assign(num_bins_x, 0.0);
-	wham_results_.error_f.assign(num_bins_x, 0.0);
-	wham_results_.sample_counts = order_parameters_[index_x_].global_sample_counts_;
-	wham_results_.f_opt = f_opt;
-
-	const std::vector<TimeSeries>& x_samples = order_parameters_[index_x_].time_series_;
-	compute_consensus_f_x( x_samples, u_bias_as_other_, f_opt, unbiased_ensemble_index_, order_parameters_[index_x_].bins_,
-	                       wham_results_.p_x_wham, wham_results_.f_x_wham, wham_results_.sample_counts );
-
-
-	//----- "Rebias" consensus histogram for validation -----//
-
-	// TODO move to function
-	std::vector<int> sample_counts_tmp;
-	order_parameters_[index_x_].p_rebiased_.resize(num_simulations);
-	order_parameters_[index_x_].f_rebiased_.resize(num_simulations);
-	for ( int k=0; k<num_simulations; ++k ) {
-		compute_consensus_f_x( x_samples, u_bias_as_other_, f_opt, k, order_parameters_[index_x_].bins_,
-													 order_parameters_[index_x_].p_rebiased_[k], order_parameters_[index_x_].f_rebiased_[k],
-		                       sample_counts_tmp );
-	}
-
-
-	//----- Diagnostics -----//
-
-	// Shannon entropy (aka Kullback-Leibler divergence, relative entropy)
-	// - See Hummer and Zhu (J Comp Chem 2012), Eqn. 2
-	wham_results_.info_entropy.assign(num_simulations, 0.0);
+	// Print optimal biasing free energies to file
+	// TODO Move elsewhere
+	std::string file_name = "f_bias_WHAM.out";
+	std::ofstream ofs(file_name);
+	ofs << "# F_bias [k_B*T] for each window after minimization\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		for ( int b=0; b<num_bins_x; ++b ) {
-			const double& p_biased   = order_parameters_[index_x_].p_biased_[i][b];
-			const double& f_biased   = order_parameters_[index_x_].f_biased_[i][b];
-			const double& f_rebiased = order_parameters_[index_x_].f_rebiased_[i][b];
+		ofs << std::setprecision(7) << wham_results_.f_opt[i] << "\n";
+	}
+	ofs.close(); ofs.clear();
 
-			if ( p_biased > 0.0 and std::isfinite(f_rebiased) ) {
-				wham_results_.info_entropy[i] -= p_biased*( f_biased - f_rebiased);
+
+	//----- Consensus histograms -----//
+
+	int num_ops = order_parameters_.size();
+	for ( int i=0; i<num_ops; ++i ) {
+		OrderParameter& x = order_parameters_[i];  // alias (for readability)
+
+		// Compute F_WHAM(x)
+		compute_consensus_f_x( 
+			x.time_series_, u_bias_as_other_, f_opt, unbiased_ensemble_index_, x.bins_,
+			// Output
+			x.p_x_wham_, x.f_x_wham_, x.global_sample_counts_
+		);
+
+		// TODO errors
+		int num_bins_x = x.bins_.get_num_bins();
+		x.error_f_x_wham_.assign(num_bins_x, 0.0);
+
+		// "Rebias" consensus histograms (for validation)
+		std::vector<int> sample_counts_tmp;
+		x.p_rebiased_.resize(num_simulations);
+		x.f_rebiased_.resize(num_simulations);
+		for ( int k=0; k<num_simulations; ++k ) {
+			compute_consensus_f_x( 
+				x.time_series_, u_bias_as_other_, f_opt, k, x.bins_,
+				// Output
+			  x.p_rebiased_[k], x.f_rebiased_[k], sample_counts_tmp 
+			);
+		}
+
+		// Shannon entropy (aka Kullback-Leibler divergence, relative entropy)
+		// - See Hummer and Zhu (J Comp Chem 2012), Eqn. 2
+		x.info_entropy_.assign(num_simulations, 0.0);
+		for ( int i=0; i<num_simulations; ++i ) {
+			for ( int b=0; b<num_bins_x; ++b ) {
+				const double& p_biased   = x.p_biased_[i][b];
+				const double& f_biased   = x.f_biased_[i][b];
+				const double& f_rebiased = x.f_rebiased_[i][b];
+
+				if ( p_biased > 0.0 and std::isfinite(f_rebiased) ) {
+					x.info_entropy_[i] -= p_biased*( f_biased - f_rebiased);
+				}
 			}
 		}
+
+		// Print the results for this OP
+		printWhamResults(x);
 	}
 
-	//----- Print WHAM results -----//
 
-	printWhamResults();
-
-
-	//----- Reweight to get F_0(y) -----//
+	//----- Joint Distributions -----//
 
 	// TODO multiple OPs
 	// - Do joint distributions separately
 	if ( order_parameters_.size() > 1 ) {
-		const std::vector<TimeSeries>& y_samples = order_parameters_[index_y_].time_series_;
+		OrderParameter& x = order_parameters_[0];
+		OrderParameter& y = order_parameters_[1];
+
 		std::vector<double> p_y_wham, f_y_wham;
 		std::vector<int> sample_counts_y;
 		std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
 		std::vector<std::vector<int>> sample_counts_x_y;
 
 		compute_consensus_f_x_y( 
-			x_samples, y_samples, u_bias_as_other_, f_opt, unbiased_ensemble_index_, 
-			order_parameters_[index_x_].bins_, order_parameters_[index_y_].bins_,
+			x.time_series_, y.time_series_, u_bias_as_other_, f_opt, unbiased_ensemble_index_, 
+			x.bins_, y.bins_,
 			// Output
-			p_x_y_wham, f_x_y_wham, sample_counts_x_y,
-			p_y_wham, f_y_wham, sample_counts_y );
+			p_x_y_wham, f_x_y_wham, sample_counts_x_y
+		);
 
 		// Print results
-		print_f_x_y_and_f_y(
-			order_parameters_[index_x_], order_parameters_[index_y_],
-			p_x_y_wham, f_x_y_wham, sample_counts_x_y,
-			p_y_wham, f_y_wham, sample_counts_y );
+		print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
+
+
+		// FIXME DEBUG
+		int num_samples_x = std::accumulate( x.global_sample_counts_.begin(), x.global_sample_counts_.end(), 0);
+		int num_samples_y = std::accumulate( y.global_sample_counts_.begin(), y.global_sample_counts_.end(), 0);
+
+		int num_samples_x_y = 0;
+		for ( unsigned i=0; i<sample_counts_x_y.size(); ++i ) {
+			num_samples_x_y += std::accumulate( sample_counts_x_y[i].begin(), sample_counts_x_y[i].end(), 0 );
+		}
+
+		std::cout << "  num_samples_x = " << num_samples_x << "\n"
+		          << "  num_samples_y = " << num_samples_y << "\n"
+		          << "  num_samples_x_y = " << num_samples_x_y << "\n";
+
 	}
 }
 
@@ -505,16 +575,15 @@ void Wham::compute_log_sigma(
 
 
 // Compute derivatives of objective function
+// - Note:
+//   - grad  = gradient wrt. free energy differences between neighboring windows
+//   - dA_df = gradient wrt. biasing free energies themselves
 const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector& df) const
 {
 	// Compute free energies of biasing from differences between windows
 	int num_simulations = static_cast<int>( simulations_.size() );
 	std::vector<double> f(num_simulations);
 	convert_df_to_f(df, f);
-
-	// Note:
-	// - grad  = gradient wrt. free energy differences between neighboring windows
-	// - dA_df = gradient wrt. biasing free energies themselves
 
 	// Recompute log(sigma) as necessary
 	if ( f != f_bias_last_ ) {
@@ -705,9 +774,7 @@ void Wham::compute_consensus_f_x_y(
 	const std::vector<double>& f_opt, const int k, const Bins& bins_x, const Bins& bins_y,
 	// Consensus distributions for F_k(x,y)
 	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
-	std::vector<std::vector<int>>& sample_counts_x_y,
-	// Reweighted results
-	std::vector<double>& p_y_wham, std::vector<double>& f_y_wham, std::vector<int>& sample_counts_y
+	std::vector<std::vector<int>>& sample_counts_x_y
 ) const
 {
 	// Input checks
@@ -725,11 +792,8 @@ void Wham::compute_consensus_f_x_y(
 		// Second dimension
 		p_x_y_wham[a].resize( num_bins_y );
 		f_x_y_wham[a].resize( num_bins_y );
-		sample_counts_x_y[a].resize( num_bins_y );
+		sample_counts_x_y[a].assign( num_bins_y, 0 );
 	}
-	p_y_wham.resize( num_bins_y );
-	f_y_wham.resize( num_bins_y );
-	sample_counts_y.assign( num_bins_y, 0 );
 
 	// Normalization factors
 	double bin_size_x     = bins_x.get_bin_size();
@@ -772,31 +836,6 @@ void Wham::compute_consensus_f_x_y(
 			// Include normalization for x (the above function only normalizes for bin_size_y)
 			p_x_y_wham[a][b] /= bin_size_x;
 			f_x_y_wham[a][b] += log_bin_size_x;
-		}
-
-		// Accumulate sample count for y
-		for ( int b=0; b<num_bins_y; ++b ) {
-			sample_counts_y[b] += sample_counts_x_y[a][b];
-		}
-	}
-
-	// Integrate out x to get F_k(y)
-	std::vector<double> args(num_bins_x);
-	for ( int b=0; b<num_bins_y; ++b ) {
-		args.resize(0);
-		for ( int a=0; a<num_bins_x; ++a ) {
-			if ( p_x_y_wham[a][b] > 0.0 ) {
-				args.push_back( -f_x_y_wham[a][b] + log_bin_size_x );
-			}
-		}
-
-		if ( args.size() > 0 ) {
-			f_y_wham[b] = -log_sum_exp( args );
-			p_y_wham[b] = exp( -f_y_wham[b] );
-		}
-		else {
-			p_y_wham[b] = 0.0;
-			f_y_wham[b] = -log( p_y_wham[b] );
 		}
 	}
 }
@@ -881,10 +920,8 @@ void Wham::printRawDistributions(const OrderParameter& x) const
 }
 
 
-void Wham::printWhamResults() const
+void Wham::printWhamResults(const OrderParameter& x) const
 {
-	const OrderParameter& x = order_parameters_[index_x_];
-
 	// Working variables
 	std::stringstream header_stream;
 	std::string file_name;
@@ -899,21 +936,12 @@ void Wham::printWhamResults() const
       << "#   F(" << x.name_ << ") [in k_B*T] with T = " << wham_options_.T << " K\n";
 	ofs << "# " << x.name_ << "\tF[kBT]  NumSamples\n";  //"\t" << "\tstderr(F)\n"; TODO error estimate
 	for ( int b=0; b<num_bins_x; ++b ) {
-		ofs << std::setw(8) << std::setprecision(5) << wham_results_.x_bins[b] << "\t";
+		ofs << std::setw(8) << std::setprecision(5) << x.bins_[b] << "\t";
 		ofs << std::setw(8) << std::setprecision(5);
-			print_free_energy(ofs, wham_results_.f_x_wham[b], wham_results_.p_x_wham[b]);
-		ofs << std::setw(8) << std::setprecision(5) << wham_results_.sample_counts[b];
+			print_free_energy(ofs, x.f_x_wham_[b], x.p_x_wham_[b]);
+		ofs << std::setw(8) << std::setprecision(5) << x.global_sample_counts_[b];
 		//<< std::setw(8) << std::setprecision(5) << wham_results_.error_f[b]
 		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
-
-	// Print optimal biasing free energies to file
-	file_name = "f_bias_WHAM.out";
-	ofs.open(file_name);
-	ofs << "# F_bias [k_B*T] for each window after minimization\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		ofs << wham_results_.f_opt[i] << "\n";
 	}
 	ofs.close(); ofs.clear();
 
@@ -955,22 +983,18 @@ void Wham::printWhamResults() const
 		    << 0.0 << "\t"
 				/*
 				*/
-		    << wham_results_.info_entropy[i] << "\n";
+		    << x.info_entropy_[i] << "\n";
 	}
 	ofs.close(); ofs.clear();
-
 }
 
 
-void Wham::print_f_x_y_and_f_y(
+void Wham::print_f_x_y(
 	const OrderParameter& x, const OrderParameter& y,
 	// Consensus distributions for F_k(x,y)
 	const std::vector<std::vector<double>>& p_x_y_wham,
 	const std::vector<std::vector<double>>& f_x_y_wham,
-	const std::vector<std::vector<int>>&    sample_counts_x_y,
-	// Reweighted results for F_k(y)
-	const std::vector<double>& p_y_wham, const std::vector<double>& f_y_wham,
-	const std::vector<int>& sample_counts_y
+	const std::vector<std::vector<int>>&    sample_counts_x_y
 ) const
 {
 	// Working variables
@@ -1027,18 +1051,6 @@ void Wham::print_f_x_y_and_f_y(
 			ofs << sample_counts_x_y[i][j] << sep;
 		}
 		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
-
-	// Print F(y)
-	file_name = "F_" + y.name_ + "_reweighted.out";
-	ofs.open(file_name);
-	sep = "   ";
-	ofs << "# " << y.name_ << "   F_reweighted[kBT]  NumSamples\n";
-	for ( int j=0; j<num_bins_y; ++j ) {
-		ofs << bins_y[j] << sep;
-		print_free_energy(ofs, f_y_wham[j], p_y_wham[j]);
-		ofs << sep << sample_counts_y[j] << "\n";
 	}
 	ofs.close(); ofs.clear();
 }

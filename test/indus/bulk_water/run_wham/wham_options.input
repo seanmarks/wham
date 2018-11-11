@@ -2,6 +2,8 @@ Temperature = 300.0
 
 DataSummaryFile = ../data/data_summary.log
 
+SolverTolerance = 1.0e-7
+
 # Record of biases used
 BiasingParametersFile = biasing_parameters.log
 
