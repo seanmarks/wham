@@ -19,8 +19,11 @@ CXX= g++
 
 OBJECTS= Bias.o \
          Bins.o \
+         FileSystem.o \
+         InputParser.o \
          main.o \
          OrderParameter.o \
+         StringTools.o \
          TimeSeries.o \
          Wham.o \
          WhamDlibWrappers.o 

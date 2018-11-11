@@ -39,6 +39,8 @@ class TimeSeries
 	// Returns the number of samples in the time series
 	unsigned size() const { return data_.size(); }
 
+	const std::string& get_file() const { return file_; }
+
 	// Access underlying data
 	const double& operator[](const int i) const;
 	const std::vector<double>& get_data() const { return data_; }

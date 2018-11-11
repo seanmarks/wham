@@ -1,15 +1,19 @@
-// Bins.h - Class for managing histogram bins (of equal size)
+// Bins.h - Class for managing histogram bins
+// - Currently only supports bins of equal size
 
 #ifndef BINS_H
 #define BINS_H
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+
+#include "InputParser.h"
 
 class Bins
 {
@@ -30,6 +34,7 @@ class Bins
 		const BinStyle& bin_style
 	);
 
+	Bins(const ParameterPack& input_pack);
 
 	int    get_num_bins() const { return num_bins_; };
 	double get_bin_size() const { return bin_size_; };
@@ -42,6 +47,8 @@ class Bins
 		const int num_bins,
 		const BinStyle& bin_style
 	);
+
+	void set_bins(const ParameterPack& input_pack);
 
 	// Returns the index of the appropriate bin for x (>=0),
 	// else returns -1
@@ -67,6 +74,8 @@ class Bins
 	int num_bins_;  // store explicitly for convenience
 	BinStyle bin_style_;
 	std::vector<double> bins_;
+
+	BinStyle parseBinStyle(const std::string& bin_style_token) const;
 };
 
 #endif /* BINS_H */

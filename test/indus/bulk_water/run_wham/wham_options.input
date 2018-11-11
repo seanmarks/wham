@@ -1,22 +1,38 @@
+Temperature = 300.0
 
-# Names of primary and secondary OPs
-#OrderParameter_x Ntilde_v
-#OrderParameter_y N_v
+DataSummaryFile = ../data/data_summary.log
 
-Temperature 300.0
+# Record of biases used
+BiasingParametersFile = biasing_parameters.log
 
-# Expected format: t(ps), N_v, Ntilde_v
-DataColumn_x 3 
-DataColumn_y 2
+# x = Ntilde_v
+OrderParameter = {
+	Name       = x
+	# Location of files list, and which column contans the file locations
+	FilesList  = [ time_series_files_list.input  2 ]
+	# Expected format: t(ps), N_v, Ntilde_v
+	DataColumn = 3
 
-# Bins for x = Ntilde_v
-NumBins_x    35
-Min_x         0.0
-Max_x        35.0
-BinStyle_x   left
+	# Binning
+	Bins = {
+		NumBins  = 35
+		BinRange = [ 0.0  35.0 ]
+		BinStyle = left
+	}
+}
 
-# Bins for y = N_v
-NumBins_y    35
-Min_y         0.0
-Max_y        35.0
-BinStyle_y  left
+# y = N_v
+OrderParameter = {
+	Name       = y
+	# Location of files list, and which column contans the file locations
+	FilesList  = [ time_series_files_list.input  2 ]
+	# Expected format: t(ps), N_v, Ntilde_v
+	DataColumn = 2
+
+	# Binning
+	Bins = {
+		NumBins  = 35
+		BinRange = [ 0.0  35.0 ]
+		BinStyle = left
+	}
+}

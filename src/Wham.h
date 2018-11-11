@@ -8,7 +8,9 @@
  *   - Currently **assumes** a harmonic bias on the OP of choice
  * TODO
  *   - Allow u_bias-values as input
- *   - Check all time series for all order parameters for internal consistency
+ *   - Check for internal consistency: 
+ *     - all time series for all order parameters
+ *     - biasing parameters
  *
  * INPUT: (TODO update)
  *   1. wham_options.input
@@ -37,6 +39,7 @@
 #define WHAM_H
 
 // Standard headers
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -54,6 +57,8 @@
 // Project headers
 #include "Bias.h"
 #include "Bins.h"
+#include "FileSystem.h"
+#include "InputParser.h"
 #include "OrderParameter.h"
 #include "WhamDlibWrappers.h"
 
@@ -61,14 +66,13 @@ class Wham
 {
  public:
 	// Types
-	using BinStyle = Bins::BinStyle;
 	using ColumnVector = dlib::matrix<double,0,1>;
 
 	Wham(
 		const std::string& options_file
 	);
 
-	// Struct with everything the WHAM algorithm needs to know about a simulation
+	// Struct with simulation-specific information
 	struct Simulation 
 	{
 		std::string data_set_label;
@@ -78,21 +82,13 @@ class Wham
 		double t_min, t_max; // Sampling range [ps]
 		double f_bias;       // Free energy of adding bias (in kBT): f_bias = -ln(Q_i/Q_0)
 		double f_bias_guess; // First estimate of biasing free energy
-
-		// Files with time series
-		std::string data_file;     // x
-		std::string data_file_y;   // y
 	};
 
 	struct WhamOptions
 	{
-		// Columns in input files with data (indexed from 0)
-		int col_x, col_y;
-
-		double T;  // temperature (K)
+		double T;        // temperature (K)
 		double kBT;
-		bool   round_t;  // whether to round times to the nearest ps
-		std::string x_name, y_name; // Name(s) of order parameter(s)
+		bool   floor_t;  // whether to round times down to the nearest ps
 	};
 
 	// Stores wham.solve() results
@@ -138,9 +134,8 @@ class Wham
 	void printWhamResults() const;
 
 	void print_f_x_y_and_f_y(
+		const OrderParameter& x, const OrderParameter& y,
 		// Consensus distributions for F(x,y)
-		const Bins& bins_x,
-		const Bins& bins_y,
 		const std::vector<std::vector<double>>& p_x_y_wham,
 		const std::vector<std::vector<double>>& f_x_y_wham,
 		const std::vector<std::vector<int>>&    sample_counts_x_y,
@@ -158,11 +153,12 @@ class Wham
 
 
  private:
-	// Input files
+	// Input file
 	std::string options_file_;
+	ParameterPack input_parameter_pack_;
+
 	std::string data_summary_file_;
 	std::string biasing_parameters_file_;
-	std::string time_series_y_files_list_;
 
 	std::vector<Wham::Simulation> simulations_;
 	Wham::WhamOptions wham_options_;
@@ -247,13 +243,6 @@ class Wham
 	// Create Bias objects according to the given file
 	void createBiases(const std::string& biasing_parameters_file);
 
-	// Reads in all time series data for the indicated order parameter
-	void readTimeSeries(
-		const std::vector<std::string>& data_files, 
-		const int data_col,
-		OrderParameter& order_parameter
-	) const;
-
 	// After reading input files, use this to analyze the raw data
 	// and populate the OrderParameter object
 	void analyzeRawData(OrderParameter& x);
@@ -290,8 +279,6 @@ class Wham
 	// *differences* between windows (df), assuming f[0] = f0 = 0.0
 	void convert_f_to_df(const std::vector<double>& f, Wham::ColumnVector& df) const;
 	void convert_df_to_f(const Wham::ColumnVector& df, std::vector<double>& f) const;
-
-	BinStyle parseBinStyle(const std::string& bin_style_token) const;
 
 	// Compute F_0(x) using only the data provided
 	// TODO way to merge with compute_consensus_f_x?
@@ -353,46 +340,6 @@ class Wham
 	// For functions that take the index of an ensemble, this value is
 	// used to indicate the *unbiased* ensemble
 	static constexpr int unbiased_ensemble_index_ = -1;
-
-	//----- File Path Manipulations  -----//
-
-	std::string get_realpath(const std::string& path) const 
-	{
-		if ( path.length() < 1 ) {
-			throw std::runtime_error("get_realpath() was given an empty path");
-		}
-
-		// Use POSIX realpath()
-		char* buffer = realpath(&path[0], nullptr);
-		if ( buffer == nullptr ) {
-			throw std::runtime_error("Error resolving path \"" + path + "\"");
-		}
-
-		// Move the path to a std string and clean up
-		std::string resolved_path(buffer);
-		free(buffer); buffer = nullptr;
-
-		return resolved_path;
-	}
-
-	// Taken from:
-	//   C++ Cookbook by Jeff Cogswell, Jonathan Turkanis, Christopher Diggins, D. Ryan Stephens
-	std::string get_dir(const std::string& full_path) const 
-	{
-		// Separator
-		char sep = '/';
-//#ifdef _WIN32
-//		sep = '\\';
-//#endif
-
-		size_t i = full_path.rfind(sep, full_path.length());
-		if ( i != std::string::npos ) {
-			return full_path.substr(0, i);
-		}
-		else {
-			return ".";
-		}
-	}
 };
 
 

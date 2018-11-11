@@ -15,6 +15,14 @@ Bins::Bins(
 }
 
 
+Bins::Bins(const ParameterPack& input_pack)
+ : bin_style_(BinStyle::Left)
+{
+	set_bins(input_pack);
+}
+
+
+
 void Bins::set_bins(
 	const double min, const double max, const int num_bins, const BinStyle& bin_style)
 {
@@ -56,6 +64,28 @@ void Bins::set_bins(
 	}
 }
 
+void Bins::set_bins(const ParameterPack& input_pack)
+{
+	using KeyType = ParameterPack::KeyType;
+
+	// Working variables
+	std::string token;
+	bool found;
+	int num_bins;
+	BinStyle bin_style = BinStyle::Left;  // default style
+
+	input_pack.readNumber("NumBins", KeyType::Required, num_bins);
+	std::array<double,2> x_range;
+	input_pack.readArray("BinRange", KeyType::Required, x_range);
+
+	found = input_pack.readString("BinStyle", KeyType::Optional, token);
+	if ( found ) {
+		bin_style = parseBinStyle(token);
+	}
+
+	set_bins(x_range[0], x_range[1], num_bins, bin_style);
+}
+
 
 int Bins::find_bin(const double x) const 
 {
@@ -69,5 +99,27 @@ int Bins::find_bin(const double x) const
 	}
 	else {
 		return -1;
+	}
+}
+
+
+Bins::BinStyle Bins::parseBinStyle(const std::string& bin_style_token) const
+{
+	// Case-insensitive parsing
+	std::string lowercase_token = bin_style_token;
+	std::transform( lowercase_token.begin(), lowercase_token.end(), 
+	                lowercase_token.begin(), ::tolower );
+
+	if ( lowercase_token == "left" ) {
+		return BinStyle::Left;
+	}
+	else if ( lowercase_token == "center" ) {
+		return BinStyle::Center;
+	}
+	else if ( lowercase_token == "right" ) {
+		return BinStyle::Right;
+	}
+	else {
+		throw std::runtime_error("bin style \"" + bin_style_token + "\" was not recognized");
 	}
 }

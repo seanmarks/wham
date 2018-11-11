@@ -28,7 +28,7 @@ TimeSeries::TimeSeries(
 
 		// Get the time
 		time = std::stod(token);
-		if ( use_floored_input_times_ ) { time = round(time); }
+		if ( use_floored_input_times_ ) { time = floor(time); }
 
 		// Check for production phase
 		if ( time >= t0_ and time <= tf_ ) {
