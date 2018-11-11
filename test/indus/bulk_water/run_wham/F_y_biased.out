@@ -1,0 +1,37 @@
+# Biased free energy distributions:  F_i(y) [k_B*T]
+# y | y_star=	       0	       0	       0	       0	       0	       0	       0	       0
+0	     inf	     inf	     inf	     inf	     inf	     inf	     inf	  1.8507
+1	     inf	     inf	     inf	     inf	     inf	     inf	  4.4051	   1.081
+2	     inf	     inf	     inf	     inf	     inf	     inf	  3.0418	  1.1487
+3	     inf	     inf	     inf	     inf	     inf	     inf	  1.8401	  1.9786
+4	     inf	     inf	     inf	     inf	     inf	  6.1098	  1.4393	  3.1786
+5	     inf	     inf	     inf	     inf	     inf	  5.1935	  1.3037	  5.1935
+6	     inf	     inf	     inf	     inf	     inf	  3.4018	  1.8471	   6.803
+7	     inf	     inf	     inf	     inf	     inf	  2.7003	  2.5333	     inf
+8	     inf	     inf	     inf	     inf	     inf	  1.8091	  3.6249	     inf
+9	     inf	     inf	     inf	     inf	     inf	    1.53	  4.9311	     inf
+10	     inf	     inf	     inf	     inf	  5.0982	  1.4346	  6.3975	     inf
+11	     inf	     inf	     inf	     inf	  3.5841	  1.7957	     inf	     inf
+12	     inf	     inf	     inf	     inf	  2.7866	  2.5473	     inf	     inf
+13	     inf	     inf	     inf	     inf	  1.9786	  3.8585	     inf	     inf
+14	     inf	     inf	     inf	     inf	   1.641	  5.0112	     inf	     inf
+15	     inf	     inf	     inf	   6.803	  1.5274	   6.803	     inf	     inf
+16	     inf	     inf	     inf	  4.2772	   1.694	     inf	     inf	     inf
+17	     inf	     inf	     inf	   2.881	  2.1731	     inf	     inf	     inf
+18	     inf	     inf	  6.3975	  2.2078	  3.1523	     inf	     inf	     inf
+19	     inf	     inf	  5.7043	  1.4048	  4.5004	     inf	     inf	     inf
+20	     inf	     inf	   4.238	  1.3412	  5.8867	     inf	     inf	     inf
+21	     inf	     inf	  2.4591	  1.5907	   6.803	     inf	     inf	     inf
+22	  7.3139	  6.1098	  1.7061	  2.5263	     inf	     inf	     inf	     inf
+23	  7.3139	  4.5517	  1.2656	  3.6459	     inf	     inf	     inf	     inf
+24	  5.1167	  3.0653	  1.3758	  6.1098	     inf	     inf	     inf	     inf
+25	  3.9127	  1.9948	  2.0365	     inf	     inf	     inf	     inf	     inf
+26	  3.3821	  1.3541	  3.3217	     inf	     inf	     inf	     inf	     inf
+27	  2.7495	  1.3349	  4.7235	     inf	     inf	     inf	     inf	     inf
+28	  2.0358	   1.641	  5.8867	     inf	     inf	     inf	     inf	     inf
+29	  1.7964	  2.7254	  7.4961	     inf	     inf	     inf	     inf	     inf
+30	  1.6755	  3.9407	     inf	     inf	     inf	     inf	     inf	     inf
+31	  1.8671	  5.5502	     inf	     inf	     inf	     inf	     inf	     inf
+32	  2.3167	  7.4961	     inf	     inf	     inf	     inf	     inf	     inf
+33	   2.569	     inf	     inf	     inf	     inf	     inf	     inf	     inf
+34	  2.8831	     inf	     inf	     inf	     inf	     inf	     inf	     inf

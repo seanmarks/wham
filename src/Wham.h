@@ -128,7 +128,10 @@ class Wham
 	// TODO Make private? These rely on internal state variables
 	// TODO multiple OPs
 	void printRawDistributions() const {
-		printRawDistributions( order_parameters_[index_x_] );
+		int num_ops = order_parameters_.size();
+		for ( int i=0; i<num_ops; ++i ) {
+			printRawDistributions( order_parameters_[i] );
+		}
 	}
 
 	// Print sets of "raw" (i.e. non-consensus) histograms for all simulations, including:
@@ -171,22 +174,13 @@ class Wham
 
 	// Organizes time series data and distributions for each OP
 	std::vector<OrderParameter> order_parameters_;
-	const int index_x_ = 0;
-	const int index_y_ = 1;  // TODO delete
 
-	// 
+	// Objects that read in and evaluate the bias used in each simulation
 	std::vector<Bias> biases_;  // [num_simulations x 1]
 
 	// Indices of the order parameters that were biased
 	// - Used to evaluate the bias from each sample under each ensemble
 	std::vector<int> biased_order_parameters_;
-
-	// Objects for managing histogram bins
-	Bins bins_x_;
-	Bins bins_y_;
-
-	// Histogram of the total number of samples in each x-bin, across all simulations
-	std::vector<int> sample_counts_x_;
 
 
 	//----- Precompute/save useful quantities for speed -----//

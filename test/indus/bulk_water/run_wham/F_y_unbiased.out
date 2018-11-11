@@ -1,0 +1,37 @@
+# Unbiased free energy distributions:  F_{0,i}(y) [k_B*T]
+# y | y_star=	       0	       0	       0	       0	       0	       0	       0	       0
+0	     nan	     nan	     nan	     nan	     nan	     nan	     nan	 -4.0846
+1	     nan	     nan	     nan	     nan	     nan	     nan	  3.8046	 -7.2504
+2	     nan	     nan	     nan	     nan	     nan	     nan	  1.7114	 -9.6607
+3	     nan	     nan	     nan	     nan	     nan	     nan	-0.69867	 -12.225
+4	     nan	     nan	     nan	     nan	     nan	  6.1056	 -2.4696	 -13.367
+5	     nan	     nan	     nan	     nan	     nan	  5.0815	 -4.5681	  -14.45
+6	     nan	     nan	     nan	     nan	     nan	  2.9069	 -6.0275	 -16.157
+7	     nan	     nan	     nan	     nan	     nan	  1.3692	 -8.2194	     nan
+8	     nan	     nan	     nan	     nan	     nan	-0.61239	  -9.597	     nan
+9	     nan	     nan	     nan	     nan	     nan	 -2.4063	  -11.73	     nan
+10	     nan	     nan	     nan	     nan	  4.9728	 -4.3394	 -13.969	     nan
+11	     nan	     nan	     nan	     nan	  3.1046	 -6.2589	     nan	     nan
+12	     nan	     nan	     nan	     nan	  1.4114	 -8.3047	     nan	     nan
+13	     nan	     nan	     nan	     nan	-0.52624	 -9.9262	     nan	     nan
+14	     nan	     nan	     nan	     nan	 -2.5096	 -11.926	     nan	     nan
+15	     nan	     nan	     nan	  6.7771	 -4.5659	 -13.416	     nan	     nan
+16	     nan	     nan	     nan	  3.6265	 -6.7004	     nan	     nan	     nan
+17	     nan	     nan	     nan	  1.4244	 -8.7253	     nan	     nan	     nan
+18	     nan	     nan	   6.169	-0.45037	 -10.377	     nan	     nan	     nan
+19	     nan	     nan	  5.6827	 -2.8523	 -13.345	     nan	     nan	     nan
+20	     nan	     nan	  4.1073	 -4.5682	 -13.778	     nan	     nan	     nan
+21	     nan	     nan	  1.8662	 -6.4806	 -17.082	     nan	     nan	     nan
+22	  7.3139	   4.727	 0.46043	 -8.2147	     nan	     nan	     nan	     nan
+23	  7.3139	  4.2271	 -1.0886	 -9.2795	     nan	     nan	     nan	     nan
+24	  5.1167	  2.9631	 -2.3383	 -8.8971	     nan	     nan	     nan	     nan
+25	  3.9127	  1.9153	 -3.2636	     nan	     nan	     nan	     nan	     nan
+26	  3.3821	 0.97708	 -4.1742	     nan	     nan	     nan	     nan	     nan
+27	  2.7495	 0.36551	 -4.3334	     nan	     nan	     nan	     nan	     nan
+28	  2.0358	-0.19269	 -5.4533	     nan	     nan	     nan	     nan	     nan
+29	  1.7964	-0.42479	  -5.994	     nan	     nan	     nan	     nan	     nan
+30	  1.6755	-0.36885	     nan	     nan	     nan	     nan	     nan	     nan
+31	  1.8671	-0.25126	     nan	     nan	     nan	     nan	     nan	     nan
+32	  2.3167	 0.59852	     nan	     nan	     nan	     nan	     nan	     nan
+33	   2.569	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+34	  2.8831	     nan	     nan	     nan	     nan	     nan	     nan	     nan

@@ -3,7 +3,7 @@
 declare -a files=( \
 	# Optimal biasing free energies from WHAM
 	"f_bias_WHAM.out" \
-	# F_0(x) and 
+	# F_0(x)
 	"F_x_WHAM.out" \
 	"F_x_biased.out" \
 	"F_x_unbiased.out" \
@@ -13,6 +13,9 @@ declare -a files=( \
 	"samples_x_y.out" \
 	# F_0(y)
 	"F_y_WHAM.out" \
+	"F_y_biased.out" \
+	"F_y_unbiased.out" \
+	"F_y_rebiased.out" \
 )
 
 echo_failed_diffs=1
