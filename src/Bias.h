@@ -37,24 +37,21 @@ class Bias
 	class Potential
 	{
 	 public:
-		Potential() {};
+		Potential(const double kBT): kBT_(kBT), beta_(1.0/kBT_) {};
 
 		// Returns the value of the bias (in kBT)
 		virtual double evaluate(const double x) const = 0;
+
+	 protected:
+		double kBT_, beta_;
 	};
 
 	// Harmonic potential
 	class HarmonicPotential : public Potential
 	{
 	 public:
-		HarmonicPotential(const double x_star, const double kappa) :
-			Potential(), x_star_(x_star), kappa_(kappa) {};
-
-		virtual double evaluate(const double x) const override
-		{
-			double delta_x = x - x_star_;
-			return 0.5*kappa_*delta_x*delta_x;
-		}
+		HarmonicPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		virtual double evaluate(const double x) const override;
 
 	 private:
 		double x_star_, kappa_;  // kappa in kBT
@@ -64,14 +61,8 @@ class Bias
 	class LinearPotential : public Potential
 	{
 	 public:
-		LinearPotential(const double phi, const double c) :
-			Potential(), phi_(phi), c_(c) {};
-
-		virtual double evaluate(const double x) const override
-		{
-			double delta_x = x - phi_;
-			return 0.5*c_*delta_x*delta_x;
-		}
+		LinearPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		virtual double evaluate(const double x) const override;
 
 	 private:
 		double phi_, c_;  // both in kBT
@@ -81,34 +72,30 @@ class Bias
 	class LeftHarmonicPotential : public Potential
 	{
 	 public:
-		LeftHarmonicPotential(const double x_left, const double k_left) :
-			Potential(), x_left_(x_left), k_left_(k_left) {};
-
-		virtual double evaluate(const double x) const override
-		{
-			if ( x < x_left_ ) {
-				double delta_x = x - x_left_;
-				return 0.5*k_left_*delta_x*delta_x;
-			}
-			else {
-				return 0.0;
-			}
-		}
+		LeftHarmonicPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		virtual double evaluate(const double x) const override;
 
 	 private:
 		double x_left_, k_left_;  // k_left in kBT
+	};
+
+	// Right (one-sided) harmonic potential
+	class RightHarmonicPotential : public Potential
+	{
+	 public:
+		RightHarmonicPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		virtual double evaluate(const double x) const override;
+
+	 private:
+		double x_right_, k_right_;  // k_right in kBT
 	};
 
 	// Dummy potential (for unbiased variables)
 	class ZeroPotential : public Potential
 	{
 	 public:
-		ZeroPotential() {};
-
-		virtual double evaluate(const double x) const override 
-		{
-			return 0.0;
-		}
+		ZeroPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		virtual double evaluate(const double x) const override;
 	};
 
 	//-----------------------------//
@@ -130,7 +117,7 @@ class Bias
 	
 	// Starting from 'start', search the given range for the next term in
 	// the potential, which is enclosed in braces, { }. If there are no
-	// terms left to parse, 'first' and 'last' are set equal to 'stop'.
+	// terms left to parse, 'first' and 'end' are set equal to 'stop'.
 	// - Output: iterators bounding the tokens inside the braces
 	// - Returns: iterator to the next token to check (the one beyond the closing brace)
 	StringIt find_next_potential(
@@ -138,7 +125,7 @@ class Bias
 		const StringIt& stop,   // where to stop searching (one past the end)
 		// Output:
 		StringIt& first, // first token in the next potential
-		StringIt& last   // one past the last token in the next potential
+		StringIt& end   // one past the last token in the next potential
 	) {
 		bool found_left_brace = false;
 		for ( auto it = start; it != stop; ++it ) {
@@ -148,7 +135,7 @@ class Bias
 			}
 			else if ( *it == "}" ) {
 				if ( found_left_brace ) {
-					last = it;
+					end = it;
 					return ++it;  // first token for next call is the one after the '}'
 				}
 				else {
@@ -160,7 +147,7 @@ class Bias
 		if ( not found_left_brace ) {
 			// No potential terms left to parse
 			first = stop;
-			last = stop;
+			end = stop;
 			return stop;
 		}
 		else {
