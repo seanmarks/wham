@@ -852,12 +852,12 @@ void Wham::printRawDistributions(const OrderParameter& x) const
 	std::stringstream header_stream;
 
 	std::stringstream table_header_stream;
-	table_header_stream << "# " << x.name_ << " | " << x.name_ << "_star=";
+	table_header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "\t";
-		table_header_stream << std::setw(8) << std::setprecision(5) << simulations_[i].x_star;  // FIXME xstar
+		table_header_stream << "# " << i+2 << ": " << simulations_[i].data_set_label << "\n";
 	}
-	table_header_stream << "\n";
+	table_header_stream << "#\n"
+	                    << "# " << x.name_ << " | F(" << x.name_ << ") [kBT]\n";
 
 	// Working variables
 	std::string file_name;
@@ -900,23 +900,6 @@ void Wham::printRawDistributions(const OrderParameter& x) const
 		ofs << "\n";
 	}
 	ofs.close();
-
-
-	//----- Misc. Results -----//
-
-	file_name = "info_for_plots.out";
-	ofs.open( file_name );
-	ofs << "# Useful information about each window for plotting\n";
-	ofs << header_stream.str();
-	ofs << "# " << x.name_ << "_star" << "\tavg\tvar\tavg(Nv)\tvar(Nv)\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		ofs << std::setw(8) << std::setprecision(5) << 0.0 << "\t" // FIXME xstar
-		    << std::setw(8) << std::setprecision(5) << x.time_series_[i].average()  << "\t"
-		    << std::setw(8) << std::setprecision(5) << x.time_series_[i].variance()  << "\t"
-		    << std::setw(8) << std::setprecision(5) << 0.0  << "\t"
-		    << std::setw(8) << std::setprecision(5) << 0.0  << "\n";  // TODO delete?
-	}
-	ofs.close();
 }
 
 
@@ -947,12 +930,12 @@ void Wham::printWhamResults(const OrderParameter& x) const
 
 	// "Rebiased" free energy distributions
 	std::stringstream table_header_stream;
-	table_header_stream << "# " << x.name_ << " | " << x.name_ << "_star=";
+	table_header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "\t";
-		table_header_stream << std::setw(8) << std::setprecision(5) << simulations_[i].x_star;  // FIXME xstar
+		table_header_stream << "# " << i+2 << ": " << simulations_[i].data_set_label << "\n";
 	}
-	table_header_stream << "\n";
+	table_header_stream << "#\n"
+	                    << "# " << x.name_ << " | F(" << x.name_ << ") [kBT]\n";
 
 	file_name = "F_" + x.name_ + "_rebiased.out";
 	
@@ -971,18 +954,13 @@ void Wham::printWhamResults(const OrderParameter& x) const
 	ofs.close();
 
 	// Misc. stats
-	// FIXME xstar
 	file_name = "stats_" + x.name_ + ".out";
 	ofs.open(file_name);
-	ofs << "# data_set   avg(x)   var(x)   avg(N)   var(N)   info_entropy\n";
+	ofs << "# data_set   avg(x)   var(x)   info_entropy(biased/rebiased)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
 		ofs << simulations_[i].data_set_label << "\t"
 		    << x.time_series_[i].average() << "\t"
 		    << x.time_series_[i].variance() << "\t"
-		    << 0.0 << "\t"
-		    << 0.0 << "\t"
-				/*
-				*/
 		    << x.info_entropy_[i] << "\n";
 	}
 	ofs.close(); ofs.clear();

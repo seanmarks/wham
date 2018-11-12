@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 # Program
 wham="${HOME}/source/wham/build/bin/wham"

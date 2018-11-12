@@ -1,5 +1,15 @@
 # Unbiased free energy distributions:  F_{0,i}(y) [k_B*T]
-# y | y_star=	       0	       0	       0	       0	       0	       0	       0	       0
+# Data sets (by column)
+# 2: nstar_30.0
+# 3: nstar_25.0
+# 4: nstar_20.0
+# 5: nstar_15.0
+# 6: nstar_10.0
+# 7: nstar_5.0
+# 8: nstar_0.0
+# 9: nstar_-5.0
+#
+# y | F(y) [kBT]
 0	     nan	     nan	     nan	     nan	     nan	     nan	     nan	 -4.0846
 1	     nan	     nan	     nan	     nan	     nan	     nan	  3.8046	 -7.2504
 2	     nan	     nan	     nan	     nan	     nan	     nan	  1.7114	 -9.6607
