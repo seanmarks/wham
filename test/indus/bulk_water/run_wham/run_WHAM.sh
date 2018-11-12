@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Program
-wham="${HOME}/source/wham/bin/wham"
+wham="${HOME}/source/wham/build/bin/wham"
 
 # Input
 wham_options="wham_options.input"

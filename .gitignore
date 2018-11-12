@@ -37,6 +37,8 @@
 bck*
 tmp*
 bin/*
+build*
+scrap*
 
 # Ignore image files in test directory
 test/**/*.png

@@ -25,6 +25,9 @@ class Bias
 	}
 
  private:
+	// Convenient typedefs
+	using StringIt = std::vector<std::string>::iterator;
+
 
 	//-------------------------------//
 	//----- Potential Functions -----//
@@ -57,6 +60,23 @@ class Bias
 		double x_star_, kappa_;  // kappa in kBT
 	};
 
+	// Linear potential
+	class LinearPotential : public Potential
+	{
+	 public:
+		LinearPotential(const double phi, const double c) :
+			Potential(), phi_(phi), c_(c) {};
+
+		virtual double evaluate(const double x) const override
+		{
+			double delta_x = x - phi_;
+			return 0.5*c_*delta_x*delta_x;
+		}
+
+	 private:
+		double phi_, c_;  // both in kBT
+	};
+
 	// Left (one-sided) harmonic potential
 	class LeftHarmonicPotential : public Potential
 	{
@@ -66,12 +86,12 @@ class Bias
 
 		virtual double evaluate(const double x) const override
 		{
-			if ( x > x_left_ ) {
-				return 0.0;
-			}
-			else {
+			if ( x < x_left_ ) {
 				double delta_x = x - x_left_;
 				return 0.5*k_left_*delta_x*delta_x;
+			}
+			else {
+				return 0.0;
 			}
 		}
 
@@ -108,8 +128,6 @@ class Bias
 	//----- Helper Methods -----//
 	//--------------------------//
 	
-	using StringIt = std::vector<std::string>::iterator;
-
 	// Starting from 'start', search the given range for the next term in
 	// the potential, which is enclosed in braces, { }. If there are no
 	// terms left to parse, 'first' and 'last' are set equal to 'stop'.

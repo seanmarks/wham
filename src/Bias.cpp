@@ -28,16 +28,31 @@ Bias::Bias(const std::string& input_line, const double kBT):
 		std::unique_ptr<Potential> tmp_ptr;
 		if ( type == "harmonic" ) {
 			if ( num_tokens_left != 2 ) {
-				throw std::runtime_error("invalid harmonic bias");
+				throw std::runtime_error("invalid harmonic potential");
 			}
 			double x_star = std::stod( input_tokens[index++] );
-			double kappa  = std::stod( input_tokens[index++] );
-			kappa *= beta_;  // convert from kJ/mol to kBT
-			tmp_ptr = std::unique_ptr<Potential>(new HarmonicPotential(x_star, kappa) );
+			double kappa  = beta_ * std::stod( input_tokens[index++] );
+			tmp_ptr = std::unique_ptr<Potential>( new HarmonicPotential(x_star, kappa) );
 		}
-		else if ( type == "none" or type == "null" or type == "zero" ) {
+		else if ( type == "linear" ) {
+			if ( num_tokens_left != 2 ) {
+				throw std::runtime_error("invalid linear potential");
+			}
+			double phi = beta_ * std::stod( input_tokens[index++] );
+			double c   = beta_ * std::stod( input_tokens[index++] );
+			tmp_ptr = std::unique_ptr<Potential>( new LinearPotential(phi, c) );
+		}
+		else if ( type == "left_harmonic" ) {
+			if ( num_tokens_left != 2 ) {
+				throw std::runtime_error("invalid left one-sided harmonic potential");
+			}
+			double x_left = std::stod( input_tokens[index++] );
+			double k_left = beta_ * std::stod( input_tokens[index++] );
+			tmp_ptr = std::unique_ptr<Potential>( new LeftHarmonicPotential(x_left, k_left) );
+		}
+		else if ( type == "none"  ) {
 			if ( num_tokens_left != 0 ) {
-				throw std::runtime_error("invalid null/none/zero bias");
+				throw std::runtime_error("invalid dummy ('none') potential");
 			}
 			tmp_ptr = std::unique_ptr<Potential>( new ZeroPotential() );
 		}
