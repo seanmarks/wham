@@ -1,6 +1,7 @@
 /* Wham.h
  *
- * ABOUT: Implements 1D, log-likelihood Weighted Histogram Analysis Method (WHAM) 
+ * ABOUT: Implements the Unbinned Weighted Histogram Analysis Method (UWHAM) in N dimensions
+ *   - Equations are solved using log-likelihood maximation approach
  *   - See Hummer & Zhu, J. Comp. Chem. (2011)  (TODO update)
  * NOTES:
  *   - "x" is the generic name for the order parameter in question
@@ -34,6 +35,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>    // unique_ptr
 #include <numeric>
 #include <sstream>
@@ -84,6 +86,7 @@ class Wham
 	};
 
 	// Stores wham.solve() results
+	// TODO delete?
 	struct WhamResults
 	{
 		std::vector<double> x_bins;
@@ -96,11 +99,19 @@ class Wham
 		std::vector<double> info_entropy;  // entropy between f_x_biased and f_x_rebiased
 	};
 
+	//----- Driver -----//
+
+	// Manages solving the WHAM equations and printing output
+	void run_driver();
+
 
 	//----- Log-likelihood solution using dlib -----//
 
-	// Solves the WHAM equations and constructs the consensus histogram
-	void solve();	
+	// Solves the WHAM equations for the free energy of turning on each bias
+	void solveWhamEquations(
+		const std::vector<double>& f_init,  // initial guesses [kBT]
+		std::vector<double>& f_opt          // optimal free energies [kBT]
+	);
 
 	// Evaluate objective function
 	// - Requires member variables log_N_ and log_M_ be set in order to work
@@ -109,38 +120,6 @@ class Wham
 	// Compute derivatives of objective function
 	// - Must call evalObjectiveFunction before this one, to set log_sigma_0_
 	const ColumnVector evalObjectiveDerivatives(const ColumnVector& df) const;
-
-	//----- I/O -----//
-
-	// TODO Make private? These rely on internal state variables
-	// TODO multiple OPs
-	void printRawDistributions() const {
-		int num_ops = order_parameters_.size();
-		for ( int i=0; i<num_ops; ++i ) {
-			printRawDistributions( order_parameters_[i] );
-		}
-	}
-
-	// Print sets of "raw" (i.e. non-consensus) histograms for all simulations, including:
-	//  - Biased free energy distributions
-	//  - Unbiased free energy distributions (using only same-simulation data)
-	void printRawDistributions(const OrderParameter& x) const;
-
-	void printWhamResults(const OrderParameter& x) const;
-
-	void print_f_x_y(
-		const OrderParameter& x, const OrderParameter& y,
-		// Consensus distributions for F(x,y)
-		const std::vector<std::vector<double>>& p_x_y_wham,
-		const std::vector<std::vector<double>>& f_x_y_wham,
-		const std::vector<std::vector<int>>&    sample_counts_x_y
-	) const;
-
-	// If the probability p > 0, print free energy f; else print "nan"
-	void print_free_energy(std::ofstream& ofs, const double f, const double p) const {
-		if ( p > 0.0 ) { ofs << f; }
-		else           { ofs << "nan";  }
-	};
 
 
  private:
@@ -161,6 +140,9 @@ class Wham
 
 	// Organizes time series data and distributions for each OP
 	std::vector<OrderParameter> order_parameters_;
+
+	// Maps names of OrderParameters top their indices in the order_parameters_ vector
+	std::map<std::string, int> map_op_names_to_indices_;
 
 	// Objects that read in and evaluate the bias used in each simulation
 	std::vector<Bias> biases_;  // [num_simulations x 1]
@@ -216,6 +198,15 @@ class Wham
 	mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
 
 
+	//----- Output -----//
+
+	// OP indices for F(x) to print
+	std::vector<int> output_f_x_;
+
+	// OP indices for F(x,y) to print
+	std::vector<std::array<int,2>> output_f_x_y_;
+
+
 	//----- Setup -----//
 
 	// Set WHAM options from file
@@ -254,12 +245,6 @@ class Wham
 	// Returns the logarithm of a sum of exponentials
 	// - input: arguments of exponentials
 	double log_sum_exp(const std::vector<double>& args) const;
-
-	template<typename T>
-	double average(const std::vector<T>& x) const;
-
-	template<typename T>
-	double variance(const std::vector<T>& x) const;
 
 	// Convert between the free energies of turning on the bias (f) and the free energy 
 	// *differences* between windows (df), assuming f[0] = f0 = 0.0
@@ -311,6 +296,34 @@ class Wham
 		std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
 
+
+	//----- Output Files -----//
+
+	// TODO move to OrderParameter?
+
+	// Print sets of "raw" (i.e. non-consensus) histograms for each simulation 
+	// time series,including:
+	//  - Biased free energy distributions
+	//  - Unbiased free energy distributions (using only same-simulation data)
+	void printRawDistributions(const OrderParameter& x) const;
+
+	void printWhamResults(const OrderParameter& x) const;
+
+	void print_f_x_y(
+		const OrderParameter& x, const OrderParameter& y,
+		// Consensus distributions for F(x,y)
+		const std::vector<std::vector<double>>& p_x_y_wham,
+		const std::vector<std::vector<double>>& f_x_y_wham,
+		const std::vector<std::vector<int>>&    sample_counts_x_y
+	) const;
+
+	// If the probability p > 0, print free energy f; else print "nan"
+	void print_free_energy(std::ofstream& ofs, const double f, const double p) const {
+		if ( p > 0.0 ) { ofs << f; }
+		else           { ofs << "nan";  }
+	};
+
+
 	//----- Constants -----//
 
 	// Boltzmann's constant [kJ/mol]
@@ -323,48 +336,5 @@ class Wham
 	// used to indicate the *unbiased* ensemble
 	static constexpr int unbiased_ensemble_index_ = -1;
 };
-
-
-//----- Templated Helper Functions -----//
-
-
-template<typename T>
-double Wham::average(const std::vector<T>& x) const
-{
-	double avg = 0.0;
-	int num_values = x.size();
-	if ( num_values == 0 ) {
-		return avg;
-	}
-
-	for ( int i=0; i<num_values; ++i ) {
-		avg += x[i];
-	}
-	avg /= static_cast<double>(num_values);
-
-	return avg;
-}
-
-
-template<typename T>
-double Wham::variance(const std::vector<T>& x) const
-{
-	double var = 0.0;
-	int num_values = x.size();
-	if ( num_values == 0.0 ) {
-		return var; // FIXME appropriate to return 0 in this case?
-	}
-
-	double dx, avg_x = average(x);
-	for ( int i=0; i<num_values; ++i ) {
-		dx = x[i] - avg_x;
-		var += dx*dx;
-	}
-	var /= static_cast<double>(num_values);
-
-	return var;
-}
-
-
 
 #endif // WHAM_H

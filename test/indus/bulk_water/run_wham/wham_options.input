@@ -40,3 +40,14 @@ OrderParameter = {
 		BinStyle = left
 	}
 }
+
+# Output options
+Output = {
+	#PrintAll = yes
+
+	# Print F_WHAM(...) and associated output files for each 
+	# combination of order parameters
+	F_WHAM = [ x ]
+	F_WHAM = [ y ]
+	F_WHAM = [ x  y ]
+}

@@ -69,6 +69,12 @@ class OrderParameter
 
 	// Number of samples in each bin, across all simulations
 	std::vector<int> global_sample_counts_;
+
+	// Checks the list of order parameters for consistency:
+	// - Same number of time series
+	// - Lengths of time series match
+	// - Stored times match
+	static void checkForConsistency(const std::vector<OrderParameter>& ops);
 };
 
 #endif /* ORDER_PARAMETER_H */

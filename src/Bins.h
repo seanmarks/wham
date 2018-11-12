@@ -61,7 +61,7 @@ class Bins
 	}
 
 	/* 
-	// TODO Is this possible, for convenience?
+	// TODO Is this copy operation possible, for convenience?
 	//friend class std::vector<double>;
 	std::vector<double> operator=(const Bins& bins) {
 		std::vector<double> bins_tmp = bins.bins_;

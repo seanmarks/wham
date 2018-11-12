@@ -41,8 +41,7 @@ int main(int argc, char* argv[])
 	//----- Run Wham -----//
 
 	Wham wham(options_file);
-	wham.printRawDistributions();
-	wham.solve();
+	wham.run_driver();
 
 	return 0;
 }

@@ -31,7 +31,7 @@ class TimeSeries
 
 	TimeSeries(
 		const std::vector<double>& data
-	): col_(-1), t0_(-1.0), tf_(-1.0), data_(data)
+	): file_(""), col_(-1), t0_(-1.0), tf_(-1.0), data_(data)
 	{
 		times_.assign( data_.size(), -1.0 );
 	}
@@ -45,6 +45,8 @@ class TimeSeries
 	const double& operator[](const int i) const;
 	const std::vector<double>& get_data() const { return data_; }
 	std::vector<double>& access_data() { return data_; }
+
+	const std::vector<double>& get_times() const { return times_; }
 
 	// Statistics of an arbitrary data set
 	double average(const std::vector<double>& x) const;

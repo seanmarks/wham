@@ -63,3 +63,76 @@ OrderParameter::OrderParameter(
 		);
 	}
 }
+
+
+void OrderParameter::checkForConsistency(const std::vector<OrderParameter>& ops)
+{
+	int num_ops = ops.size();
+	if ( num_ops < 1 ) {
+		throw std::runtime_error("there are no order parameters to check for consistency");
+	}
+
+	// Use the first OP as a reference
+	const OrderParameter& ref_op = ops[0];
+	int num_simulations = ref_op.time_series_.size();
+	if ( num_simulations < 1 ) {
+		throw std::runtime_error("order parameter \"" + ref_op.name_ + "\" has no time series data");
+	}
+	for ( int j=0; j<num_simulations; ++j ) {
+		// Ensure each time series contains data
+		if ( ref_op.time_series_[j].size() < 1 ) {
+			std::stringstream err_ss;
+			err_ss << "Order parameter " << ref_op.name_ << ": time series " << j+1 << " contains no data\n"
+			       << "  file = " << ref_op.time_series_[j].get_file() << "\n";
+			throw std::runtime_error( err_ss.str() );
+		}
+	}
+
+	for ( int i=1; i<num_ops; ++i ) {
+		// Check number of time series
+		if ( ops[i].time_series_.size() != ref_op.time_series_.size() ) {
+			std::stringstream err_ss;
+			err_ss << "Order parameters " << ref_op.name_ << " and " << ops[i].name_
+			       << " have different numbers of time series.\n";
+		}
+
+		// Check each time series
+		for ( int j=0; j<num_simulations; ++j ) {
+			// Convenient aliases
+			const TimeSeries& series_i   = ops[i].time_series_[j];
+			const TimeSeries& series_ref = ref_op.time_series_[j];
+
+			// Time series from the same simulation should have the same number of points
+			if ( series_i.size() != series_ref.size() ) {
+				std::stringstream err_ss;
+				err_ss << "Order parameters: time series length mismatch for simulation " 
+				       << j+1 << " of " << num_simulations << "\n";
+
+				std::vector<int> op_indices = {{ 0, i }};
+				for ( unsigned k=0; k<op_indices.size(); ++k ) {
+					int l = op_indices[k];
+					const TimeSeries& time_series = ops[l].time_series_[j];
+					err_ss << "  OrderParameter = " << ops[l].name_ << ": " << time_series.size() << " points stored\n"
+					       << "    file = " << time_series.get_file() << "\n";
+				}
+				throw std::runtime_error( err_ss.str() );
+			}
+
+			// These time series should also refer to the same times sampled
+			if ( series_i.get_times() != series_ref.get_times() ) {
+				std::stringstream err_ss;
+				err_ss << "Order parameters: stored times for each sample do not match for simulation "
+				       << j+1 << " of " << num_simulations << "\n";
+
+				std::vector<int> op_indices = {{ 0, i }};
+				for ( unsigned k=0; k<op_indices.size(); ++k ) {
+					int l = op_indices[k];
+					const TimeSeries& time_series = ops[l].time_series_[j];
+					err_ss << "  OrderParameter = " << ops[l].name_ << ":\n"
+					       << "    file = " << time_series.get_file() << "\n";
+				}
+				throw std::runtime_error( err_ss.str() );
+			}
+		}
+	}
+}
