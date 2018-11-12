@@ -48,7 +48,7 @@ void FileSystem::readFilesList(
 			// Location is relative to path to files list
 			file = files_list_path + std::string(1,FileSystem::sep) + file;
 		}
-		file = FileSystem::get_realpath( files_list_path + std::string(1,FileSystem::sep) + file);
+		file = FileSystem::get_realpath(file);
 		files.push_back(file);
 
 		++i;

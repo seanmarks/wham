@@ -5,7 +5,6 @@
  * NOTES:
  *   - "x" is the generic name for the order parameter in question
  *   - All energies are in units of k_B*T unless otherwise noted
- *   - Currently **assumes** a harmonic bias on the OP of choice
  * TODO
  *   - Allow u_bias-values as input
  *   - Check for internal consistency: 
@@ -15,23 +14,11 @@
  * INPUT: (TODO update)
  *   1. wham_options.input
  *      - Key-value pairs
- *          col_y: column of the rewighting variable "y" in the time series files
- *                       used for rewighting
  *
  *   2. data_summary.input
- *      - Each line corresponds to a data set, and takes the following form:
+ *      - Each line corresponds to a data set, and usually takes the following form:
  *          <data_set_label>  <time_series_file(relpath)>  <xtc_file(relpath)>  <t0>  <tf>
  *      - Each time series file contains the following columns:
- *          // TODO update
- * 
- *   3. time_series_files_y.input
- *      - Each line corresponds to a data set, and takes the following form:
- *          <data_set_label>  <path_to_file>
- *      - Each time series file contains the following columns:
- *          <t(ps)>  ... <y> ...
- *      - The variable used as "y" for reweighting is indicated by "col_y" 
- *        (indexed from 1) taken from the WHAM options file
- *      - It is **assumed** that y is not biased
  */
 
 #pragma once

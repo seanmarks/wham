@@ -1,3 +1,5 @@
+# WHAM input file
+
 Temperature = 300.0
 
 DataSummaryFile = ../data/data_summary.log
