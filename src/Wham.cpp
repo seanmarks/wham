@@ -153,6 +153,19 @@ Wham::Wham(const std::string& options_file):
 		}
 	}
 
+#ifdef DEBUG
+	std::cout << "DEBUG: " << num_biases << " biases registered\n";
+	for ( int j=0; j<num_biases; ++j ) {
+		int num_potentials = biases_[j].get_order_parameter_names().size();
+
+		std::cout << "  data_set = " << biases_[j].get_data_set_label() << "\n"
+		          << "  num_potentials = " << num_potentials << "\n";
+		for ( int k=0; k<num_potentials; ++k ) {
+			std::cout << "    op = " << biases_[j].get_order_parameter_names()[k] << "\n";
+		}
+	}
+#endif /* DEBUG */
+
 	// For each sample, evaluate the resulting potential under each bias
 	evaluateBiases();
 
@@ -414,10 +427,12 @@ void Wham::run_driver()
 			);
 		}
 
-		// Shannon entropy (aka Kullback-Leibler divergence, relative entropy)
+		// Relative entropy between distributions (aka Kullback-Leibler divergence)
+		// - Closely related to Shannon entropy
 		// - See Hummer and Zhu (J Comp Chem 2012), Eqn. 2
 		// TODO move to function which takes two arbitrary distributions
 		x.info_entropy_.assign(num_simulations, 0.0);
+		double bin_size_x = x.bins_.get_bin_size();
 		for ( int i=0; i<num_simulations; ++i ) {
 			for ( int b=0; b<num_bins_x; ++b ) {
 				const double& p_biased   = x.p_biased_[i][b];
@@ -425,7 +440,7 @@ void Wham::run_driver()
 				const double& f_rebiased = x.f_rebiased_[i][b];
 
 				if ( p_biased > 0.0 and std::isfinite(f_rebiased) ) {
-					x.info_entropy_[i] -= p_biased*( f_biased - f_rebiased);
+					x.info_entropy_[i] += p_biased*(f_rebiased - f_biased)*bin_size_x;
 				}
 			}
 		}

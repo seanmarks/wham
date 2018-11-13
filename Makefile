@@ -37,6 +37,8 @@ CXXFLAGS += -g -std=c++11 -DCPLUSPLUS -I$(DLIB_INCLUDE) -Wall
 # - Optimizations
 CXXFLAGS += -O3
 # CXXFLAGS += -ffast-math -march=native    # less safe optimizations
+# - Debug mode
+CXXFLAGS += -DDEBUG
 
 # Check for whether MPI is enabled
 ifeq ($(is_mpi_enabled),1)

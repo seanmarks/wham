@@ -2,9 +2,12 @@
  *
  * ABOUT: Implements the Unbinned Weighted Histogram Analysis Method (UWHAM) in N dimensions
  *   - Equations are solved using log-likelihood maximation approach
- *   - See Hummer & Zhu, J. Comp. Chem. (2011)  (TODO update)
+ *     - See Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
+ *   - See also:
+ *     - Zhu & Hummer (J. Comp. Chem. 2011)
+ *     - Souaille & Roux (Comp. Phys. Comm. 2001)
  * NOTES:
- *   - "x" is the generic name for the order parameter in question
+ *   - "x" and "y" are generic names for the order parameters in question
  *   - All energies are in units of k_B*T unless otherwise noted
  * TODO
  *   - Allow u_bias-values as input
