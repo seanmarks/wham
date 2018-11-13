@@ -128,14 +128,33 @@ Wham::Wham(const std::string& options_file):
 	input_parameter_pack_.readString("BiasingParametersFile", KeyType::Required, 
 	                                 biasing_parameters_file_);
 
-
-	// Parse the biases present, and evaluate each sample using each
-	// of the biases
-	createBiases(biasing_parameters_file_);
-	evaluateBiases();
-	if ( simulations_.size() != biases_.size() ) {
-		throw std::runtime_error("number of biases does not match number of simulations");
+	// Find the bias input packs
+	ParameterPack bias_file_pack;
+	input_parser.parseFile(biasing_parameters_file_, bias_file_pack);
+	std::vector<const ParameterPack*> bias_input_pack_ptrs = 
+			bias_file_pack.findParameterPacks("Bias", KeyType::Required);
+	int num_biases = bias_input_pack_ptrs.size();
+	if ( num_biases != num_simulations ) {
+		std::stringstream err_ss;
+		err_ss << "Mismatch between number of biases (" << num_biases << ") and number of simulations ("
+		       << num_simulations << ")\n";
+		throw std::runtime_error( err_ss.str() );
 	}
+
+	for ( int i=0; i<num_biases; ++i ) {
+		// TODO allow bias log and data summary to report simulations in different orders,
+		// or allow one to be a subset of the others
+		// - Use data set labels to match everything
+
+		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), simulations_[i].kBT) );
+
+		if ( simulations_[i].data_set_label != biases_.back().get_data_set_label() ) {
+			throw std::runtime_error("Mismatch between data set labels in biasing parameters file and data summary file");
+		}
+	}
+
+	// For each sample, evaluate the resulting potential under each bias
+	evaluateBiases();
 
 
 	//----- Precompute some constants (TODO: move to function?) -----//
@@ -222,53 +241,6 @@ void Wham::readDataSummary(const std::string& data_summary_file)
 }
 
 
-void Wham::createBiases(const std::string& biasing_parameters_file)
-{
-	// Ensure that simulation data is available
-	int num_simulations = simulations_.size();
-	if ( num_simulations == 0 ) {
-		throw std::runtime_error("No simulations are registered");
-	}
-
-	std::ifstream ifs(biasing_parameters_file);
-	if ( not ifs.is_open() ) {
-		throw std::runtime_error("Unable to open biasing parameters file: " + biasing_parameters_file);
-	}
-
-	std::string line, token;
-	int index = 0;
-
-	biases_.clear();
-	const char comment_char = '#';
-
-	while ( getline(ifs, line) ) {
-		std::stringstream ss(line);
-		ss >> token;
-
-		if ( line.empty() or token[0] == comment_char ) {
-			continue;  // skip comments and blank lines
-		}
-
-		// Check for internal consistency
-		if ( index >= num_simulations ) {
-			throw std::runtime_error("Too many simulations recorded in the biasing parameters file");
-		}
-		else if ( token != simulations_[index].data_set_label ) {
-			std::stringstream err_ss;
-			err_ss << "Expected to read data set with label \"" << simulations_[index].data_set_label 
-			          << "\" in biasing parameters log,\n"
-			       << "but encountered \"" << token << "\" instead\n";
-			throw std::runtime_error( err_ss.str() ); 
-		}
-
-		// Create a new bias using the line
-		biases_.push_back( Bias(line, simulations_[index].kBT) );
-
-		++index;
-	}
-}
-
-
 void Wham::evaluateBiases()
 {
 	// TODO linearize
@@ -282,9 +254,6 @@ void Wham::evaluateBiases()
 		// Names of order parameters needed
 		const std::vector<std::string>& op_names = biases_[j].get_order_parameter_names();
 		int num_ops = op_names.size();
-		if ( num_ops <= 0 ) {
-			throw std::runtime_error("a bias has no terms registered: this should not happen!");
-		}
 
 		// Search order parameter registry for matches
 		op_indices[j].resize(num_ops);

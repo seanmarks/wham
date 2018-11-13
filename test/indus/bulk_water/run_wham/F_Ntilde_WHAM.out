@@ -1,6 +1,6 @@
 # Consensus free energy distributions from WHAM: 
-#   F(x) [in k_B*T] with T = 300 K
-# x	F[kBT]  NumSamples
+#   F(Ntilde) [in k_B*T] with T = 300 K
+# Ntilde	F[kBT]  NumSamples
        0	  51.818     342
        1	  48.732     695
        2	  46.281     646

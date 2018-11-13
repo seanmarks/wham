@@ -3,19 +3,19 @@
 declare -a files=( \
 	# Optimal biasing free energies from WHAM
 	"f_bias_WHAM.out" \
-	# F_0(x)
-	"F_x_WHAM.out" \
-	"F_x_biased.out" \
-	"F_x_unbiased.out" \
-	"F_x_rebiased.out" \
-	# F_0(x,y)
-	"F_x_y_WHAM.out" \
-	"samples_x_y.out" \
-	# F_0(y)
-	"F_y_WHAM.out" \
-	"F_y_biased.out" \
-	"F_y_unbiased.out" \
-	"F_y_rebiased.out" \
+	# F_0(Ntilde)
+	"F_Ntilde_WHAM.out" \
+	"F_Ntilde_biased.out" \
+	"F_Ntilde_unbiased.out" \
+	"F_Ntilde_rebiased.out" \
+	# F_0(Ntilde,N)
+	"F_Ntilde_N_WHAM.out" \
+	"samples_Ntilde_N.out" \
+	# F_0(N)
+	"F_N_WHAM.out" \
+	"F_N_biased.out" \
+	"F_N_unbiased.out" \
+	"F_N_rebiased.out" \
 )
 
 echo_failed_diffs=1

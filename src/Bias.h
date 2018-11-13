@@ -9,13 +9,14 @@
 #include <string>
 #include <vector>
 
+#include "InputParser.h"
 #include "StringTools.h"
 
 
 class Bias 
 {
  public:
-	Bias(const std::string& input_line, const double kBT = 1.0);
+	Bias(const ParameterPack& input_pack, const double kBT = 1.0);
 
 	// Returns the total bias at x, in kBT
 	double evaluate(const std::vector<double>& x) const;
@@ -24,11 +25,11 @@ class Bias
 		return order_parameter_names_;
 	}
 
+	const std::string& get_data_set_label() const { 
+		return data_set_label_; 
+	}
+
  private:
-	// Convenient typedefs
-	using StringIt = std::vector<std::string>::iterator;
-
-
 	//-------------------------------//
 	//----- Potential Functions -----//
 	//-------------------------------//
@@ -50,7 +51,7 @@ class Bias
 	class HarmonicPotential : public Potential
 	{
 	 public:
-		HarmonicPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		HarmonicPotential(const ParameterPack& input_pack, const double kBT);
 		virtual double evaluate(const double x) const override;
 
 	 private:
@@ -61,7 +62,7 @@ class Bias
 	class LinearPotential : public Potential
 	{
 	 public:
-		LinearPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		LinearPotential(const ParameterPack& input_pack, const double kBT);
 		virtual double evaluate(const double x) const override;
 
 	 private:
@@ -72,7 +73,7 @@ class Bias
 	class LeftHarmonicPotential : public Potential
 	{
 	 public:
-		LeftHarmonicPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		LeftHarmonicPotential(const ParameterPack& input_pack, const double kBT);
 		virtual double evaluate(const double x) const override;
 
 	 private:
@@ -83,7 +84,7 @@ class Bias
 	class RightHarmonicPotential : public Potential
 	{
 	 public:
-		RightHarmonicPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		RightHarmonicPotential(const ParameterPack& input_pack, const double kBT);
 		virtual double evaluate(const double x) const override;
 
 	 private:
@@ -94,7 +95,7 @@ class Bias
 	class ZeroPotential : public Potential
 	{
 	 public:
-		ZeroPotential(const StringIt& first_parameter, const StringIt& end, const double kBT);
+		ZeroPotential(const ParameterPack& input_pack, const double kBT);
 		virtual double evaluate(const double x) const override;
 	};
 
@@ -108,52 +109,10 @@ class Bias
 	// One order parameter per term in the potential
 	std::vector<std::string> order_parameter_names_;
 
+	std::string data_set_label_;
+
 	// Thermodynamic beta = 1.0/(k_B*T)
 	double kBT_, beta_;
-
-	//--------------------------//
-	//----- Helper Methods -----//
-	//--------------------------//
-	
-	// Starting from 'start', search the given range for the next term in
-	// the potential, which is enclosed in braces, { }. If there are no
-	// terms left to parse, 'first' and 'end' are set equal to 'stop'.
-	// - Output: iterators bounding the tokens inside the braces
-	// - Returns: iterator to the next token to check (the one beyond the closing brace)
-	StringIt find_next_potential(
-		const StringIt& start,  // where to start searching
-		const StringIt& stop,   // where to stop searching (one past the end)
-		// Output:
-		StringIt& first, // first token in the next potential
-		StringIt& end   // one past the last token in the next potential
-	) {
-		bool found_left_brace = false;
-		for ( auto it = start; it != stop; ++it ) {
-			if ( *it == "{" ) {
-				found_left_brace = true;
-				first = ++it;
-			}
-			else if ( *it == "}" ) {
-				if ( found_left_brace ) {
-					end = it;
-					return ++it;  // first token for next call is the one after the '}'
-				}
-				else {
-					throw std::runtime_error("Error parsing biases: a potential is missing its left brace");
-				}
-			}
-		}
-
-		if ( not found_left_brace ) {
-			// No potential terms left to parse
-			first = stop;
-			end = stop;
-			return stop;
-		}
-		else {
-			throw std::runtime_error("Error parsing biases: a potential is missing its right brace");
-		}
-	}
 };
 
 #endif /* BIAS_H */

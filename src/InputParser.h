@@ -75,7 +75,7 @@ class ParameterPack
 		const std::string* value_ptr = findValue(key, key_type);
 		if ( value_ptr != nullptr ) {
 			// Perform the conversion
-			string_tools_.stringToValue(*value_ptr, value);
+			StringTools::stringToValue(*value_ptr, value);
 			return true;
 		}
 		else {
@@ -88,7 +88,7 @@ class ParameterPack
 	bool readFlag(const std::string& key, const KeyType& key_type, bool& flag) const {
 		const std::string* value_ptr = findValue(key, key_type);
 		if ( value_ptr != nullptr ) {
-			flag = string_tools_.stringToBool(*value_ptr);
+			flag = StringTools::stringToBool(*value_ptr);
 			return true;
 		}
 		else {
@@ -119,7 +119,7 @@ class ParameterPack
 	bool readArray(const std::string& key, const KeyType& key_type, std::array<T,dim>& arr) const {
 		const std::vector<std::string>* vec_ptr = findVector(key, key_type);
 		if ( vec_ptr != nullptr ) {
-			string_tools_.stringsToArray(*vec_ptr, arr);
+			StringTools::stringsToArray(*vec_ptr, arr);
 			return true;
 		}
 		else {
@@ -133,7 +133,7 @@ class ParameterPack
 	bool readVector(const std::string& key, const KeyType& key_type, std::vector<T>& vec) const {
 		const std::vector<std::string>* vec_ptr = findVector(key, key_type);
 		if ( vec_ptr != nullptr ) {
-			string_tools_.stringsToVector(*vec_ptr, vec);
+			StringTools::stringsToVector(*vec_ptr, vec);
 			return true;
 		}
 		else {
@@ -242,9 +242,6 @@ class ParameterPack
 	 private:
 		std::string message_;
 	};
-
- private:
-	StringTools string_tools_;
 };
 
 

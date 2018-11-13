@@ -209,16 +209,10 @@ class Wham
 
 	//----- Setup -----//
 
-	// Set WHAM options from file
-	void parseOptionsFile(const std::string& options_file);
-
 	// Reads the data summary
 	// - Used to determine the number of simulations
-	// - **WARNING** clears all stored data
+	// - Contains production phase bounds [t0, tf] [ps]
 	void readDataSummary(const std::string& data_summary_file);
-
-	// Create Bias objects according to the given file
-	void createBiases(const std::string& biasing_parameters_file);
 
 	// After reading input files, use this to analyze the raw data
 	// and populate the OrderParameter object

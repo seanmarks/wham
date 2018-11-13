@@ -1,4 +1,4 @@
-# "Rebiased" free energy distributions:  F_{rebias,i}(x) [k_B*T]
+# "Rebiased" free energy distributions:  F_{rebias,i}(Ntilde) [k_B*T]
 # Data sets (by column)
 # 2: nstar_30.0
 # 3: nstar_25.0
@@ -9,7 +9,7 @@
 # 8: nstar_0.0
 # 9: nstar_-5.0
 #
-# x | F(x) [kBT]
+# Ntilde | F(Ntilde) [kBT]
 0	  51.818	  164.45	  116.85	  75.776	  42.597	  19.905	  7.0008	  1.6661
 1	  48.732	   151.9	  106.29	  67.196	  36.001	   15.29	  4.3584	 0.98591
 2	  46.281	  140.61	   96.95	  59.807	  30.549	  11.756	  2.7156	  1.2292

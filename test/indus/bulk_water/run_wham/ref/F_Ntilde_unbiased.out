@@ -1,4 +1,4 @@
-# Unbiased free energy distributions:  F_{0,i}(x) [k_B*T]
+# Unbiased free energy distributions:  F_{0,i}(Ntilde) [k_B*T]
 # Data sets (by column)
 # 2: nstar_30.0
 # 3: nstar_25.0
@@ -9,7 +9,7 @@
 # 8: nstar_0.0
 # 9: nstar_-5.0
 #
-# x | F(x) [kBT]
+# Ntilde | F(Ntilde) [kBT]
 0	     nan	     nan	     nan	     nan	     nan	     nan	  7.3884	 -4.3274
 1	     nan	     nan	     nan	     nan	     nan	     nan	  3.7984	 -7.4063
 2	     nan	     nan	     nan	     nan	     nan	     nan	  1.3776	 -9.8607

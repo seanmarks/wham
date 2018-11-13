@@ -1,47 +1,46 @@
 #include "Bias.h"
 
-Bias::Bias(const std::string& input_line, const double kBT):
+Bias::Bias(const ParameterPack& input_pack, const double kBT):
 	kBT_(kBT), beta_(1.0/kBT_)
 {	
-	std::vector<std::string> input_tokens;
-	StringTools string_tools;
-	string_tools.split(input_line, input_tokens);
+	using KeyType = ParameterPack::KeyType;
 
-	auto start = input_tokens.begin();
-	auto stop  = input_tokens.end();
-	auto end  = start;
-	StringIt next_first;
-	for ( auto first = start; first != stop; first = next_first ) {
-		next_first = find_next_potential( first, stop, 
-		                                  first, end );
-		int index      = std::distance(start, first);
-		int num_tokens = std::distance(first, end);
+	input_pack.readString("DataSet", KeyType::Required, data_set_label_);
 
-		if ( num_tokens < 2 ) {
-			throw std::runtime_error("Error: bias terms must have at least 2 tokens");
-		}
-		std::string op_name = input_tokens[index++];
-		std::string type    = input_tokens[index++];
-		auto first_parameter = first + 2;
+	// Find parameter packs for the terms in this bias
+	std::vector<const ParameterPack*> potential_pack_ptrs 
+			= input_pack.findParameterPacks("Potential", KeyType::Required);
+	int num_potentials = potential_pack_ptrs.size();
+	if ( num_potentials == 0 ) {
+		std::cerr << "Warning: the bias for data set " << data_set_label_ 
+		          << " has no terms in its potential\n";
+	}
+
+	for ( int i=0; i<num_potentials; ++i ) {
+		const ParameterPack& potential_pack = *(potential_pack_ptrs[i]);
+
+		std::string op_name, type;
+		potential_pack.readString("order_parameter", KeyType::Required, op_name);
+		potential_pack.readString("type",            KeyType::Required, type);
 
 		// Construct this term
 		// TODO use a factory
 		// TODO other potentials
 		std::unique_ptr<Potential> tmp_ptr;
 		if ( type == "harmonic" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new HarmonicPotential(first_parameter, end, kBT_) );
+			tmp_ptr = std::unique_ptr<Potential>( new HarmonicPotential(potential_pack, kBT_) );
 		}
 		else if ( type == "linear" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new LinearPotential(first_parameter, end, kBT_) );
+			tmp_ptr = std::unique_ptr<Potential>( new LinearPotential(potential_pack, kBT_) );
 		}
 		else if ( type == "left_harmonic" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new LeftHarmonicPotential(first_parameter, end, kBT_) );
+			tmp_ptr = std::unique_ptr<Potential>( new LeftHarmonicPotential(potential_pack, kBT_) );
 		}
 		else if ( type == "right_harmonic" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new RightHarmonicPotential(first_parameter, end, kBT_) );
+			tmp_ptr = std::unique_ptr<Potential>( new RightHarmonicPotential(potential_pack, kBT_) );
 		}
 		else if ( type == "none"  ) {
-			tmp_ptr = std::unique_ptr<Potential>( new ZeroPotential(first_parameter, end, kBT_) );
+			tmp_ptr = std::unique_ptr<Potential>( new ZeroPotential(potential_pack, kBT_) );
 		}
 		else {
 			throw std::runtime_error("unrecognized potential type \"" + type + "\"");
@@ -50,11 +49,6 @@ Bias::Bias(const std::string& input_line, const double kBT):
 		// Record the term, and the name of the order parameter it affects
 		potential_ptrs_.push_back( std::move(tmp_ptr) );
 		order_parameter_names_.push_back( op_name );
-	}
-
-	// Sanity checks
-	if ( potential_ptrs_.size() == 0 ) {
-		throw std::runtime_error("no terms added to bias");
 	}
 }
 
@@ -80,17 +74,13 @@ double Bias::evaluate(const std::vector<double>& x) const
 
 // Harmonic potential
 Bias::HarmonicPotential::HarmonicPotential(
-		const StringIt& first_parameter, const StringIt& end, const double kBT):
+		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
-	int num_tokens = std::distance(first_parameter, end);
-	if ( num_tokens != 2 ) {
-		throw std::runtime_error("invalid harmonic potential");
-	}
-
-	auto it = first_parameter;
-	x_star_ = std::stod( *it );        ++it;
-	kappa_  = beta_*std::stod( *it );  ++it;
+	using KeyType = ParameterPack::KeyType;
+	input_pack.readNumber("x_star", KeyType::Required, x_star_);
+	input_pack.readNumber("kappa",  KeyType::Required, kappa_);
+	kappa_ *= beta_;
 }
 
 double Bias::HarmonicPotential::evaluate(const double x) const 
@@ -102,18 +92,14 @@ double Bias::HarmonicPotential::evaluate(const double x) const
 
 // Linear potential
 Bias::LinearPotential::LinearPotential(
-		const StringIt& first_parameter, const StringIt& end, const double kBT):
+		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
-	int num_tokens = std::distance(first_parameter, end);
-	if ( num_tokens != 2 ) {
-		throw std::runtime_error("invalid linear potential");
-	}
-
-	// Convert to kBT
-	auto it = first_parameter;
-	phi_ = beta_*std::stod( *it );  ++it;
-	c_   = beta_*std::stod( *it );  ++it;
+	using KeyType = ParameterPack::KeyType;
+	input_pack.readNumber("phi", KeyType::Required, phi_);
+	input_pack.readNumber("c",   KeyType::Required, c_);
+	phi_ *= beta_;
+	c_   *= beta_;
 }
 double Bias::LinearPotential::evaluate(const double x) const 
 {
@@ -123,17 +109,13 @@ double Bias::LinearPotential::evaluate(const double x) const
 
 // Left one-sided harmonic potential
 Bias::LeftHarmonicPotential::LeftHarmonicPotential(
-		const StringIt& first_parameter, const StringIt& end, const double kBT):
+		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
-	int num_tokens = std::distance(first_parameter, end);
-	if ( num_tokens != 2 ) {
-		throw std::runtime_error("invalid left one-sided harmonic potential");
-	}
-
-	auto it = first_parameter;
-	x_left_ = std::stod( *it );        ++it;
-	k_left_ = beta_*std::stod( *it );  ++it;  // convert to kBT
+	using KeyType = ParameterPack::KeyType;
+	input_pack.readNumber("x_left", KeyType::Required, x_left_);
+	input_pack.readNumber("k_left", KeyType::Required, k_left_);
+	k_left_ *= beta_;  // convert to kBT
 }
 double Bias::LeftHarmonicPotential::evaluate(const double x) const
 {
@@ -148,18 +130,13 @@ double Bias::LeftHarmonicPotential::evaluate(const double x) const
 
 
 // Right one-sided harmonic potential
-Bias::RightHarmonicPotential::RightHarmonicPotential(
-		const StringIt& first_parameter, const StringIt& end, const double kBT):
+Bias::RightHarmonicPotential::RightHarmonicPotential(const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
-	int num_tokens = std::distance(first_parameter, end);
-	if ( num_tokens != 2 ) {
-		throw std::runtime_error("invalid right one-sided harmonic potential");
-	}
-
-	auto it = first_parameter;
-	x_right_ = std::stod( *it );        ++it;
-	k_right_ = beta_*std::stod( *it );  ++it;  // convert to kBT
+	using KeyType = ParameterPack::KeyType;
+	input_pack.readNumber("x_right", KeyType::Required, x_right_);
+	input_pack.readNumber("k_right", KeyType::Required, k_right_);
+	k_right_ *= beta_;  // convert to kBT
 }
 double Bias::RightHarmonicPotential::evaluate(const double x) const
 {
@@ -174,15 +151,9 @@ double Bias::RightHarmonicPotential::evaluate(const double x) const
 
 
 // Dummy potential
-Bias::ZeroPotential::ZeroPotential(
-		const StringIt& first_parameter, const StringIt& end, const double kBT):
+Bias::ZeroPotential::ZeroPotential(const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
-{
-	int num_tokens = std::distance(first_parameter, end);
-	if ( num_tokens != 0 ) {
-		throw std::runtime_error("invalid dummy ('none') potential");
-	}
-}
+{}
 double Bias::ZeroPotential::evaluate(const double x) const 
 {
 	return 0.0;

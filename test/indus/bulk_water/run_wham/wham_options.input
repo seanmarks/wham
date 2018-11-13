@@ -11,7 +11,7 @@ BiasingParametersFile = biasing_parameters.log
 
 # x = Ntilde_v
 OrderParameter = {
-	Name       = x
+	Name       = Ntilde
 	# Location of files list, and which column contans the file locations
 	FilesList  = [ time_series_files_list.input  2 ]
 	# Expected format: t(ps), N_v, Ntilde_v
@@ -27,7 +27,7 @@ OrderParameter = {
 
 # y = N_v
 OrderParameter = {
-	Name       = y
+	Name       = N
 	# Location of files list, and which column contans the file locations
 	FilesList  = [ time_series_files_list.input  2 ]
 	# Expected format: t(ps), N_v, Ntilde_v
@@ -47,7 +47,7 @@ Output = {
 
 	# Print F_WHAM(...) and associated output files for each 
 	# combination of order parameters
-	F_WHAM = [ x ]
-	F_WHAM = [ y ]
-	F_WHAM = [ x  y ]
+	F_WHAM = [ Ntilde ]
+	F_WHAM = [ N ]
+	F_WHAM = [ Ntilde  N ]
 }

@@ -16,9 +16,9 @@ StringTools::~StringTools() { }
 
 
 // Converts a string containing "yes/no", "true/false", etc. to the appropriate bool
-bool StringTools::stringToBool(const std::string& str) const
+bool StringTools::stringToBool(const std::string& str)
 {
-	std::string lowercase_str = this->toLowercase(str);
+	std::string lowercase_str = StringTools::toLowercase(str);
 
 	if ( lowercase_str == "yes" || lowercase_str == "true" || 
 		   lowercase_str == "1"   || lowercase_str[0] == 'y' ) { 
@@ -36,7 +36,7 @@ bool StringTools::stringToBool(const std::string& str) const
 }
 
 // Convert a string to all lowercase
-std::string StringTools::toLowercase(const std::string& str) const
+std::string StringTools::toLowercase(const std::string& str)
 {
 	std::string lowercase_str = str;
 	std::transform(lowercase_str.begin(), lowercase_str.end(), lowercase_str.begin(), ::tolower);
@@ -44,7 +44,7 @@ std::string StringTools::toLowercase(const std::string& str) const
 }
 
 
-std::string StringTools::getFileExtension(const std::string& file) const
+std::string StringTools::getFileExtension(const std::string& file)
 {
 	size_t last_period = file.find_last_of(".");
 	if ( last_period != std::string::npos ) {
@@ -56,7 +56,7 @@ std::string StringTools::getFileExtension(const std::string& file) const
 }
 
 
-void StringTools::split(const std::string& str, std::vector<std::string>& tokens) const
+void StringTools::split(const std::string& str, std::vector<std::string>& tokens)
 {
 	tokens.clear();
 	std::stringstream ss(str);
@@ -70,7 +70,7 @@ void StringTools::split(const std::string& str, std::vector<std::string>& tokens
 void StringTools::removeTrailingCommentFromLine(
 	const std::string& str, const std::string& comment_chars,
 	std::string& trimmed_str, std::string& comment
-) const
+)
 {
 	size_t pos_comment = str.find_first_of(comment_chars);
 
@@ -94,7 +94,7 @@ void StringTools::removeTrailingCommentFromLine(
 
 std::string StringTools::readAndUnwrapInputBlock(
 	std::istream& input_stream, const std::string& comment_chars,
-	const std::string& opening_token, const std::string& closing_token) const
+	const std::string& opening_token, const std::string& closing_token)
 {
 	std::string unwrapped_block;
 
@@ -146,9 +146,9 @@ std::string StringTools::readAndUnwrapInputBlock(
 }
 
 
-// Template specialization for std::string: direct copy is possible
+// Template specialization for std::string - direct copy is possible
 template<>
-void StringTools::stringToValue<std::string>(const std::string& str, std::string& value) const {
+void StringTools::stringToValue<std::string>(const std::string& str, std::string& value) {
 	value = str;
 }
 
