@@ -125,12 +125,12 @@ Wham::Wham(const std::string& options_file):
 	//----- Biasing Potentials -----//
 
 	// Read the biasing parameters file 
-	input_parameter_pack_.readString("BiasingParametersFile", KeyType::Required, 
-	                                 biasing_parameters_file_);
+	input_parameter_pack_.readString("BiasesLogFile", KeyType::Required, 
+	                                 biases_log_file_);
 
 	// Find the bias input packs
 	ParameterPack bias_file_pack;
-	input_parser.parseFile(biasing_parameters_file_, bias_file_pack);
+	input_parser.parseFile(biases_log_file_, bias_file_pack);
 	std::vector<const ParameterPack*> bias_input_pack_ptrs = 
 			bias_file_pack.findParameterPacks("Bias", KeyType::Required);
 	int num_biases = bias_input_pack_ptrs.size();

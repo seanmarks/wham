@@ -132,7 +132,7 @@ class Wham
 	int col_t_min_, col_t_max_;  // columns with production phase bounds
 	int col_T_;                  // column with temperature
 
-	std::string biasing_parameters_file_;
+	std::string biases_log_file_;
 
 	std::vector<Wham::Simulation> simulations_;
 	Wham::WhamOptions wham_options_;
