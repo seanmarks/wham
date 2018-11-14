@@ -43,11 +43,9 @@ OrderParameter = {
 
 # Output options
 Output = {
-	PrintAll = yes
-
 	# Print F_WHAM(...) and associated output files for each 
-	# combination of order parameters
-	#F_WHAM = [ Ntilde ]
-	#F_WHAM = [ N ]
-	#F_WHAM = [ Ntilde  N ]
+	# combination of order parameters indicated
+	F_WHAM = [ Ntilde ]
+	F_WHAM = [ N ]
+	F_WHAM = [ Ntilde  N ]
 }

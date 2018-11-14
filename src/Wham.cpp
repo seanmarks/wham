@@ -76,13 +76,13 @@ Wham::Wham(const std::string& options_file):
 	if ( output_pack_ptr != nullptr ) {
 
 		output_pack_ptr->readFlag("PrintAll", KeyType::Optional, print_everything);
+		std::vector<const std::vector<std::string>*> vecs = 
+				output_pack_ptr->findVectors("F_WHAM", KeyType::Optional);
 
-		if ( not print_everything ) {
+		if ( (not print_everything) or (vecs.size() > 0) ) {
 			output_f_x_.clear();
 			output_f_x_y_.clear();
 
-			std::vector<const std::vector<std::string>*> vecs = 
-					output_pack_ptr->findVectors("F_WHAM", KeyType::Optional);
 			int num_outputs = vecs.size();
 			for ( int i=0; i<num_outputs; ++i ) {
 				const std::vector<std::string>& vec = *(vecs[i]);  // convenient alias for this vector
