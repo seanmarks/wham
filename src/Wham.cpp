@@ -58,56 +58,66 @@ Wham::Wham(const std::string& options_file):
 	// Check time series
 	OrderParameter::checkForConsistency( order_parameters_ );
 
-	// Register output distributions requested by the input
-	// TODO move to function, generalize to n-dimensional outputs, and (ideally)
-	// make this cleaner
-	bool print_everything = true;
-	input_parameter_pack_.readFlag("PrintAll", KeyType::Optional, print_everything);
-	if ( print_everything ) {
-		// Print all permutations of F(x) and F(x,y)
-		for ( int i=0; i<num_ops; ++i ) {
-			output_f_x_.push_back( i );
-			for ( int j=i+1; j<num_ops; ++j ) {
-				output_f_x_y_.push_back( {{i, j}} );
-			}
+	// Default: Print all permutations of F(x) and F(x,y)
+	for ( int i=0; i<num_ops; ++i ) {
+		output_f_x_.push_back( i );
+		for ( int j=i+1; j<num_ops; ++j ) {
+			output_f_x_y_.push_back( {{i, j}} );
 		}
 	}
-	else {
-		std::vector<const std::vector<std::string>*> vecs = 
-				input_parameter_pack_.findVectors("F_WHAM", KeyType::Optional);
-		int num_outputs = vecs.size();
-		for ( int i=0; i<num_outputs; ++i ) {
-			const std::vector<std::string>& vec = *(vecs[i]);  // convenient alias for this vector
-			int num_ops_for_output = vec.size();
 
-			// Map names to indices
-			std::vector<int> op_indices;
-			for ( int j=0; j<num_ops_for_output; ++j ) {
-				auto pair_it = map_op_names_to_indices_.find( vec[j] );
-				if ( pair_it != map_op_names_to_indices_.end() ) {
-					op_indices.push_back( pair_it->second );
+	// Check whether the user requested only certain distributions
+	// TODO move to function, generalize to n-dimensional outputs, and (ideally)
+	//      make this cleaner overall
+	const ParameterPack* output_pack_ptr = 
+			input_parameter_pack_.findParameterPack("Output", KeyType::Optional);	
+	
+	bool print_everything = true;
+	if ( output_pack_ptr != nullptr ) {
+
+		output_pack_ptr->readFlag("PrintAll", KeyType::Optional, print_everything);
+
+		if ( not print_everything ) {
+			output_f_x_.clear();
+			output_f_x_y_.clear();
+
+			std::vector<const std::vector<std::string>*> vecs = 
+					output_pack_ptr->findVectors("F_WHAM", KeyType::Optional);
+			int num_outputs = vecs.size();
+			for ( int i=0; i<num_outputs; ++i ) {
+				const std::vector<std::string>& vec = *(vecs[i]);  // convenient alias for this vector
+				int num_ops_for_output = vec.size();
+
+				// Map names to indices
+				std::vector<int> op_indices;
+				for ( int j=0; j<num_ops_for_output; ++j ) {
+					auto pair_it = map_op_names_to_indices_.find( vec[j] );
+					if ( pair_it != map_op_names_to_indices_.end() ) {
+						op_indices.push_back( pair_it->second );
+					}
+					else {
+						throw std::runtime_error( "Error setting up F_WHAM outputs: order parameter \'" + 
+																			vec[j] + "\' is not registered" );
+					}
+				}
+
+				// Store indices
+				if ( num_ops_for_output == 0 ) {
+					throw std::runtime_error("F_WHAM with no order parameters is undefined");
+				}
+				else if ( num_ops_for_output == 1 ) {
+					output_f_x_.push_back( op_indices[0] );
+				}
+				else if ( num_ops_for_output == 2 ) {
+					output_f_x_y_.push_back( {{ op_indices[0], op_indices[1] }} );
 				}
 				else {
-					throw std::runtime_error( "Error setting up F_WHAM outputs: order parameter \'" + 
-																		vec[j] + "\' is not registered" );
+					throw std::runtime_error("F_WHAM calcualtions only support up to 2 order parameters");
 				}
-			}
-
-			// Store indices
-			if ( num_ops_for_output == 0 ) {
-				throw std::runtime_error("F_WHAM with no order parameters is undefined");
-			}
-			else if ( num_ops_for_output == 1 ) {
-				output_f_x_.push_back( op_indices[0] );
-			}
-			else if ( num_ops_for_output == 2 ) {
-				output_f_x_y_.push_back( {{ op_indices[0], op_indices[1] }} );
-			}
-			else {
-				throw std::runtime_error("F_WHAM calcualtions only support up to 2 order parameters");
 			}
 		}
 	}
+
 
 #ifdef DEBUG
 	std::cout << "DEBUG: " << num_ops << " order parameters registered\n";
@@ -1031,29 +1041,19 @@ void Wham::print_f_x_y(
 	std::string file_name, sep;
 	std::ofstream ofs;
 
-	// Print x-grid
-	file_name = x.name_ + "_grid.out";
-	ofs.open(file_name);
-	sep = " ";
-	for ( int i=0; i<num_bins_x; ++i ) {
-		for ( int j=0; j<num_bins_y; ++j ) {
-			ofs << bins_x[i] << sep;
+	// Print bins
+	std::vector<const OrderParameter*> op_ptrs = {{ &x, &y }};
+	for ( unsigned i=0; i<op_ptrs.size(); ++i ) {
+		file_name = "bins_" + op_ptrs[i]->name_ + ".out";
+		ofs.open(file_name);
+		ofs << "# Bins for " << op_ptrs[i]->name_ << " for F_WHAM(" << x.name_ << "," << y.name_ << ")\n"
+				<< "# " << op_ptrs[i]->name_ << "\n";
+		int num_bins = op_ptrs[i]->bins_.get_num_bins();
+		for ( int j=0; j<num_bins; ++j ) {
+			ofs << op_ptrs[i]->bins_[j]  << "\n";
 		}
-		ofs << "\n";
+		ofs.close(); ofs.clear();
 	}
-	ofs.close(); ofs.clear();
-
-	// Print y-grid
-	file_name = y.name_ + "_grid.out";
-	ofs.open(file_name);
-	sep = " ";
-	for ( int i=0; i<num_bins_x; ++i ) {
-		for ( int j=0; j<num_bins_y; ++j ) {
-			ofs << bins_y[j] << sep;
-		}
-		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
 
 	// Print F(x,y)
 	file_name = "F_" + x.name_ + "_" + y.name_ + "_WHAM.out";
