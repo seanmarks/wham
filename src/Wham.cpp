@@ -34,6 +34,7 @@ Wham::Wham(const std::string& options_file):
 		production_phases[i] = {{ simulations_[i].t_min, simulations_[i].t_max }};
 	}
 
+
 	//----- Order Parameters -----//
 
 	// Register order parameters
@@ -57,6 +58,77 @@ Wham::Wham(const std::string& options_file):
 
 	// Check time series
 	OrderParameter::checkForConsistency( order_parameters_ );
+
+	// Use the time series of the first OP registered to count the number of samples
+	// per simulation (and the total)
+	num_samples_per_simulation_.resize(num_simulations);
+	num_samples_total_ = 0;
+	const std::vector<TimeSeries>& sample_time_series = order_parameters_[0].get_time_series();
+	for ( int j=0; j<num_simulations; ++j ) {
+		num_samples_per_simulation_[j] = sample_time_series[j].size();
+		num_samples_total_             += num_samples_per_simulation_[j];
+	}
+	inv_num_samples_total_ = 1.0/static_cast<double>(num_samples_total_);
+
+	// Fraction of samples from each simulation
+	c_.resize(num_simulations);
+	log_c_.resize(num_simulations);
+	for ( int r=0; r<num_simulations; ++r ) {
+		c_[r] = static_cast<double>(num_samples_per_simulation_[r]) * inv_num_samples_total_;
+		log_c_[r] = log( c_[r] );
+	}
+
+
+	//----- Biasing Potentials -----//
+
+	// Read the biasing parameters file 
+	input_parameter_pack_.readString("BiasesLogFile", KeyType::Required, 
+	                                 biases_log_file_);
+
+	// Find the bias input packs
+	ParameterPack bias_file_pack;
+	input_parser.parseFile(biases_log_file_, bias_file_pack);
+	std::vector<const ParameterPack*> bias_input_pack_ptrs = 
+			bias_file_pack.findParameterPacks("Bias", KeyType::Required);
+	int num_biases = bias_input_pack_ptrs.size();
+	if ( num_biases != num_simulations ) {
+		std::stringstream err_ss;
+		err_ss << "Mismatch between number of biases (" << num_biases << ") and number of simulations ("
+		       << num_simulations << ")\n";
+		throw std::runtime_error( err_ss.str() );
+	}
+
+	for ( int i=0; i<num_biases; ++i ) {
+		// TODO allow bias log and data summary to report simulations in different orders,
+		// or allow one to be a subset of the others
+		// - Use data set labels to match everything
+
+		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), simulations_[i].kBT) );
+
+		if ( simulations_[i].data_set_label != biases_.back().get_data_set_label() ) {
+			throw std::runtime_error("Mismatch between data set labels in biasing parameters file and data summary file");
+		}
+	}
+
+#ifdef DEBUG
+	std::cout << "DEBUG: " << num_biases << " biases registered\n";
+	for ( int j=0; j<num_biases; ++j ) {
+		int num_potentials = biases_[j].get_order_parameter_names().size();
+
+		std::cout << "  data_set = " << biases_[j].get_data_set_label() << "\n"
+		          << "  num_potentials = " << num_potentials << "\n";
+		for ( int k=0; k<num_potentials; ++k ) {
+			std::cout << "    op = " << biases_[j].get_order_parameter_names()[k] << "\n";
+		}
+	}
+#endif /* DEBUG */
+
+	// For each sample, evaluate the resulting potential under each bias
+	// - Populates 'u_bias_as_other_'
+	evaluateBiases();
+
+
+	//----- Output Options -----//
 
 	// Default: Print all permutations of F(x) and F(x,y)
 	for ( int i=0; i<num_ops; ++i ) {
@@ -132,72 +204,8 @@ Wham::Wham(const std::string& options_file):
 #endif /* DEBUG */
 
 
-	//----- Biasing Potentials -----//
-
-	// Read the biasing parameters file 
-	input_parameter_pack_.readString("BiasesLogFile", KeyType::Required, 
-	                                 biases_log_file_);
-
-	// Find the bias input packs
-	ParameterPack bias_file_pack;
-	input_parser.parseFile(biases_log_file_, bias_file_pack);
-	std::vector<const ParameterPack*> bias_input_pack_ptrs = 
-			bias_file_pack.findParameterPacks("Bias", KeyType::Required);
-	int num_biases = bias_input_pack_ptrs.size();
-	if ( num_biases != num_simulations ) {
-		std::stringstream err_ss;
-		err_ss << "Mismatch between number of biases (" << num_biases << ") and number of simulations ("
-		       << num_simulations << ")\n";
-		throw std::runtime_error( err_ss.str() );
-	}
-
-	for ( int i=0; i<num_biases; ++i ) {
-		// TODO allow bias log and data summary to report simulations in different orders,
-		// or allow one to be a subset of the others
-		// - Use data set labels to match everything
-
-		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), simulations_[i].kBT) );
-
-		if ( simulations_[i].data_set_label != biases_.back().get_data_set_label() ) {
-			throw std::runtime_error("Mismatch between data set labels in biasing parameters file and data summary file");
-		}
-	}
-
-#ifdef DEBUG
-	std::cout << "DEBUG: " << num_biases << " biases registered\n";
-	for ( int j=0; j<num_biases; ++j ) {
-		int num_potentials = biases_[j].get_order_parameter_names().size();
-
-		std::cout << "  data_set = " << biases_[j].get_data_set_label() << "\n"
-		          << "  num_potentials = " << num_potentials << "\n";
-		for ( int k=0; k<num_potentials; ++k ) {
-			std::cout << "    op = " << biases_[j].get_order_parameter_names()[k] << "\n";
-		}
-	}
-#endif /* DEBUG */
-
-	// For each sample, evaluate the resulting potential under each bias
-	evaluateBiases();
-
-
-	//----- Precompute some constants (TODO: move to function?) -----//
-
-	// Total number of samples
-	num_samples_total_ = 0;
-	for ( int j=0; j<num_simulations; ++j ) {
-		num_samples_total_ += u_bias_as_other_[j].size();
-	}
-	inv_num_samples_total_ = 1.0/static_cast<double>( num_samples_total_ );
-
-	// Fraction of samples from each simulation
-	c_.resize(num_simulations);
-	log_c_.resize(num_simulations);
-	for ( int r=0; r<num_simulations; ++r ) {
-		c_[r] = static_cast<double>(u_bias_as_other_[r].size()) * inv_num_samples_total_;
-		log_c_[r] = log( c_[r] );
-	}
-
 	// Analyze the raw data for each OP
+	// TODO Move to OrderParameter itself
 	for ( int i=0; i<num_ops; ++i ) {
 		analyzeRawData( order_parameters_[i] );
 	}
@@ -266,24 +274,21 @@ void Wham::readDataSummary(const std::string& data_summary_file)
 
 void Wham::evaluateBiases()
 {
-	// TODO linearize
-
-	int num_simulations = simulations_.size();
-	u_bias_as_other_.resize( num_simulations );
-
 	// First, figure out which order parameters are needed for each bias
+	int num_simulations = simulations_.size();
+	int num_biases      = biases_.size();
 	std::vector<std::vector<int>> op_indices(num_simulations);
-	for ( int j=0; j<num_simulations; ++j ) {
+	for ( int r=0; r<num_biases; ++r ) {
 		// Names of order parameters needed
-		const std::vector<std::string>& op_names = biases_[j].get_order_parameter_names();
+		const std::vector<std::string>& op_names = biases_[r].get_order_parameter_names();
 		int num_ops = op_names.size();
 
 		// Search order parameter registry for matches
-		op_indices[j].resize(num_ops);
+		op_indices[r].resize(num_ops);
 		for ( int a=0; a<num_ops; ++a ) {
 			auto pair_it = map_op_names_to_indices_.find( op_names[a] );
 			if ( pair_it != map_op_names_to_indices_.end() ) {
-				op_indices[j][a] = pair_it->second;
+				op_indices[r][a] = pair_it->second;
 			}
 			else {
 				throw std::runtime_error( "Error evaluating biases: order parameter \'" + 
@@ -292,6 +297,54 @@ void Wham::evaluateBiases()
 		}
 	}
 
+	// Allocate memory
+	u_bias_as_other_.resize( num_biases );
+	for ( int r=0; r<num_biases; ++r ) {
+		u_bias_as_other_[r].resize( num_samples_total_ );
+	}
+	u_bias_as_other_0_.assign( num_samples_total_, 0.0 );
+
+	// Now, for each biasing potential, evaluate the value of the bias that *would*
+	// result if that sample were obtained from that biased simulation
+	std::vector<double> args;
+	for ( int r=0; r<num_biases; ++r ) {
+		// Number of OPs involved in this bias
+		int num_ops_for_bias = op_indices[r].size();
+		args.resize( num_ops_for_bias );
+
+		// Evaluate bias for each sample
+		int sample_index = 0;
+		for ( int j=0; j<num_simulations; ++j ) {
+			int num_samples = num_samples_per_simulation_[j];
+			for ( int i=0; i<num_samples; ++i ) {
+				// Pull together the order parameter values needed for this bias
+				for ( int s=0; s<num_ops_for_bias; ++s ) {
+					args[s] = order_parameters_[ op_indices[r][s] ].time_series_[j][i];
+				}
+
+				u_bias_as_other_[r][sample_index] = biases_[r].evaluate( args );
+				++sample_index;
+			}
+		}
+	}
+
+	// For convenience, store the ranges corresponding to each simulation's data
+	time_series_ranges_.resize(num_simulations);
+	int first, end;
+	for ( int j=0; j<num_simulations; ++j ) {
+		if ( j == 0 ) {
+			first = 0;
+		}
+		else {
+			first = time_series_ranges_[j-1].second;
+		}
+		end = first + num_samples_per_simulation_[j];
+
+		time_series_ranges_[j] = std::make_pair(first, end);
+	}
+
+	/*
+	// TODO delete
 	// Now, for each sample, evaluate the bias experienced in each of the simulations
 	std::vector<double> args;
 	for ( int j=0; j<num_simulations; ++j ) {
@@ -314,12 +367,13 @@ void Wham::evaluateBiases()
 			}
 		}
 	}
+	*/
 }
 
 
 
 // After reading input files, use to generate histograms of raw data from biased simulations
-// - TODO Move to OrderParameter?
+// - TODO Move to OrderParameter
 void Wham::analyzeRawData(OrderParameter& x)
 {
 	const Bins& bins = x.bins_;
@@ -338,10 +392,13 @@ void Wham::analyzeRawData(OrderParameter& x)
 		const TimeSeries& samples = x.time_series_[i];
 		int num_samples = samples.size();
 
-		// Assemble the biasing potential values for this simulation
+		// Assemble the biasing potential values for this simulation's data
+		// under its own bias
 		u_bias_tmp.resize(num_samples);
+		int index = time_series_ranges_[i].first;  //
 		for ( int j=0; j<num_samples; ++j ) {
-			u_bias_tmp[j] = u_bias_as_other_[i][j][i];
+			u_bias_tmp[j] = u_bias_as_other_[i][index];
+			++index;
 		}
 
 		// Unbiased results, using only data from this simulation
@@ -404,7 +461,7 @@ void Wham::run_driver()
 	//----- Output -----//
 
 	// TODO Move elsewhere?
-	// F_WHAM(x)
+	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 		if ( be_verbose ) {
@@ -414,9 +471,9 @@ void Wham::run_driver()
 		// "Raw" distributions (i.e. using only data from each individual simulation)
 		printRawDistributions(x);
 
-		// Compute F_WHAM(x)
+		// F_WHAM(x)
 		compute_consensus_f_x( 
-			x.time_series_, u_bias_as_other_, f_opt, unbiased_ensemble_index_, x.bins_,
+			x.time_series_, u_bias_as_other_, f_opt, u_bias_as_other_0_, f_0_, x.bins_,
 			// Output
 			x.p_x_wham_, x.f_x_wham_, x.global_sample_counts_
 		);
@@ -431,7 +488,7 @@ void Wham::run_driver()
 		x.f_rebiased_.resize(num_simulations);
 		for ( int k=0; k<num_simulations; ++k ) {
 			compute_consensus_f_x( 
-				x.time_series_, u_bias_as_other_, f_opt, k, x.bins_,
+				x.time_series_, u_bias_as_other_, f_opt, u_bias_as_other_[k], f_opt[k], x.bins_,
 				// Output
 			  x.p_rebiased_[k], x.f_rebiased_[k], sample_counts_tmp 
 			);
@@ -459,9 +516,9 @@ void Wham::run_driver()
 		printWhamResults(x);
 	}
 
-
-	// F_WHAM(x,y)
+	// 2-variable outputs
 	for ( unsigned i=0; i<output_f_x_y_.size(); ++i ) {
+		// F_WHAM(x,y)
 		OrderParameter& x = order_parameters_[ output_f_x_y_[i][0] ];
 		OrderParameter& y = order_parameters_[ output_f_x_y_[i][1] ];
 		if ( be_verbose ) {
@@ -474,7 +531,7 @@ void Wham::run_driver()
 		std::vector<std::vector<int>> sample_counts_x_y;
 
 		compute_consensus_f_x_y( 
-			x.time_series_, y.time_series_, u_bias_as_other_, f_opt, unbiased_ensemble_index_, 
+			x.time_series_, y.time_series_, u_bias_as_other_, f_opt, u_bias_as_other_0_, f_0_,
 			x.bins_, y.bins_,
 			// Output
 			p_x_y_wham, f_x_y_wham, sample_counts_x_y
@@ -482,21 +539,6 @@ void Wham::run_driver()
 
 		// Print results
 		print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
-
-
-		// FIXME DEBUG
-		int num_samples_x = std::accumulate( x.global_sample_counts_.begin(), x.global_sample_counts_.end(), 0);
-		int num_samples_y = std::accumulate( y.global_sample_counts_.begin(), y.global_sample_counts_.end(), 0);
-
-		int num_samples_x_y = 0;
-		for ( unsigned i=0; i<sample_counts_x_y.size(); ++i ) {
-			num_samples_x_y += std::accumulate( sample_counts_x_y[i].begin(), sample_counts_x_y[i].end(), 0 );
-		}
-
-		std::cout << "  num_samples_x = " << num_samples_x << "\n"
-		          << "  num_samples_y = " << num_samples_y << "\n"
-		          << "  num_samples_x_y = " << num_samples_x_y << "\n";
-		// END FIXME DEBUG
 	}
 }
 
@@ -575,17 +617,24 @@ double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 	// Compute log(sigma)
 	// - These values are used here, and are stored for use when computing
 	//   the derivatives later
-	compute_log_sigma( f, u_bias_as_other_, unbiased_ensemble_index_, log_sigma_0_ );
+	//   - TODO: Move buffer check elsewhere?
+	compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_0_, f_0_,
+	                   log_sigma_0_ );
 	f_bias_last_ = f;
 
 	// Compute the objective function's value
 	double val = 0.0;
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		val += log_sigma_0_[n];
+	}
+	/*
 	for ( int j=0; j<num_simulations; ++j ) {
 		int num_samples = log_sigma_0_[j].size();
 		for ( int i=0; i<num_samples; ++i ) {
 			val += log_sigma_0_[j][i];
 		}
 	}
+	*/
 	val *= inv_num_samples_total_;
 	for ( int r=0; r<num_simulations; ++r ) {
 		val -= c_[r]*f[r];
@@ -600,34 +649,26 @@ double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 
 
 void Wham::compute_log_sigma(
-		const std::vector<double>& f,
-		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
-		const int k,
-		std::vector<std::vector<double>>& log_sigma ) const
+	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& f,
+	const std::vector<double>& u_bias_as_other_k, const double f_k,
+	std::vector<double>& log_sigma
+) const
 {
-	int num_simulations = u_bias_as_other.size();
-	log_sigma.resize(num_simulations);
+	// Working variables
+	int num_biases = biases_.size(); 
+	std::vector<double> args(num_biases), facs(num_biases);
+	for ( int r=0; r<num_biases; ++r ) {
+		facs[r] = log_c_[r] - (f_k - f[r]);
+	}
 
-	// Working variable
-	std::vector<double> args(num_simulations);
-
-	// TODO linearize
-	for ( int j=0; j<num_simulations; ++j ) {
-		int num_samples = u_bias_as_other[j].size();
-		log_sigma[j].resize(num_samples);
-
-		for ( int i=0; i<num_samples; ++i ) {
-			// Compute log(sigma_{j,i}) for this sample
-			for ( int r=0; r<num_simulations; ++r ) {
-				args[r] = log_c_[r] - u_bias_as_other[j][i][r] + f[r];
-
-				if ( k >= 0 ) {
-					// Reweighting to a different ensemble
-					args[r] += u_bias_as_other[j][i][k] - f[k];
-				}
-			}
-			log_sigma[j][i] = log_sum_exp( args );
+	// Compute log(sigma_k(x_{j,i})) for each sample
+	int num_samples_total = u_bias_as_other_k.size();  // TODO check vs. each 'u_bias_as_other[r]'?
+	log_sigma.resize(num_samples_total);
+	for ( int n=0; n<num_samples_total; ++n ) {
+		for ( int r=0; r<num_biases; ++r ) {
+			args[r] = facs[r] + (u_bias_as_other_k[n] - u_bias_as_other[r][n]);
 		}
+		log_sigma[n] = log_sum_exp( args );
 	}
 }
 
@@ -644,28 +685,34 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	convert_df_to_f(df, f);
 
 	// Recompute log(sigma) as necessary
-	if ( f != f_bias_last_ ) {
-		compute_log_sigma( f, u_bias_as_other_, unbiased_ensemble_index_, log_sigma_0_ );
+	// TODO: move buffer check to 'compute_log_sigma' instead?
+	if ( f != f_bias_last_ ) {  
+		compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_0_, f_0_,
+		                   log_sigma_0_ );
 		f_bias_last_ = f;
 	}
 
 	// First, compute derivatives of the objective fxn (A) wrt. the biasing free
 	// energies themselves (f)
-	// TODO: expensive nested loops; better way? perhaps linearize
 	Wham::ColumnVector dA_df(num_simulations);
 	dA_df(0) = 0.0;
 	args_buffer_.resize(num_samples_total_); 
 	double log_sum_exp_args;
 	for ( int k=1; k<num_simulations; ++k ) {
+		double fac = log_c_[k] + f[k];
+		for ( int n=0; n<num_samples_total_; ++n ) {
+			args_buffer_[n] = fac - u_bias_as_other_[k][n] - log_sigma_0_[n];
+		}
+		/*
+		// TODO delete
 		// Big log_sum_exp (TODO: better way?)
-		int index = 0;  // linear index
 		for ( int j=0; j<num_simulations; ++j ) {
 			int num_samples = log_sigma_0_[j].size();
 			for ( int i=0; i<num_samples; ++i ) {
 				args_buffer_[index] = log_c_[k] - u_bias_as_other_[j][i][k] + f[k] - log_sigma_0_[j][i];
-				++index;
 			}
 		}
+		*/
 		log_sum_exp_args = log_sum_exp(args_buffer_);
 
 		dA_df(k) = inv_num_samples_total_*exp(log_sum_exp_args) - c_[k];
@@ -773,17 +820,19 @@ void Wham::manually_unbias_f_x(
 }
 
 
+// TODO Pass as OrderParameter 'x' instead? Then 'bins_x' is accessed from 'x'
 void Wham::compute_consensus_f_x(
 	const std::vector<TimeSeries>& x, 
-	const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
-	const std::vector<double>& f_opt, const int k, const Bins& bins_x,
+	const std::vector<std::vector<double>>& u_bias_as_other,	const std::vector<double>& f_opt,
+	const std::vector<double>& u_bias_as_other_k, const double f_k,
+	const Bins& bins_x,
 	// Output
 	std::vector<double>& p_x_wham, std::vector<double>& f_x_wham, 
 	std::vector<int>& sample_counts
 ) const
 {
 	// Compute log(sigma_k) using the buffer, since the array can be quite large
-	compute_log_sigma(f_opt, u_bias_as_other, k, log_sigma_k_);
+	compute_log_sigma(u_bias_as_other, f_opt, u_bias_as_other_k, f_k, log_sigma_k_);
 
 	// Reserve some memory for binning samples
 	int num_bins_x = bins_x.get_num_bins();
@@ -794,14 +843,18 @@ void Wham::compute_consensus_f_x(
 	}
 
 	// Sort log(sigma_k)-values by bin
-	int bin, num_simulations = f_opt.size();
+	int bin, sample_index, num_simulations = simulations_.size();
 	double bin_size_x = bins_x.get_bin_size();
 	for ( int j=0; j<num_simulations; ++j ) {
 		int num_samples = x[j].size();
 		for ( int i=0; i<num_samples; ++i ) {
 			bin = bins_x.find_bin( x[j][i] );
 			if ( bin >= 0 ) {
-				minus_log_sigma_k_binned_[bin].push_back( -log_sigma_k_[j][i] );
+				// FIXME this won't work when called in compute_consensus_f_x_y, since the data
+				// set is conditioned on x = x_a (and is therefore different than the global data set!)
+				sample_index = time_series_ranges_[j].first + i;  
+
+				minus_log_sigma_k_binned_[bin].push_back( -log_sigma_k_[sample_index] );
 			}
 		}
 	}
@@ -826,10 +879,12 @@ void Wham::compute_consensus_f_x(
 }
 
 
+// TODO Pass 'x' and 'y' as OrderParameters instead (?)
 void Wham::compute_consensus_f_x_y(
 	const std::vector<TimeSeries>& x, const std::vector<TimeSeries>& y,
-	const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
-	const std::vector<double>& f_opt, const int k, const Bins& bins_x, const Bins& bins_y,
+	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& f_opt,
+	const std::vector<double>& u_bias_as_other_k, const double f_k,
+	const Bins& bins_x, const Bins& bins_y,
 	// Consensus distributions for F_k(x,y)
 	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
 	std::vector<std::vector<int>>& sample_counts_x_y
@@ -850,55 +905,91 @@ void Wham::compute_consensus_f_x_y(
 		// Second dimension
 		p_x_y_wham[a].resize( num_bins_y );
 		f_x_y_wham[a].resize( num_bins_y );
-		sample_counts_x_y[a].assign( num_bins_y, 0 );
+		sample_counts_x_y[a].resize( num_bins_y );
 	}
 
-	// Normalization factors
-	double bin_size_x     = bins_x.get_bin_size();
-	double log_bin_size_x = log(bin_size_x);
+	// TODO check vs. 'u_bias_as_other[r]'?
+	int num_samples_total = u_bias_as_other_k.size();
 
-	// Compute F_k(x = x_a, y) for each bin x_a
-	int num_simulations = f_opt.size();
-	std::vector<std::vector<double>> y_given_x_a(num_simulations);
-	std::vector<std::vector<std::vector<double>>> u_bias_as_other_given_x_a(num_simulations);
-	for ( int a=0; a<num_bins_x; ++a ) {
-		// Reset working arrays
-		for ( int j=0; j<num_simulations; ++j ) {
-			y_given_x_a[j].resize(0);
-			u_bias_as_other_given_x_a[j].resize(0);
+	// Find each sample's (linearly indexed) bin
+	sample_bins_.resize(num_samples_total);
+	int sample_index = 0, bin_x, bin_y;
+	int num_simulations = simulations_.size();
+	for ( int j=0; j<num_simulations; ++j ) {
+		int num_samples = x[j].size();
+		for ( int i=0; i<num_samples; ++i ) {
+			bin_x = bins_x.find_bin(x[j][i]);
+			bin_y = bins_y.find_bin(y[j][i]);
+			if ( bin_x >= 0 and bin_y >= 0 ) {
+				sample_bins_[sample_index] = bin_x*num_bins_y + bin_y;
+			}
+			else {
+				sample_bins_[sample_index] = -1;
+			}
+			sample_index++;
 		}
+	}
 
-		// Gather all the y-samples that fall into this x-bin, and the corresponding
-		// values of the biasing potential in each ensemble
-		for ( int j=0; j<num_simulations; ++j ) {
-			int num_samples = x[j].size();
-			for ( int i=0; i<num_samples; ++i ) {
-				// Check whether this samples lies in x-bin 'a'
-				if ( bins_x.find_bin(x[j][i]) == a ) {
-					y_given_x_a[j].push_back( y[j][i] );
-					u_bias_as_other_given_x_a[j].push_back( u_bias_as_other[j][i] );
+	// Allocate memory for working buffers
+	int num_biases = biases_.size();
+	std::vector<std::vector<double>> u_bias_as_other_binned(num_biases);
+	std::vector<double> u_bias_as_other_k_binned;
+
+	// Normalization
+	double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
+	double normalization_factor = log( num_samples_total_ * bin_area );
+
+	// Compute F_k(x_a, y_b) for each bin (a,b)
+	int bin_index = 0;
+	for ( int a=0; a<num_bins_x; ++a ) {
+		for ( int b=0; b<num_bins_y; ++b ) {
+			// Reset buffers
+			for ( int r=0; r<num_biases; ++r ) {
+				u_bias_as_other_binned[r].resize(0);
+			}
+			u_bias_as_other_k_binned.resize(0);
+
+			// Find samples for this bin
+			for ( int n=0; n<num_samples_total; ++n ) {
+				if ( sample_bins_[n] == bin_index ) {
+					for ( int r=0; r<num_biases; ++r ) {
+						u_bias_as_other_binned[r].push_back( u_bias_as_other[r][n] );
+					}
+					u_bias_as_other_k_binned.push_back( u_bias_as_other_k[n] );
 				}
 			}
-		}
 
-		// TODO: avoid this cludgy reformatting
-		std::vector<TimeSeries> time_series_tmp;
-		for ( int j=0; j<num_simulations; ++j ) {
-			time_series_tmp.push_back( TimeSeries(y_given_x_a[j]) );
-		}
+			// Compute weights
+			compute_log_sigma( u_bias_as_other_binned, f_opt, u_bias_as_other_k_binned, f_k,
+			                   log_sigma_k_ );
 
-		// Compute consensus distribution for this slice (note: here, 'x' is actually y)
-		compute_consensus_f_x( time_series_tmp, u_bias_as_other_given_x_a, f_opt, k, bins_y,
-		                       p_x_y_wham[a], f_x_y_wham[a], sample_counts_x_y[a] );
-		for ( int b=0; b<num_bins_y; ++b ) {
-			// Include normalization for x (the above function only normalizes for bin_size_y)
-			p_x_y_wham[a][b] /= bin_size_x;
-			f_x_y_wham[a][b] += log_bin_size_x;
+			// Compute free energy and probability
+			int num_samples_in_bin = log_sigma_k_.size();
+			if ( num_samples_in_bin > 0 ) {
+				// Perform the required log-sum-exp
+				minus_log_sigma_k_.resize(num_samples_in_bin);
+				for ( int s=0; s<num_samples_in_bin; ++s ) {
+					minus_log_sigma_k_[s] = -log_sigma_k_[s];
+				}
+				double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_ );
+
+				f_x_y_wham[a][b] = normalization_factor - log_sum_exp_bin;
+				p_x_y_wham[a][b] = exp( -f_x_y_wham[a][b] );
+			}
+			else {
+				f_x_y_wham[a][b] = 0.0;
+				p_x_y_wham[a][b] = 0.0;
+			}
+			sample_counts_x_y[a][b] = num_samples_in_bin;
+
+			// Go to next bin
+			bin_index++;
 		}
 	}
 }
 
 
+// TODO Move to OrderParameter
 void Wham::printRawDistributions(const OrderParameter& x) const
 {
 	int num_simulations = static_cast<int>( simulations_.size() );

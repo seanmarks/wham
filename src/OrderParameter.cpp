@@ -19,10 +19,22 @@ OrderParameter::OrderParameter(
 		// User also provided the column in the file which has the 
 		// time series file locations
 		file_col_ = std::stoi( tokens[1] );
+		if ( file_col_ < 1 ) {
+			std::stringstream err_ss;
+			err_ss << "Error setting up order parameter " << name_ << "\n"
+			       << "  Column number for data must be a positive integer\n";
+			throw std::runtime_error( err_ss.str() );
+		}
 		--file_col_;  // input is indexed from 1
 	}
 
 	input_pack.readNumber("DataColumn", KeyType::Required, data_col_);
+	if ( data_col_ < 1 ) {
+		std::stringstream err_ss;
+		err_ss << "Error setting up order parameter " << name_ << "\n"
+		       << "  DataColumn must be a positive integer\n";
+		throw std::runtime_error( err_ss.str() );
+	}
 	--data_col_;  // input is indexed from 1
 
 	// Histogram settings
@@ -54,13 +66,17 @@ OrderParameter::OrderParameter(
 #endif /* DEBUG */
 
 
-	// Read time series data for the production phase
 	time_series_.clear();
+	biased_distributions_.clear();
 	for ( int i=0; i<num_simulations; ++i ) {
+		// Read time series data for the production phase
 		time_series_.push_back( 
 			TimeSeries( data_files[i], data_col_, production_phases[i][0], production_phases[i][1], 
 			            use_floored_times )
 		);
+
+		// Make raw biased distributions
+		biased_distributions_.emplace_back( Distribution(bins_, time_series_.back()) );
 	}
 }
 

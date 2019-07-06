@@ -22,6 +22,7 @@
 
 // Project headers
 #include "Bins.h"
+#include "Distribution.h"
 #include "FileSystem.h"
 #include "InputParser.h"
 #include "TimeSeries.h"
@@ -57,6 +58,14 @@ class OrderParameter
 
 	Bins bins_;
 
+	// FIXME new setup
+	std::vector<Distribution> biased_distributions_;
+	std::vector<Distribution> unbiased_distributions_;
+	std::vector<Distribution> rebiased_distributions_;
+	Distribution wham_distribution_;
+
+	// TODO: Organize into a new data strucure (e.g. "Distribution") that has 
+	// p, f, and sample counts (and errors?!)
 	// - Size: [ num_simulations x num_bins ]
 	std::vector<std::vector<double>> p_biased_,   f_biased_;    // F_biased(x)
 	std::vector<std::vector<double>> p_unbiased_, f_unbiased_;  // using only data from 1 time series

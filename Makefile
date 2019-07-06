@@ -127,7 +127,11 @@ clean_install :
 .PHONY: test
 test:
 	@{ \
-	cd test ;\
-	./run_tests.sh $(START_DIR)/$(BUILD_BIN_DIR)/$(PROJECT) $(echo_failed_diffs) ;\
+	cd test/indus/bulk_water/run_wham ;\
+	echo "Running test ..." ;\
+	./run_WHAM.sh ;\
+	echo "Checking output ..." ;\
+	./check.sh ;\
+	echo "Done" ;\
 	}
 

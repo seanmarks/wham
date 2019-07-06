@@ -158,14 +158,9 @@ class Wham
 	//----- Precompute/save useful quantities for speed -----//
 
 	// TODO linearize
-	/*
-	std::vector<int> num_samples_;         // number of samples from each simulation
-	std::vector<int> simulation_offsets_;  // beginning of each sim's data in time series arrays
-	*/
-
-	// Total number of samples (across all simulations)
-	int num_samples_total_;
-	double inv_num_samples_total_;
+	std::vector<int> num_samples_per_simulation_;   // number of samples from each simulation
+	int num_samples_total_;  // Total number of samples (across all simulations)
+	double inv_num_samples_total_;  // precompute for speed
 
 	// c[r] = fraction of samples from simulation 'r'
 	//      = (num. samples from simulation r)/(num. total)
@@ -178,8 +173,17 @@ class Wham
 	//      i = 1, ..., n_j  (n_j = # samples from simulation j)
 	//      r = 1, ..., m    (m = number of biasing potentials)
 	// TODO linearize for speed
-	std::vector<std::vector<std::vector<double>>> u_bias_as_other_;
 
+	// Organization:
+	// - For each bias 'r'
+	//     u_bias_as_other[r] = [(data_sim_0), (data_sim_1), ... , (data_sim_m)]
+	std::vector<std::pair<int,int>>  time_series_ranges_;  // indices (first, end)
+	std::vector<std::vector<double>> u_bias_as_other_;
+	//std::vector<std::vector<std::vector<double>>> u_bias_as_other_;
+
+	// u_bias_as_other_0
+	std::vector<double> u_bias_as_other_0_;
+	double f_0_ = 0.0;
 
 	//----- Working Variables -----//
 
@@ -191,15 +195,14 @@ class Wham
 	// - Computed as a log-sum-exp
 	// - Formula:
 	//     sigma_0(x_{j,i}) = sum_{r=1}^m exp{ log(c_r) + f_r - u_{bias,r}(x_{j,i}) }
-	// TODO linearize for speed
 	mutable std::vector<double> f_bias_last_;
-	mutable std::vector<std::vector<double>> log_sigma_0_;
+	mutable std::vector<double> log_sigma_0_;
 
 	// Buffers
-	mutable std::vector<double> args_buffer_;
-	mutable std::vector<std::vector<double>> log_sigma_k_; 
+	mutable std::vector<double> args_buffer_;               // for log_sum_exp
+	mutable std::vector<double> log_sigma_k_, minus_log_sigma_k_;
 	mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
-
+	mutable std::vector<int> sample_bins_;
 
 	//----- Output -----//
 
@@ -233,10 +236,12 @@ class Wham
 	//   - k < 0 --> compute for unbiased ensemble
 	// - f_k: free energy of turning on kth bias
 	void compute_log_sigma(
-		const std::vector<double>& f,
-		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
-		const int k,
-		std::vector<std::vector<double>>& log_sigma
+		const std::vector<std::vector<double>>& u_bias_as_other,
+		const std::vector<double>&              f,
+		const std::vector<double>&              u_bias_as_other_k,
+		const double                            f_k,
+		// Output
+		std::vector<double>& log_sigma
 	) const;
 
 	// Returns the logarithm of a sum of exponentials
@@ -253,7 +258,7 @@ class Wham
 	void manually_unbias_f_x(
 		const TimeSeries& x,   // samples from a single simulation
 		const std::vector<double>& u_bias,  // bias corresponding to x-samples
-		const double f,                     // free energy of biasing (usually a guess)
+		const double               f,       // free energy of biasing (usually a guess)
 		const Bins& bins_x,
 		// Output
 		std::vector<double>& p_x, 
@@ -265,9 +270,10 @@ class Wham
 	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
 	void compute_consensus_f_x(
 		const std::vector<TimeSeries>& x,
-		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
-		const std::vector<double>& f_opt,  // consensus free energies to use
-		const int k,                       // index of simulation ensemble (-1 --> unbiased)
+		const std::vector<std::vector<double>>& u_bias_as_other,
+		const std::vector<double>&              f_opt,  // consensus free energies to use
+		const std::vector<double>&              u_bias_as_other_k,
+		const double                            f_k,
 		const Bins& bins_x,
 		// Consensus distributions for x in ensemble k
 		std::vector<double>& p_x_wham,
@@ -282,9 +288,10 @@ class Wham
 	void compute_consensus_f_x_y(
 		const std::vector<TimeSeries>& x,
 		const std::vector<TimeSeries>& y,
-		const std::vector<std::vector<std::vector<double>>>& u_bias_as_other,
-		const std::vector<double>& f_opt,  // consensus free energies to use
-		const int k,  // index of simulation ensemble (-1 --> unbiased)
+		const std::vector<std::vector<double>>& u_bias_as_other,
+		const std::vector<double>&              f_opt,  // consensus free energies to use
+		const std::vector<double>&              u_bias_as_other_k,
+		const double                            f_k,
 		const Bins& bins_x,
 		const Bins& bins_y,
 		// Consensus distributions for F_k(x,y)
