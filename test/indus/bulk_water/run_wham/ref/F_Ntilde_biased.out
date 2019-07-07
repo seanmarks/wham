@@ -1,47 +1,36 @@
 # Biased free energy distributions:  F_i(Ntilde) [k_B*T]
-# Data sets (by column)
-# 2: nstar_30.0
-# 3: nstar_25.0
-# 4: nstar_20.0
-# 5: nstar_15.0
-# 6: nstar_10.0
-# 7: nstar_5.0
-# 8: nstar_0.0
-# 9: nstar_-5.0
-#
-# Ntilde | F(Ntilde) [kBT]
-0	     inf	     inf	     inf	     inf	     inf	     inf	  7.4961	  1.6642
-1	     inf	     inf	     inf	     inf	     inf	     inf	  4.3606	 0.98584
-2	     inf	     inf	     inf	     inf	     inf	     inf	  2.7254	   1.227
-3	     inf	     inf	     inf	     inf	     inf	     inf	  1.7531	  2.2282
-4	     inf	     inf	     inf	     inf	     inf	  6.3975	  1.2915	  3.3852
-5	     inf	     inf	     inf	     inf	     inf	  4.7235	  1.4162	  5.8867
-6	     inf	     inf	     inf	     inf	     inf	  3.2766	  1.9051	     inf
-7	     inf	     inf	     inf	     inf	     inf	  2.4399	  2.7866	     inf
-8	     inf	     inf	     inf	     inf	     inf	  1.7278	  4.2772	     inf
-9	     inf	     inf	     inf	     inf	     inf	  1.3958	  5.2989	     inf
-10	     inf	     inf	     inf	     inf	  4.7235	    1.53	   6.803	     inf
-11	     inf	     inf	     inf	     inf	  3.4888	  1.9431	     inf	     inf
-12	     inf	     inf	     inf	     inf	  2.6209	  2.8517	     inf	     inf
-13	     inf	     inf	     inf	     inf	  1.8331	  4.1288	     inf	     inf
-14	     inf	     inf	     inf	     inf	  1.6268	  5.4167	     inf	     inf
-15	     inf	     inf	     inf	  5.8867	  1.5325	   6.803	     inf	     inf
-16	     inf	     inf	     inf	  4.1639	  1.7372	     inf	     inf	     inf
-17	     inf	     inf	     inf	  2.8047	  2.2757	     inf	     inf	     inf
-18	     inf	     inf	  7.4961	  1.9948	  3.6459	     inf	     inf	     inf
-19	     inf	     inf	  5.5502	   1.367	   4.788	     inf	     inf	     inf
-20	     inf	     inf	  3.7584	  1.2715	  6.3975	     inf	     inf	     inf
-21	     inf	  7.4961	  2.2812	  1.7372	  7.4961	     inf	     inf	     inf
-22	     inf	  6.3975	  1.4972	  2.7956	     inf	     inf	     inf	     inf
-23	  5.9276	  4.4051	  1.2461	  4.3606	     inf	     inf	     inf	     inf
-24	  4.4235	  2.6839	  1.4093	     inf	     inf	     inf	     inf	     inf
-25	  3.9127	  1.6731	  2.4147	     inf	     inf	     inf	     inf	     inf
-26	  3.2885	  1.2875	  3.8852	     inf	     inf	     inf	     inf	     inf
-27	  2.3581	  1.2578	  5.5502	     inf	     inf	     inf	     inf	     inf
-28	  1.8458	  2.0668	  7.4961	     inf	     inf	     inf	     inf	     inf
-29	  1.6935	  3.3064	     inf	     inf	     inf	     inf	     inf	     inf
-30	  1.6544	  5.0982	     inf	     inf	     inf	     inf	     inf	     inf
-31	  2.0616	     inf	     inf	     inf	     inf	     inf	     inf	     inf
-32	  2.3651	     inf	     inf	     inf	     inf	     inf	     inf	     inf
-33	  2.9701	     inf	     inf	     inf	     inf	     inf	     inf	     inf
-34	  3.7875	     inf	     inf	     inf	     inf	     inf	     inf	     inf
+0	     nan	     nan	     nan	     nan	     nan	     nan	  7.4961	  1.6642
+1	     nan	     nan	     nan	     nan	     nan	     nan	  4.3606	 0.98584
+2	     nan	     nan	     nan	     nan	     nan	     nan	  2.7254	   1.227
+3	     nan	     nan	     nan	     nan	     nan	     nan	  1.7531	  2.2282
+4	     nan	     nan	     nan	     nan	     nan	  6.3975	  1.2915	  3.3852
+5	     nan	     nan	     nan	     nan	     nan	  4.7235	  1.4162	  5.8867
+6	     nan	     nan	     nan	     nan	     nan	  3.2766	  1.9051	     nan
+7	     nan	     nan	     nan	     nan	     nan	  2.4399	  2.7866	     nan
+8	     nan	     nan	     nan	     nan	     nan	  1.7278	  4.2772	     nan
+9	     nan	     nan	     nan	     nan	     nan	  1.3958	  5.2989	     nan
+10	     nan	     nan	     nan	     nan	  4.7235	    1.53	   6.803	     nan
+11	     nan	     nan	     nan	     nan	  3.4888	  1.9431	     nan	     nan
+12	     nan	     nan	     nan	     nan	  2.6209	  2.8517	     nan	     nan
+13	     nan	     nan	     nan	     nan	  1.8331	  4.1288	     nan	     nan
+14	     nan	     nan	     nan	     nan	  1.6268	  5.4167	     nan	     nan
+15	     nan	     nan	     nan	  5.8867	  1.5325	   6.803	     nan	     nan
+16	     nan	     nan	     nan	  4.1639	  1.7372	     nan	     nan	     nan
+17	     nan	     nan	     nan	  2.8047	  2.2757	     nan	     nan	     nan
+18	     nan	     nan	  7.4961	  1.9948	  3.6459	     nan	     nan	     nan
+19	     nan	     nan	  5.5502	   1.367	   4.788	     nan	     nan	     nan
+20	     nan	     nan	  3.7584	  1.2715	  6.3975	     nan	     nan	     nan
+21	     nan	  7.4961	  2.2812	  1.7372	  7.4961	     nan	     nan	     nan
+22	     nan	  6.3975	  1.4972	  2.7956	     nan	     nan	     nan	     nan
+23	  5.9276	  4.4051	  1.2461	  4.3606	     nan	     nan	     nan	     nan
+24	  4.4235	  2.6839	  1.4093	     nan	     nan	     nan	     nan	     nan
+25	  3.9127	  1.6731	  2.4147	     nan	     nan	     nan	     nan	     nan
+26	  3.2885	  1.2875	  3.8852	     nan	     nan	     nan	     nan	     nan
+27	  2.3581	  1.2578	  5.5502	     nan	     nan	     nan	     nan	     nan
+28	  1.8458	  2.0668	  7.4961	     nan	     nan	     nan	     nan	     nan
+29	  1.6935	  3.3064	     nan	     nan	     nan	     nan	     nan	     nan
+30	  1.6544	  5.0982	     nan	     nan	     nan	     nan	     nan	     nan
+31	  2.0616	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+32	  2.3651	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+33	  2.9701	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+34	  3.7875	     nan	     nan	     nan	     nan	     nan	     nan	     nan

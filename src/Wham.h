@@ -51,9 +51,11 @@
 // Project headers
 #include "Bias.h"
 #include "Bins.h"
+#include "Distribution.h"
 #include "FileSystem.h"
 #include "InputParser.h"
 #include "OrderParameter.h"
+#include "Simulation.h"
 #include "WhamDlibWrappers.h"
 
 class Wham
@@ -66,18 +68,7 @@ class Wham
 		const std::string& options_file
 	);
 
-	// Struct with simulation-specific information
-	struct Simulation 
-	{
-		std::string data_set_label;
-		double x_star;  // for labeling simulations
-
-		double kBT, beta;    // k_B*T and beta = 1/(k_B*T)
-		double t_min, t_max; // Sampling range [ps]
-		double f_bias;       // Free energy of adding bias (in kBT): f_bias = -ln(Q_i/Q_0)
-		double f_bias_guess; // First estimate of biasing free energy
-	};
-
+	// TODO Move to standalone member variables?
 	struct WhamOptions
 	{
 		WhamOptions(): floor_t(true), tol(1.0e-7) {};
@@ -88,23 +79,8 @@ class Wham
 		double tol;      // tolerance for solver
 	};
 
-	// Stores wham.solve() results
-	// TODO delete?
-	struct WhamResults
-	{
-		std::vector<double> x_bins;
-		std::vector<double> p_x_wham;
-		std::vector<double> f_x_wham;
-		std::vector<double> error_f;        // standard errors
-		std::vector<int>    sample_counts;
 
-		std::vector<double> f_opt;         // consensus free energies
-		std::vector<double> info_entropy;  // entropy between f_x_biased and f_x_rebiased
-	};
-
-	//----- Driver -----//
-
-	// Manages solving the WHAM equations and printing output
+	// Driver: Manages solving the WHAM equations and printing output
 	void run_driver();
 
 
@@ -137,9 +113,11 @@ class Wham
 
 	std::string biases_log_file_;
 
-	std::vector<Wham::Simulation> simulations_;
+	std::vector<Simulation> simulations_;
 	Wham::WhamOptions wham_options_;
-	Wham::WhamResults wham_results_;
+
+	std::vector<double> f_bias_guess_;
+	std::vector<double> f_bias_opt_;
 
 	// Organizes time series data and distributions for each OP
 	std::vector<OrderParameter> order_parameters_;
@@ -177,13 +155,13 @@ class Wham
 	// Organization:
 	// - For each bias 'r'
 	//     u_bias_as_other[r] = [(data_sim_0), (data_sim_1), ... , (data_sim_m)]
-	std::vector<std::pair<int,int>>  time_series_ranges_;  // indices (first, end)
 	std::vector<std::vector<double>> u_bias_as_other_;
-	//std::vector<std::vector<std::vector<double>>> u_bias_as_other_;
+	std::vector<std::pair<int,int>>  time_series_ranges_;  // indices (first, end)
 
-	// u_bias_as_other_0
+	// u_bias_as_other for the unbiased ensemble (all zeros)
 	std::vector<double> u_bias_as_other_0_;
-	double f_0_ = 0.0;
+	double f_0_ = 0.0;  // Free energy of going to the *unbiased* ensemble is zero
+
 
 	//----- Working Variables -----//
 
@@ -203,6 +181,7 @@ class Wham
 	mutable std::vector<double> log_sigma_k_, minus_log_sigma_k_;
 	mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
 	mutable std::vector<int> sample_bins_;
+
 
 	//----- Output -----//
 
@@ -261,9 +240,7 @@ class Wham
 		const double               f,       // free energy of biasing (usually a guess)
 		const Bins& bins_x,
 		// Output
-		std::vector<double>& p_x, 
-		std::vector<double>& f_x,
-		std::vector<int>& sample_counts
+		Distribution& unbiased_distribution_x
 	) const;
 
 	// Compute the consensus distribution F_k^{WHAM}(x), where k is the index
@@ -275,10 +252,8 @@ class Wham
 		const std::vector<double>&              u_bias_as_other_k,
 		const double                            f_k,
 		const Bins& bins_x,
-		// Consensus distributions for x in ensemble k
-		std::vector<double>& p_x_wham,
-		std::vector<double>& f_x_wham,
-		std::vector<int>& sample_counts
+		// Consensus distribution for x in ensemble k
+		Distribution& wham_distribution_x
 	) const;
 
 	// Compute the consensus distribution F_k^{WHAM}(x,y), where k is the index
@@ -303,14 +278,16 @@ class Wham
 
 	//----- Output Files -----//
 
-	// TODO move to OrderParameter?
-
+	/*
+	// TODO delete
 	// Print sets of "raw" (i.e. non-consensus) histograms for each simulation 
 	// time series,including:
 	//  - Biased free energy distributions
 	//  - Unbiased free energy distributions (using only same-simulation data)
 	void printRawDistributions(const OrderParameter& x) const;
+	*/
 
+	// TODO move to OrderParameter?
 	void printWhamResults(const OrderParameter& x) const;
 
 	void print_f_x_y(
@@ -322,7 +299,9 @@ class Wham
 	) const;
 
 	// If the probability p > 0, print free energy f; else print "nan"
-	void print_free_energy(std::ofstream& ofs, const double f, const double p) const {
+	// - Use this construction to take advantage of modifiers pre-loaded
+	//   into the ofstream
+	static void print_free_energy(std::ofstream& ofs, const double f, const double p) {
 		if ( p > 0.0 ) { ofs << f; }
 		else           { ofs << "nan";  }
 	};

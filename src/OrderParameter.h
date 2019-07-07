@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -25,8 +26,8 @@
 #include "Distribution.h"
 #include "FileSystem.h"
 #include "InputParser.h"
+#include "Simulation.h"
 #include "TimeSeries.h"
-//#include "Wham.h"
 
 class OrderParameter
 {
@@ -36,7 +37,7 @@ class OrderParameter
 	using Range = std::array<double,2>;
 	OrderParameter(
 		const ParameterPack& input_pack,
-		const std::vector<Range>& production_phases,
+		const std::vector<Simulation>& simulations,
 		const bool use_floored_times  // whether to floor input time values
 	);
 
@@ -45,12 +46,31 @@ class OrderParameter
 	const std::vector<TimeSeries>& get_time_series() const { return time_series_; }
 	const Bins& get_bins() const { return bins_; }
 
+	void printRawDistributions() const;
+
+	// Prints a series of distributions, F_i(x), side-by-side
+	void printDistributions(
+		const std::vector<Distribution>& distributions,
+		const std::string& file_name, 
+		const std::string& header
+	) const;
+
+	// If the probability p > 0, print free energy f; else print "nan"
+	// - Use this construction to take advantage of modifiers pre-loaded
+	//   into the ofstream
+	static void print_free_energy(std::ofstream& ofs, const double f, const double p) {
+		if ( p > 0.0 ) { ofs << f; }
+		else           { ofs << "nan";  }
+	};
+
  private:
 	std::string name_;
 
 	// File containing the list of time series data files at column file_col_
 	std::string time_series_list_;
 	int file_col_;
+
+	const std::vector<Simulation>& simulations_;
 
 	// Time series data from each simulation
 	std::vector<TimeSeries> time_series_;
@@ -67,13 +87,15 @@ class OrderParameter
 	// TODO: Organize into a new data strucure (e.g. "Distribution") that has 
 	// p, f, and sample counts (and errors?!)
 	// - Size: [ num_simulations x num_bins ]
+	/*
 	std::vector<std::vector<double>> p_biased_,   f_biased_;    // F_biased(x)
 	std::vector<std::vector<double>> p_unbiased_, f_unbiased_;  // using only data from 1 time series
 	std::vector<std::vector<double>> p_rebiased_, f_rebiased_;  // Rebias F_WHAM(x)
 	std::vector<std::vector<int>>    sample_counts_;
+	*/
 
 	// WHAM results
-	std::vector<double> f_x_wham_, p_x_wham_, error_f_x_wham_;  // TODO errors
+	//std::vector<double> f_x_wham_, p_x_wham_, error_f_x_wham_;  // TODO errors
 	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
 
 	// Number of samples in each bin, across all simulations
