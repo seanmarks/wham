@@ -55,14 +55,6 @@ class OrderParameter
 		const std::string& header
 	) const;
 
-	// If the probability p > 0, print free energy f; else print "nan"
-	// - Use this construction to take advantage of modifiers pre-loaded
-	//   into the ofstream
-	static void print_free_energy(std::ofstream& ofs, const double f, const double p) {
-		if ( p > 0.0 ) { ofs << f; }
-		else           { ofs << "nan";  }
-	};
-
  private:
 	std::string name_;
 

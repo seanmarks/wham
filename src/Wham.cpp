@@ -933,9 +933,12 @@ void Wham::printWhamResults(const OrderParameter& x) const
 	const int num_bins_x      = x.bins_.get_num_bins();
 
 	// Unpack for readability below
-	const std::vector<double>& p_x_wham      = x.wham_distribution_.p_x;
+	//const std::vector<double>& p_x_wham      = x.wham_distribution_.p_x;
 	const std::vector<double>& f_x_wham      = x.wham_distribution_.f_x;
 	const std::vector<int>&    sample_counts = x.wham_distribution_.sample_counts;
+
+	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
+	auto f_x_wham_shifted = Distribution::shift_f_x_to_zero( f_x_wham, sample_counts );
 
 	// Print F_0(x)
 	file_name = "F_" + x.name_ + "_WHAM.out";
@@ -946,7 +949,7 @@ void Wham::printWhamResults(const OrderParameter& x) const
 	for ( int b=0; b<num_bins_x; ++b ) {
 		ofs << std::setw(8) << std::setprecision(5) << x.bins_[b] << "\t";
 		ofs << std::setw(8) << std::setprecision(5);
-			print_free_energy(ofs, f_x_wham[b], p_x_wham[b]);
+			Distribution::print_free_energy(ofs, f_x_wham_shifted[b], sample_counts[b]);
 		ofs << std::setw(8) << std::setprecision(5) << sample_counts[b];
 		//<< std::setw(8) << std::setprecision(5) << wham_results_.error_f[b]
 		ofs << "\n";
@@ -1012,13 +1015,13 @@ void Wham::print_f_x_y(
 		ofs.close(); ofs.clear();
 	}
 
-	// Print F(x,y)
+	// Print F(x,y)  (TODO: shift so that F=0 at the minimum)
 	file_name = "F_" + x.name_ + "_" + y.name_ + "_WHAM.out";
 	ofs.open(file_name);
 	sep = " ";
 	for ( int i=0; i<num_bins_x; ++i ) {
 		for ( int j=0; j<num_bins_y; ++j ) {
-			print_free_energy(ofs, f_x_y_wham[i][j], p_x_y_wham[i][j]);
+			Distribution::print_free_energy(ofs, f_x_y_wham[i][j], sample_counts_x_y[i][j]);
 			ofs << sep;
 		}
 		ofs << "\n";
