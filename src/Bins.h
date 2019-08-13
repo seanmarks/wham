@@ -31,7 +31,7 @@ class Bins
 		const double min, 
 		const double max, 
 		const int num_bins,
-		const BinStyle& bin_style
+		const BinStyle& bin_style = BinStyle::Left
 	);
 
 	Bins(const ParameterPack& input_pack);

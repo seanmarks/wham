@@ -40,6 +40,8 @@ class Bias
 	 public:
 		Potential(const double kBT): kBT_(kBT), beta_(1.0/kBT_) {};
 
+		virtual ~Potential() {};
+
 		// Returns the value of the bias (in kBT)
 		virtual double evaluate(const double x) const = 0;
 
