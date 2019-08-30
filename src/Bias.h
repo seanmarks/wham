@@ -12,6 +12,7 @@
 #include "InputParser.h"
 #include "StringTools.h"
 
+class Potential;
 
 class Bias 
 {
@@ -30,81 +31,6 @@ class Bias
 	}
 
  private:
-	//-------------------------------//
-	//----- Potential Functions -----//
-	//-------------------------------//
-
-	// Base class for implementing terms in the bias
-	class Potential
-	{
-	 public:
-		Potential(const double kBT): kBT_(kBT), beta_(1.0/kBT_) {};
-
-		virtual ~Potential() {};
-
-		// Returns the value of the bias (in kBT)
-		virtual double evaluate(const double x) const = 0;
-
-	 protected:
-		double kBT_, beta_;
-	};
-
-	// Harmonic potential
-	class HarmonicPotential : public Potential
-	{
-	 public:
-		HarmonicPotential(const ParameterPack& input_pack, const double kBT);
-		virtual double evaluate(const double x) const override;
-
-	 private:
-		double x_star_, kappa_;  // kappa in kBT
-	};
-
-	// Linear potential
-	class LinearPotential : public Potential
-	{
-	 public:
-		LinearPotential(const ParameterPack& input_pack, const double kBT);
-		virtual double evaluate(const double x) const override;
-
-	 private:
-		double phi_, c_;  // both in kBT
-	};
-
-	// Left (one-sided) harmonic potential
-	class LeftHarmonicPotential : public Potential
-	{
-	 public:
-		LeftHarmonicPotential(const ParameterPack& input_pack, const double kBT);
-		virtual double evaluate(const double x) const override;
-
-	 private:
-		double x_left_, k_left_;  // k_left in kBT
-	};
-
-	// Right (one-sided) harmonic potential
-	class RightHarmonicPotential : public Potential
-	{
-	 public:
-		RightHarmonicPotential(const ParameterPack& input_pack, const double kBT);
-		virtual double evaluate(const double x) const override;
-
-	 private:
-		double x_right_, k_right_;  // k_right in kBT
-	};
-
-	// Dummy potential (for unbiased variables)
-	class ZeroPotential : public Potential
-	{
-	 public:
-		ZeroPotential(const ParameterPack& input_pack, const double kBT);
-		virtual double evaluate(const double x) const override;
-	};
-
-	//-----------------------------//
-	//----- Private Variables -----//
-	//-----------------------------//
-
 	// Terms in the total biasing potential
 	std::vector<std::unique_ptr<Potential>> potential_ptrs_;
 
@@ -115,6 +41,75 @@ class Bias
 
 	// Thermodynamic beta = 1.0/(k_B*T)
 	double kBT_, beta_;
+};
+
+
+
+// Base class for implementing terms in the bias
+class Potential
+{
+ public:
+	Potential(const double kBT): kBT_(kBT), beta_(1.0/kBT_) {};
+
+	virtual ~Potential() {};
+
+	// Returns the value of the bias (in kBT)
+	virtual double evaluate(const double x) const = 0;
+
+ protected:
+	double kBT_, beta_;
+};
+
+// Harmonic potential
+class HarmonicPotential : public Potential
+{
+ public:
+	HarmonicPotential(const ParameterPack& input_pack, const double kBT);
+	virtual double evaluate(const double x) const override;
+
+ private:
+	double x_star_, kappa_;  // kappa in kBT
+};
+
+// Linear potential
+class LinearPotential : public Potential
+{
+ public:
+	LinearPotential(const ParameterPack& input_pack, const double kBT);
+	virtual double evaluate(const double x) const override;
+
+ private:
+	double phi_, c_;  // both in kBT
+};
+
+// Left (one-sided) harmonic potential
+class LeftHarmonicPotential : public Potential
+{
+ public:
+	LeftHarmonicPotential(const ParameterPack& input_pack, const double kBT);
+	virtual double evaluate(const double x) const override;
+
+ private:
+	double x_left_, k_left_;  // k_left in kBT
+};
+
+// Right (one-sided) harmonic potential
+class RightHarmonicPotential : public Potential
+{
+ public:
+	RightHarmonicPotential(const ParameterPack& input_pack, const double kBT);
+	virtual double evaluate(const double x) const override;
+
+ private:
+	double x_right_, k_right_;  // k_right in kBT
+};
+
+// Dummy potential (for unbiased variables)
+class ZeroPotential : public Potential
+{
+ public:
+	ZeroPotential(const ParameterPack& input_pack, const double kBT);
+	virtual double evaluate(const double x) const override;
 };
 
 #endif /* BIAS_H */

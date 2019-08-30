@@ -125,6 +125,10 @@ Wham::Wham(const std::string& options_file):
 
 	// TODO: Option to read from input
 	f_bias_guess_.assign(num_simulations, 0.0);
+	std::string f_bias_guess_file;
+	bool found = input_parameter_pack_.readString("InitialGuess", KeyType::Optional, f_bias_guess_file);
+	if ( found ) {
+	}
 
 
 	//----- Output Options -----//

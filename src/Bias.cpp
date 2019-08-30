@@ -1,5 +1,28 @@
 #include "Bias.h"
 
+
+#include "GenericFactory.h"
+
+// Register in factory
+namespace BiasRegistry {
+
+/*
+// TODO more elegant way to register different Potentials
+template<typename P>
+using RegisterPotentialInFactory = RegisterInFactory<Potential, P, const std::string&, 
+                                                     const ParameterPack&, const double&>;
+static const RegisterPotentialInFactory<HarmonicPotential> register_HarmonicPotential("harmonic");
+*/
+
+static const RegisterInFactory<
+	Potential,                            // base class
+  HarmonicPotential,                    // derived class
+  std::string,                          // generating key is a string
+  const ParameterPack&, const double&   // inputs to derived class
+> register_HarmonicPotential("harmonic");
+}
+
+
 Bias::Bias(const ParameterPack& input_pack, const double kBT):
 	kBT_(kBT), beta_(1.0/kBT_)
 {	
@@ -28,7 +51,12 @@ Bias::Bias(const ParameterPack& input_pack, const double kBT):
 		// TODO other potentials
 		std::unique_ptr<Potential> tmp_ptr;
 		if ( type == "harmonic" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new HarmonicPotential(potential_pack, kBT_) );
+			//tmp_ptr = std::unique_ptr<Potential>( new HarmonicPotential(potential_pack, kBT_) );
+			tmp_ptr = std::unique_ptr<Potential>(
+					GenericFactory< 
+						Potential, std::string,
+						const ParameterPack&, const double&
+			    >::factory().create("harmonic", potential_pack, kBT_) );
 		}
 		else if ( type == "linear" ) {
 			tmp_ptr = std::unique_ptr<Potential>( new LinearPotential(potential_pack, kBT_) );
@@ -73,7 +101,7 @@ double Bias::evaluate(const std::vector<double>& x) const
 
 
 // Harmonic potential
-Bias::HarmonicPotential::HarmonicPotential(
+HarmonicPotential::HarmonicPotential(
 		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
@@ -83,7 +111,7 @@ Bias::HarmonicPotential::HarmonicPotential(
 	kappa_ *= beta_;
 }
 
-double Bias::HarmonicPotential::evaluate(const double x) const 
+double HarmonicPotential::evaluate(const double x) const 
 {
 	double delta_x = x - x_star_;
 	return 0.5*kappa_*delta_x*delta_x;
@@ -91,7 +119,7 @@ double Bias::HarmonicPotential::evaluate(const double x) const
 
 
 // Linear potential
-Bias::LinearPotential::LinearPotential(
+LinearPotential::LinearPotential(
 		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
@@ -101,14 +129,14 @@ Bias::LinearPotential::LinearPotential(
 	phi_ *= beta_;
 	c_   *= beta_;
 }
-double Bias::LinearPotential::evaluate(const double x) const 
+double LinearPotential::evaluate(const double x) const 
 {
 	return phi_*x + c_;
 }
 
 
 // Left one-sided harmonic potential
-Bias::LeftHarmonicPotential::LeftHarmonicPotential(
+LeftHarmonicPotential::LeftHarmonicPotential(
 		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
@@ -117,7 +145,7 @@ Bias::LeftHarmonicPotential::LeftHarmonicPotential(
 	input_pack.readNumber("k_left", KeyType::Required, k_left_);
 	k_left_ *= beta_;  // convert to kBT
 }
-double Bias::LeftHarmonicPotential::evaluate(const double x) const
+double LeftHarmonicPotential::evaluate(const double x) const
 {
 	if ( x < x_left_ ) {
 		double delta_x = x - x_left_;
@@ -130,7 +158,7 @@ double Bias::LeftHarmonicPotential::evaluate(const double x) const
 
 
 // Right one-sided harmonic potential
-Bias::RightHarmonicPotential::RightHarmonicPotential(const ParameterPack& input_pack, const double kBT):
+RightHarmonicPotential::RightHarmonicPotential(const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
 	using KeyType = ParameterPack::KeyType;
@@ -138,7 +166,7 @@ Bias::RightHarmonicPotential::RightHarmonicPotential(const ParameterPack& input_
 	input_pack.readNumber("k_right", KeyType::Required, k_right_);
 	k_right_ *= beta_;  // convert to kBT
 }
-double Bias::RightHarmonicPotential::evaluate(const double x) const
+double RightHarmonicPotential::evaluate(const double x) const
 {
 	if ( x > x_right_ ) {
 		double delta_x = x - x_right_;
@@ -151,10 +179,10 @@ double Bias::RightHarmonicPotential::evaluate(const double x) const
 
 
 // Dummy potential
-Bias::ZeroPotential::ZeroPotential(const ParameterPack& input_pack, const double kBT):
+ZeroPotential::ZeroPotential(const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {}
-double Bias::ZeroPotential::evaluate(const double x) const 
+double ZeroPotential::evaluate(const double x) const 
 {
 	return 0.0;
 }
