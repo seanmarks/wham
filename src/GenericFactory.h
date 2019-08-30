@@ -50,10 +50,11 @@ class GenericFactory
 			//registry_[key] = constructor_ptr;
 		}
 		else {
-			// Changing an existing mapping!
+			// Changing an existing mapping is not allowed (likely a programmer mistake)
+			// TODO better way to handle when an entry is registered multiple times? Compile-time checks?
 			std::stringstream err_msg;
 			err_msg << "Error in GenericFactory: key \"" << key << "\" already exists!\n";
-			throw std::runtime_error( err_msg.str() ); //TODO better way to handle when an entry is registered multiple times?
+			throw std::runtime_error( err_msg.str() ); 
 		}
 	}
 

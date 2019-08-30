@@ -1,26 +1,27 @@
 #include "Bias.h"
 
-
 #include "GenericFactory.h"
 
-// Register in factory
-namespace BiasRegistry {
+namespace PotentialRegistry {
 
-/*
-// TODO more elegant way to register different Potentials
+// Register Potentials using a GenericFactory
+// - Typedef for brevity
 template<typename P>
-using RegisterPotentialInFactory = RegisterInFactory<Potential, P, const std::string&, 
-                                                     const ParameterPack&, const double&>;
-static const RegisterPotentialInFactory<HarmonicPotential> register_HarmonicPotential("harmonic");
-*/
+using Register = RegisterInFactory<
+	Potential, P, std::string,            // base class, derived class, and generating key
+  const ParameterPack&, const double&   // input types
+>;
+static const Register<HarmonicPotential>      register_HarmonicPotential("harmonic");
+static const Register<LinearPotential>        register_LinearPotential("linear");
+static const Register<LeftHarmonicPotential>  register_LeftHarmonicPotential("left_harmonic");
+static const Register<RightHarmonicPotential> register_RightHarmonicPotential("right_harmonic");
+static const Register<ZeroPotential>          register_ZeroPotential("none");
 
-static const RegisterInFactory<
-	Potential,                            // base class
-  HarmonicPotential,                    // derived class
-  std::string,                          // generating key is a string
-  const ParameterPack&, const double&   // inputs to derived class
-> register_HarmonicPotential("harmonic");
-}
+// Convenient reference to the static GenericFactory that handles the creation of Potentials
+using PotentialFactory = GenericFactory< Potential, std::string, const ParameterPack&, const double& >;
+static PotentialFactory& factory = PotentialFactory::factory();
+
+} // end namespace PotentialRegistry
 
 
 Bias::Bias(const ParameterPack& input_pack, const double kBT):
@@ -47,32 +48,9 @@ Bias::Bias(const ParameterPack& input_pack, const double kBT):
 		potential_pack.readString("type",            KeyType::Required, type);
 
 		// Construct this term
-		// TODO use a factory
-		// TODO other potentials
-		std::unique_ptr<Potential> tmp_ptr;
-		if ( type == "harmonic" ) {
-			//tmp_ptr = std::unique_ptr<Potential>( new HarmonicPotential(potential_pack, kBT_) );
-			tmp_ptr = std::unique_ptr<Potential>(
-					GenericFactory< 
-						Potential, std::string,
-						const ParameterPack&, const double&
-			    >::factory().create("harmonic", potential_pack, kBT_) );
-		}
-		else if ( type == "linear" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new LinearPotential(potential_pack, kBT_) );
-		}
-		else if ( type == "left_harmonic" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new LeftHarmonicPotential(potential_pack, kBT_) );
-		}
-		else if ( type == "right_harmonic" ) {
-			tmp_ptr = std::unique_ptr<Potential>( new RightHarmonicPotential(potential_pack, kBT_) );
-		}
-		else if ( type == "none"  ) {
-			tmp_ptr = std::unique_ptr<Potential>( new ZeroPotential(potential_pack, kBT_) );
-		}
-		else {
-			throw std::runtime_error("unrecognized potential type \"" + type + "\"");
-		}
+		auto tmp_ptr = std::unique_ptr<Potential>(
+			PotentialRegistry::factory.create(type, potential_pack, kBT_) 
+		);
 
 		// Record the term, and the name of the order parameter it affects
 		potential_ptrs_.push_back( std::move(tmp_ptr) );

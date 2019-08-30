@@ -1,0 +1,6 @@
+- General, N-dimensional array
+	- Variadic template?
+
+- Reweighting
+	- File with 'Bias' input objects
+	- Specify output variables of interest?
