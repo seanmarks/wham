@@ -39,11 +39,11 @@ Wham::Wham(const std::string& options_file):
 	if ( num_ops < 1 ) {
 		throw std::runtime_error("no order parameters were registered");
 	}
-	for ( int i=0; i<num_ops; ++i ) {
-		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[i]), simulations_, wham_options_.floor_t) );
+	for ( int p=0; p<num_ops; ++p ) {
+		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
 
 		// Record the mapping from name to index
-		auto ret = map_op_names_to_indices_.insert( std::make_pair( order_parameters_.back().name_, i ) );
+		auto ret = map_op_names_to_indices_.insert( std::make_pair( order_parameters_.back().name_, p ) );
 		if ( ret.second == false ) {
 			throw std::runtime_error("order parameter \"" + order_parameters_.back().name_ + "\" was defined more than once");
 		}
@@ -63,12 +63,28 @@ Wham::Wham(const std::string& options_file):
 	}
 	inv_num_samples_total_ = 1.0/static_cast<double>(num_samples_total_);
 
-	// Fraction of samples from each simulation
+	// Fraction of total number of samples contributed by each simulation
 	c_.resize(num_simulations);
 	log_c_.resize(num_simulations);
 	for ( int r=0; r<num_simulations; ++r ) {
 		c_[r] = static_cast<double>(num_samples_per_simulation_[r]) * inv_num_samples_total_;
 		log_c_[r] = log( c_[r] );
+	}
+
+	// For convenience, store the ranges corresponding to each simulation's data 
+	// in the linearized arrays (e.g. 'u_bias_as_other')
+	simulation_data_ranges_.resize(num_simulations);
+	int first, end;
+	for ( int j=0; j<num_simulations; ++j ) {
+		if ( j == 0 ) {
+			first = 0;
+		}
+		else {
+			first = simulation_data_ranges_[j-1].second;
+		}
+		end = first + num_samples_per_simulation_[j];
+
+		simulation_data_ranges_[j] = std::make_pair(first, end);
 	}
 
 
@@ -134,10 +150,10 @@ Wham::Wham(const std::string& options_file):
 	//----- Output Options -----//
 
 	// Default: Print all permutations of F(x) and F(x,y)
-	for ( int i=0; i<num_ops; ++i ) {
-		output_f_x_.push_back( i );
-		for ( int j=i+1; j<num_ops; ++j ) {
-			output_f_x_y_.push_back( {{i, j}} );
+	for ( int p=0; p<num_ops; ++p ) {
+		output_f_x_.push_back( p );
+		for ( int q=p+1; q<num_ops; ++q ) {
+			output_f_x_y_.push_back( {{p, q}} );
 		}
 	}
 
@@ -207,10 +223,9 @@ Wham::Wham(const std::string& options_file):
 #endif /* DEBUG */
 
 
-	// Analyze the raw data for each OP
-	// TODO Rename function: this only computes the manually unbiased distributions now
-	for ( int i=0; i<num_ops; ++i ) {
-		analyzeRawData( order_parameters_[i] );
+	// Manually unbias each OP
+	for ( int p=0; p<num_ops; ++p ) {
+		manuallyUnbiasDistributions( order_parameters_[p] );
 	}
 }
 
@@ -288,14 +303,14 @@ void Wham::evaluateBiases()
 
 		// Search order parameter registry for matches
 		op_indices[r].resize(num_ops);
-		for ( int a=0; a<num_ops; ++a ) {
-			auto pair_it = map_op_names_to_indices_.find( op_names[a] );
+		for ( int p=0; p<num_ops; ++p ) {
+			auto pair_it = map_op_names_to_indices_.find( op_names[p] );
 			if ( pair_it != map_op_names_to_indices_.end() ) {
-				op_indices[r][a] = pair_it->second;
+				op_indices[r][p] = pair_it->second;
 			}
 			else {
 				throw std::runtime_error( "Error evaluating biases: order parameter \'" + 
-				                          op_names[a] + "\' is not registered" );
+				                          op_names[p] + "\' is not registered" );
 			}
 		}
 	}
@@ -330,28 +345,13 @@ void Wham::evaluateBiases()
 			}
 		}
 	}
-
-	// For convenience, store the ranges corresponding to each simulation's data
-	time_series_ranges_.resize(num_simulations);
-	int first, end;
-	for ( int j=0; j<num_simulations; ++j ) {
-		if ( j == 0 ) {
-			first = 0;
-		}
-		else {
-			first = time_series_ranges_[j-1].second;
-		}
-		end = first + num_samples_per_simulation_[j];
-
-		time_series_ranges_[j] = std::make_pair(first, end);
-	}
 }
 
 
 
 // After reading input files, use to generate histograms of raw data from biased simulations
 // - TODO Move as much as possible to OrderParameter
-void Wham::analyzeRawData(OrderParameter& x)
+void Wham::manuallyUnbiasDistributions(OrderParameter& x)
 {
 	std::vector<double> u_bias_tmp;
 	int num_simulations = static_cast<int>( simulations_.size() );
@@ -363,7 +363,7 @@ void Wham::analyzeRawData(OrderParameter& x)
 		// Assemble the biasing potential values for this simulation's data
 		// under its own bias
 		u_bias_tmp.resize(num_samples);
-		int index = time_series_ranges_[i].first;  //
+		int index = simulation_data_ranges_[i].first;  //
 		for ( int j=0; j<num_samples; ++j ) {
 			u_bias_tmp[j] = u_bias_as_other_[i][index];
 			++index;
@@ -784,7 +784,7 @@ void Wham::compute_consensus_f_x(
 		for ( int i=0; i<num_samples; ++i ) {
 			bin = bins_x.find_bin( x[j][i] );
 			if ( bin >= 0 ) {
-				sample_index = time_series_ranges_[j].first + i;  
+				sample_index = simulation_data_ranges_[j].first + i;  
 				minus_log_sigma_k_binned_[bin].push_back( -log_sigma_k_[sample_index] );
 			}
 		}

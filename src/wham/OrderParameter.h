@@ -5,6 +5,7 @@
 // - Wham (friend class) sets much of its internal state
 //
 // TODO better to convert to struct to make it clear it's really POD?
+// - That's how friend class Wham sees it
 
 #ifndef ORDER_PARAMETER_H
 #define ORDER_PARAMETER_H
@@ -34,7 +35,6 @@ class OrderParameter
  public:
 	friend class Wham;
 	
-	using Range = std::array<double,2>;
 	OrderParameter(
 		const ParameterPack& input_pack,
 		const std::vector<Simulation>& simulations,

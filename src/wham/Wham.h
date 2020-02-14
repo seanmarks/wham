@@ -145,18 +145,20 @@ class Wham
 	std::vector<double> c_;
 	std::vector<double> log_c_;
 
-	// The value of the bias for each sample, evaluating using each potential
-	//   u_bias_as_other[j][i][r] = u_{bias,r}( x_{j,i} )
-	//      j = 1, ..., m    (m = num_simulations)
-	//      i = 1, ..., n_j  (n_j = # samples from simulation j)
-	//      r = 1, ..., m    (m = number of biasing potentials)
-	// TODO linearize for speed
-
-	// Organization:
-	// - For each bias 'r'
-	//     u_bias_as_other[r] = [(data_sim_0), (data_sim_1), ... , (data_sim_m)]
+	// The value of the bias for each sample, evaluating using each potential (i.e. in each ensemble):
+	//    u_{bias,r}( x_{j,i} )
+	//      r = 0, ..., m-1    (m = number of biasing potentials/ensembles)
+	//      j = 0, ..., m-1    (m = num_simulations)
+	//      i = 0, ..., n_j-1  (n_j = # samples from simulation j)
+	// - For each bias r = 0, ..., m-1:
+	//     u_bias_as_other_[r] = [(data_sim_0), ..., (data_sim_j), ... , (data_sim_m)]
+	//                                               /          \
+	//                                              [(n_j samples)]
 	std::vector<std::vector<double>> u_bias_as_other_;
-	std::vector<std::pair<int,int>>  time_series_ranges_;  // indices (first, end)
+	// - For each simulation j = 0, ..., m-1:
+	//     simulation_data_ranges_[j] = indices (first, end) for the 'j'th simulation's data
+	//                                  in u_bias_as_other_ (for each 'r')
+	std::vector<std::pair<int,int>> simulation_data_ranges_;
 
 	// u_bias_as_other for the unbiased ensemble (all zeros)
 	std::vector<double> u_bias_as_other_0_;
@@ -167,9 +169,9 @@ class Wham
 
 	// These are computed by Wham.evalObjectiveFunction and saved for re-use 
 	// in Wham.evalObjectiveDerivatives
+	// - FIXME: dangerous?
 
-	// Factors related to the weight given to each data sample in the
-	// *unbiased* ensemble
+	// Factors related to the weight given to each data sample in the *unbiased* ensemble
 	// - Computed as a log-sum-exp
 	// - Formula:
 	//     sigma_0(x_{j,i}) = sum_{r=1}^m exp{ log(c_r) + f_r - u_{bias,r}(x_{j,i}) }
@@ -201,7 +203,7 @@ class Wham
 
 	// After reading input files, use this to analyze the raw data
 	// and populate the OrderParameter object
-	void analyzeRawData(OrderParameter& x);
+	void manuallyUnbiasDistributions(OrderParameter& x);
 
 
 	//----- Helper Functions -----//
@@ -212,8 +214,7 @@ class Wham
 
 	// Compute log( sigma_k(x_{j,i}) ) for the given set of biasing free energies
 	// - k: index of ensemble to which the weights correspond
-	//   - k < 0 --> compute for unbiased ensemble
-	// - f_k: free energy of turning on kth bias
+	//   - f_k: free energy of turning on kth bias
 	void compute_log_sigma(
 		const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>&              f,
