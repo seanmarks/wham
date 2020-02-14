@@ -7,5 +7,4 @@ wham="${HOME}/source/wham/build/bin/wham"
 wham_options="wham_options.input"
 
 #valgrind \
-$wham  $wham_options  $data_summary \
-       $biasing_parameters  $aux_var_files
+$wham  $wham_options

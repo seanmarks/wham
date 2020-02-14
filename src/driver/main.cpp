@@ -22,17 +22,14 @@
 #include <string>
 #include <vector>
 
-// Library headers
-#include "dlib/optimization.h"
-
 // Project headers
-#include "Wham.h"
+#include "../wham/Wham.h"
 
 int main(int argc, char* argv[]) 
 {
 	// Input checking
 	if ( argc < 2 ) {
-		std::cerr << "Usage:  ./WHAM.exe <options_file>";
+		std::cerr << "WHAM: Error - missing input file";
 		return 1;
 	}
 
