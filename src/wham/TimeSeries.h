@@ -19,6 +19,7 @@
 class TimeSeries
 {
  public:
+	// Construct using data stored in a file
 	TimeSeries(
 		const std::string& file, 
 		const int col,
@@ -29,12 +30,15 @@ class TimeSeries
 		const bool use_floored_input_times
 	);
 
+	// Construct using a set of plain values
 	TimeSeries(
 		const std::vector<double>& data
 	): file_(""), col_(-1), t0_(-1.0), tf_(-1.0), data_(data)
 	{
 		times_.assign( data_.size(), -1.0 );
 	}
+
+	// TODO Construct a shuffled TimeSeries from another time series
 
 	// Returns the number of samples in the time series
 	unsigned size() const { return data_.size(); }
@@ -58,10 +62,10 @@ class TimeSeries
 
  private:
 	// Where data is stored, and what/how to read it in
-	std::string file_;
-	int col_;
-	double t0_, tf_;  // time range to keep
-	bool use_floored_input_times_;
+	std::string file_ = "";
+	int col_ = -1;
+	double t0_ = -1.0, tf_ = -1.0;  // time range to keep
+	bool use_floored_input_times_ = false;
 
 	// Underlying time series
 	std::vector<double> times_;

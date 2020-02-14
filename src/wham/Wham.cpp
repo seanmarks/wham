@@ -320,7 +320,7 @@ void Wham::evaluateBiases()
 	for ( int r=0; r<num_biases; ++r ) {
 		u_bias_as_other_[r].resize( num_samples_total_ );
 	}
-	u_bias_as_other_0_.assign( num_samples_total_, 0.0 );
+	u_bias_as_other_unbiased_.assign( num_samples_total_, 0.0 );
 
 	// Now, for each biasing potential, evaluate the value of the bias that *would*
 	// result if that sample were obtained from that biased simulation
@@ -421,7 +421,7 @@ void Wham::run_driver()
 
 		// F_WHAM(x)
 		compute_consensus_f_x( 
-			x.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_0_, f_0_, x.bins_,
+			x.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_unbiased_, f_unbiased_, x.bins_,
 			// Output
 			x.wham_distribution_
 		);
@@ -475,7 +475,7 @@ void Wham::run_driver()
 		std::vector<std::vector<int>> sample_counts_x_y;
 
 		compute_consensus_f_x_y( 
-			x.time_series_, y.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_0_, f_0_,
+			x.time_series_, y.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_unbiased_, f_unbiased_,
 			x.bins_, y.bins_,
 			// Output
 			p_x_y_wham, f_x_y_wham, sample_counts_x_y
@@ -561,14 +561,14 @@ double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 	// - These values are used here, and are stored for use when computing
 	//   the derivatives later
 	//   - TODO: Move buffer check elsewhere?
-	compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_0_, f_0_,
-	                   log_sigma_0_ );
+	compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
+	                   log_sigma_unbiased_ );
 	f_bias_last_ = f;
 
 	// Compute the objective function's value
 	double val = 0.0;
 	for ( int n=0; n<num_samples_total_; ++n ) {
-		val += log_sigma_0_[n];
+		val += log_sigma_unbiased_[n];
 	}
 	val *= inv_num_samples_total_;
 	for ( int r=0; r<num_simulations; ++r ) {
@@ -625,8 +625,8 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	//   subsets of data in compute_consensus_f_* functions
 	// - Maybe use a wrapper: "compute_log_sigma_all_data" ?
 	if ( f != f_bias_last_ ) {  
-		compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_0_, f_0_,
-		                   log_sigma_0_ );
+		compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
+		                   log_sigma_unbiased_ );
 		f_bias_last_ = f;
 	}
 
@@ -639,7 +639,7 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	for ( int k=1; k<num_simulations; ++k ) {
 		double fac = log_c_[k] + f[k];
 		for ( int n=0; n<num_samples_total_; ++n ) {
-			args_buffer_[n] = fac - u_bias_as_other_[k][n] - log_sigma_0_[n];
+			args_buffer_[n] = fac - u_bias_as_other_[k][n] - log_sigma_unbiased_[n];
 		}
 		log_sum_exp_args = log_sum_exp(args_buffer_);
 

@@ -97,7 +97,7 @@ class Wham
 	double evalObjectiveFunction(const ColumnVector& df) const;
 
 	// Compute derivatives of objective function
-	// - Must call evalObjectiveFunction before this one, to set log_sigma_0_
+	// - Must call evalObjectiveFunction before this one, to set log_sigma_unbiased_
 	const ColumnVector evalObjectiveDerivatives(const ColumnVector& df) const;
 
 
@@ -128,14 +128,9 @@ class Wham
 	// Objects that read in and evaluate the bias used in each simulation
 	std::vector<Bias> biases_;  // [num_simulations x 1]
 
-	// Indices of the order parameters that were biased
-	// - Used to evaluate the bias from each sample under each ensemble
-	std::vector<int> biased_order_parameters_;
-
 
 	//----- Precompute/save useful quantities for speed -----//
 
-	// TODO linearize
 	std::vector<int> num_samples_per_simulation_;   // number of samples from each simulation
 	int num_samples_total_;  // Total number of samples (across all simulations)
 	double inv_num_samples_total_;  // precompute for speed
@@ -152,7 +147,7 @@ class Wham
 	//      i = 0, ..., n_j-1  (n_j = # samples from simulation j)
 	// - For each bias r = 0, ..., m-1:
 	//     u_bias_as_other_[r] = [(data_sim_0), ..., (data_sim_j), ... , (data_sim_m)]
-	//                                               /          \
+	//                                                     |
 	//                                              [(n_j samples)]
 	std::vector<std::vector<double>> u_bias_as_other_;
 	// - For each simulation j = 0, ..., m-1:
@@ -161,8 +156,8 @@ class Wham
 	std::vector<std::pair<int,int>> simulation_data_ranges_;
 
 	// u_bias_as_other for the unbiased ensemble (all zeros)
-	std::vector<double> u_bias_as_other_0_;
-	double f_0_ = 0.0;  // Free energy of going to the *unbiased* ensemble is zero
+	std::vector<double> u_bias_as_other_unbiased_;
+	const double f_unbiased_ = 0.0;  // Free energy of going to the *unbiased* ensemble is zero
 
 
 	//----- Working Variables -----//
@@ -176,7 +171,7 @@ class Wham
 	// - Formula:
 	//     sigma_0(x_{j,i}) = sum_{r=1}^m exp{ log(c_r) + f_r - u_{bias,r}(x_{j,i}) }
 	mutable std::vector<double> f_bias_last_;
-	mutable std::vector<double> log_sigma_0_;
+	mutable std::vector<double> log_sigma_unbiased_;
 
 	// Buffers
 	mutable std::vector<double> args_buffer_;               // for log_sum_exp
@@ -196,6 +191,7 @@ class Wham
 
 	//----- Setup -----//
 
+	// TODO Move to DataSummary class
 	// Reads the data summary
 	// - Used to determine the number of simulations
 	// - Contains production phase bounds [t0, tf] [ps]
