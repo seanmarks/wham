@@ -208,18 +208,23 @@ void OrderParameter::printRawDistributions() const
 
 void OrderParameter::printDistributions(
 	const std::vector<Distribution>& distributions,
-	const std::string& file_name, const std::string& header
+	const std::string& file_name, const std::string& header, const bool shift_to_zero
 ) const
 {
 	std::ofstream ofs( file_name );
 	ofs << header;
 
-	// Shift distributions so that F=0 at the minimum
 	int num_distributions = distributions.size();
-	std::vector<std::vector<double>> f_x_shifted(num_distributions);
+	std::vector<std::vector<double>> f_x_to_print(num_distributions);
 	for ( int k=0; k<num_distributions; ++k ) {
-		f_x_shifted[k] = Distribution::shift_f_x_to_zero( 
-		                     distributions[k].f_x, distributions[k].sample_counts );
+		if ( shift_to_zero ) {
+			// Shift distributions so that F=0 at the minimum
+			f_x_to_print[k] = Distribution::shift_f_x_to_zero(
+			                     distributions[k].f_x, distributions[k].sample_counts );
+		}
+		else {
+			f_x_to_print[k] = distributions[k].f_x;
+		}
 	}
 
 	int num_bins = bins_.get_num_bins();  // All simulations are binned the same way
@@ -228,7 +233,7 @@ void OrderParameter::printDistributions(
 		for ( int k=0; k<num_distributions; ++k ) {
 			ofs << "\t";
 			ofs << std::setw(8) << std::setprecision(5);
-			  Distribution::print_free_energy(ofs, f_x_shifted[k][b], distributions[k].sample_counts[b]);
+			  Distribution::print_free_energy(ofs, f_x_to_print[k][b], distributions[k].sample_counts[b]);
 		}
 		ofs << "\n";
 	}

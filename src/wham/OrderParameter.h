@@ -52,7 +52,8 @@ class OrderParameter
 	void printDistributions(
 		const std::vector<Distribution>& distributions,
 		const std::string& file_name, 
-		const std::string& header
+		const std::string& header,
+		const bool shift_to_zero = true
 	) const;
 
  private:

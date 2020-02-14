@@ -5,11 +5,13 @@ F_Ntilde_WHAM.out
 F_Ntilde_biased.out
 F_Ntilde_unbiased.out
 F_Ntilde_rebiased.out
-# F_0(Ntilde,N)
-F_Ntilde_N_WHAM.out
-samples_Ntilde_N.out
+stats_Ntilde.out
 # F_0(N)
 F_N_WHAM.out
 F_N_biased.out
 F_N_unbiased.out
 F_N_rebiased.out
+stats_N.out
+# F_0(Ntilde,N)
+F_Ntilde_N_WHAM.out
+samples_Ntilde_N.out
