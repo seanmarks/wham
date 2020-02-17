@@ -63,6 +63,10 @@ class Wham
 	//   - dA_df = gradient wrt. biasing free energies themselves
 	const ColumnVector evalObjectiveDerivatives(const ColumnVector& df) const;
 
+	// "Manually" unbias the distributions for the given OrderParameter (i.e. using only
+	// each individual simulation's data, not the consensus estimates)
+	std::vector<Distribution> manuallyUnbiasDistributions(const OrderParameter& x) const;
+
  private:
 	const std::vector<Simulation>&     simulations_;
 	const std::vector<OrderParameter>& order_parameters_;
@@ -153,6 +157,19 @@ class Wham
 	// *differences* between windows (df), assuming f[0] = f0 = 0.0
 	void convert_f_to_df(const std::vector<double>& f, ColumnVector& df) const;
 	void convert_df_to_f(const ColumnVector& df, std::vector<double>& f) const;
+
+
+	//----- Individual-Simulation Estimates -----//
+
+	// TODO way to merge with compute_consensus_f_x?
+	void manually_unbias_f_x(
+		const TimeSeries&          x,
+		const std::vector<double>& u_bias,
+		const double               f,
+		const Bins&                bins_x,
+		// Output
+		Distribution&              unbiased_distribution_x
+	) const;
 
 
 	//----- Consensus Distributions -----//

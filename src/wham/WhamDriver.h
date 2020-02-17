@@ -80,6 +80,16 @@ class WhamDriver
 	};
 
 
+	// FIXME Delete?
+	struct WhamResults1D
+	{
+		Distribution f_x_wham;
+		std::vector<Distribution> f_x_rebiased;
+		std::vector<double>       info_entropy;
+		//std::vector<Distribution> f_x_rebiased;
+	};
+
+
 	// Driver: Manages solving the WHAM equations and printing output
 	void run_driver();
 
@@ -112,57 +122,6 @@ class WhamDriver
 	std::vector<Bias> biases_;  // [num_simulations x 1]
 
 
-	//----- Precompute/save useful quantities for speed -----//
-
-	std::vector<int> num_samples_per_simulation_;   // number of samples from each simulation
-	int num_samples_total_;  // Total number of samples (across all simulations)
-	double inv_num_samples_total_;  // precompute for speed
-
-	// c[r] = fraction of samples from simulation 'r'
-	//      = (num. samples from simulation r)/(num. total)
-	std::vector<double> c_;
-	std::vector<double> log_c_;
-
-	// The value of the bias for each sample, evaluating using each potential (i.e. in each ensemble):
-	//    u_{bias,r}( x_{j,i} )
-	//      r = 0, ..., m-1    (m = number of biasing potentials/ensembles)
-	//      j = 0, ..., m-1    (m = num_simulations)
-	//      i = 0, ..., n_j-1  (n_j = # samples from simulation j)
-	// - For each bias r = 0, ..., m-1:
-	//     u_bias_as_other_[r] = [(data_sim_0), ..., (data_sim_j), ... , (data_sim_m)]
-	//                                                     |
-	//                                              [(n_j samples)]
-	std::vector<std::vector<double>> u_bias_as_other_;
-	// - For each simulation j = 0, ..., m-1:
-	//     simulation_data_ranges_[j] = indices (first, end) for the 'j'th simulation's data
-	//                                  in u_bias_as_other_ (for each 'r')
-	std::vector<std::pair<int,int>> simulation_data_ranges_;
-
-	// u_bias_as_other for the unbiased ensemble (all zeros)
-	std::vector<double> u_bias_as_other_unbiased_;
-	const double f_unbiased_ = 0.0;  // Free energy of going to the *unbiased* ensemble is zero
-
-
-	//----- Working Variables -----//
-
-	// These are computed by Wham.evalObjectiveFunction and saved for re-use 
-	// in Wham.evalObjectiveDerivatives
-	// - FIXME: dangerous?
-
-	// Factors related to the weight given to each data sample in the *unbiased* ensemble
-	// - Computed as a log-sum-exp
-	// - Formula:
-	//     sigma_0(x_{j,i}) = sum_{r=1}^m exp{ log(c_r) + f_r - u_{bias,r}(x_{j,i}) }
-	mutable std::vector<double> f_bias_last_;
-	mutable std::vector<double> log_sigma_unbiased_;
-
-	// Buffers
-	mutable std::vector<double> args_buffer_;               // for log_sum_exp
-	mutable std::vector<double> log_sigma_k_, minus_log_sigma_k_;
-	mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
-	mutable std::vector<int> sample_bins_;
-
-
 	//----- Output -----//
 
 	// OP indices for F(x) to print
@@ -180,30 +139,8 @@ class WhamDriver
 	// - Contains production phase bounds [t0, tf] [ps]
 	void readDataSummary(const std::string& data_summary_file);
 
-	// After reading input files, use this to analyze the raw data
-	// and populate the OrderParameter object
-	//void manuallyUnbiasDistributions(OrderParameter& x);
-
-
-	/*
-	//----- Helper Functions -----//
-
-	// For each sample (across all simulations), evaluate the bias that would be
-	// felt under each simulation's potential
-	void evaluateBiases();
-	*/
-
 
 	//----- Output Files -----//
-
-	/*
-	// TODO delete
-	// Print sets of "raw" (i.e. non-consensus) histograms for each simulation 
-	// time series,including:
-	//  - Biased free energy distributions
-	//  - Unbiased free energy distributions (using only same-simulation data)
-	void printRawDistributions(const OrderParameter& x) const;
-	*/
 
 	// TODO move to OrderParameter?
 	void printWhamResults(const OrderParameter& x) const;
