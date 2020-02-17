@@ -33,7 +33,9 @@
 class OrderParameter
 {
  public:
+	// FIXME
 	friend class Wham;
+	friend class WhamDriver;
 	
 	OrderParameter(
 		const ParameterPack& input_pack,
