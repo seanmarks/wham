@@ -1,3 +1,4 @@
+// DataSummary
 
 #pragma once
 #ifndef DATA_SUMMARY_H
@@ -55,6 +56,10 @@ class DataSummary
 		else {
 			throw std::runtime_error("Error: data set \'" + data_set_label + "\' is not present");
 		}
+	}
+
+	const std::map<std::string, int>& get_data_set_label_map() const {
+		return map_data_set_labels_to_indices_;
 	}
 
  private:

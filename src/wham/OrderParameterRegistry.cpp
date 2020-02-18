@@ -5,7 +5,8 @@ OrderParameterRegistry::OrderParameterRegistry()
 {}
 
 
-OrderParameterRegistry::OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary)
+OrderParameterRegistry::OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary):
+	data_summary_ptr_(&data_summary)
 {
 	using KeyType = ParameterPack::KeyType;
 

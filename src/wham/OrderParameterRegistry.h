@@ -22,7 +22,6 @@
 class OrderParameterRegistry
 {
  public:
-
 	OrderParameterRegistry();
 
 	OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary);
@@ -35,6 +34,13 @@ class OrderParameterRegistry
 		else {
 			throw std::runtime_error("Error \'" + name + "\' is not registered");
 		}
+	}
+
+	std::size_t getNumberOfOrderParameters() const {
+		return names_.size();
+	}
+	const std::vector<std::string>& get_names() const { 
+		return names_; 
 	}
 
 	// Access registry info by OP index
@@ -51,12 +57,34 @@ class OrderParameterRegistry
 		return file_columns_[p];
 	}
 
-	const std::vector<std::string>& get_simulation_files(const int i) {
+	// Access registry info by OP name
+	const std::vector<std::string>& get_time_series_files(const std::string& name) const {
+		return get_time_series_files( get_index(name) );
+	}
+	int get_time_series_data_col(const std::string& name) const {
+		return get_time_series_data_col( get_index(name) );
+	}
+	int get_time_series_file_col(const std::string& name) const {
+		return get_time_series_file_col( get_index(name) );
+	}
+
+	// Get list of files by simulation index/data set label
+	const std::vector<std::string>& get_simulation_files(const int i) const {
 		return simulation_files_[i];
+	}
+	const std::vector<std::string>& get_simulation_files(const std::string& data_set_label) const {
+		if ( data_summary_ptr_ != nullptr ) {
+			return get_simulation_files( data_summary_ptr_->get_index(data_set_label) );
+		}
+		else {
+			throw std::runtime_error("Error: OrderParameterRegistry does not have access to a DataSummary.");
+		}
 	}
 
 
  private:
+	const DataSummary* data_summary_ptr_ = nullptr;
+
 	std::vector<std::string> names_;
 
 	std::vector<std::string> time_series_lists_;

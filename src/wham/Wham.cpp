@@ -26,9 +26,10 @@ void Wham::setup()
 	// per simulation (and the total)
 	num_samples_per_simulation_.resize(num_simulations);
 	num_samples_total_ = 0;
-	const std::vector<TimeSeries>& sample_time_series = order_parameters_[0].get_time_series();
+	//const std::vector<TimeSeries>& sample_time_series = order_parameters_[0].get_time_series();
+	//const auto& ref_op = order_parameters_[0];
 	for ( int j=0; j<num_simulations; ++j ) {
-		num_samples_per_simulation_[j] = sample_time_series[j].size();
+		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples(); //ref_op.get_time_series(j).size();
 		num_samples_total_             += num_samples_per_simulation_[j];
 	}
 	inv_num_samples_total_ = 1.0/static_cast<double>(num_samples_total_);
@@ -102,8 +103,11 @@ void Wham::evaluateBiases()
 			int num_samples = num_samples_per_simulation_[j];
 			for ( int i=0; i<num_samples; ++i ) {
 				// Pull together the order parameter values needed for this bias
+				int p;
 				for ( int s=0; s<num_ops_for_bias; ++s ) {
-					args[s] = order_parameters_[ op_indices[r][s] ].time_series_[j][i];
+					p = op_indices[r][s];
+					args[s] = order_parameters_[p].get_time_series(j)[i];
+					// FIXME cludgy
 				}
 
 				u_bias_as_other_[r][sample_index] = biases_[r].evaluate( args );
@@ -331,7 +335,7 @@ std::vector<Distribution> Wham::manuallyUnbiasDistributions(const OrderParameter
 
 	std::vector<double> u_bias_tmp;
 	for ( int i=0; i<num_simulations; ++i ) {
-		const TimeSeries& samples = x.get_time_series()[i];
+		const TimeSeries& samples = x.get_time_series(i);
 		int num_samples = samples.size();
 
 		// Assemble the biasing potential values for this simulation's data
@@ -344,9 +348,8 @@ std::vector<Distribution> Wham::manuallyUnbiasDistributions(const OrderParameter
 		}
 
 		// Unbiased results, using only data from this simulation
-		manually_unbias_f_x( 
-				samples, u_bias_tmp, simulations_[i].f_bias_guess, x.get_bins(),
-				unbiased_distributions[i] );
+		manually_unbias_f_x( samples, u_bias_tmp, 0.0, x.get_bins(),
+				                 unbiased_distributions[i] );
 	}
 
 	return unbiased_distributions;

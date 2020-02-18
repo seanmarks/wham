@@ -14,35 +14,27 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 	input_parameter_pack_.readNumber("SolverTolerance", KeyType::Required, wham_options_.tol);
 
-	// Read the data summary, which contains:
-	//   (1) data set labels
-	//   (2) production phase
-	// This sets the number of simulations expected in all files subsequently parsed
+	// Read the data summary
+	// - This sets the number of simulations expected in all files subsequently parsed
 	input_parameter_pack_.readString("DataSummaryFile", KeyType::Required, data_summary_file_);
 	data_summary_ = DataSummary(data_summary_file_, input_parameter_pack_);
 	const auto& data_set_labels = data_summary_.get_data_set_labels();
 	const auto& t_min           = data_summary_.get_t_min();
 	const auto& t_max           = data_summary_.get_t_max();
+	const int num_simulations   = data_set_labels.size();
 
-	const int num_simulations = data_set_labels.size();
-
-	// Register all order parameters and their time series files
+	// Register all order parameters and associated time series files
 	op_registry_ = OrderParameterRegistry(input_parameter_pack_, data_summary_);
+	const auto& op_names = op_registry_.get_names();
+	const int num_ops    = op_registry_.getNumberOfOrderParameters();
 
-	// FIXME replace?
+	// Load simulation data
 	simulations_.clear();
 	simulations_.reserve(num_simulations);
 	for ( int i=0; i<num_simulations; ++i ) {
 		simulations_.emplace_back(
 			data_set_labels[i], t_min[i], t_max[i], wham_options_.T, wham_options_.floor_t, op_registry_
 		);
-		/*
-		simulations_[i].data_set_label = data_set_labels[i];
-		simulations_[i].t_min          = t_min[i];
-		simulations_[i].t_max          = t_max[i];
-		simulations_[i].kBT            = wham_options_.kBT;
-		simulations_[i].beta           = 1.0/wham_options_.kBT;
-		*/
 	}
 
 
@@ -93,23 +85,25 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 	//----- Order Parameters -----//
 
-	// Register order parameters
-	// - When they are constructed, they read in their own time series data
-	// - TODO: Move to Simulation class
+	// Set up order parameters
+	// - Time series data is shared with Simulations
 	std::vector<const ParameterPack*> op_pack_ptrs = 
 			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
 	order_parameters_.clear();
+	/*
 	int num_ops = op_pack_ptrs.size();
 	if ( num_ops < 1 ) {
 		throw std::runtime_error("no order parameters were registered");
 	}
+	*/
 
 	for ( int p=0; p<num_ops; ++p ) {
-		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
+		order_parameters_.push_back( OrderParameter(op_names[p], *(op_pack_ptrs[p]), simulations_) );
+		//order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
 	}
 
 	// Check time series
-	OrderParameter::checkForConsistency( order_parameters_ );
+	//OrderParameter::checkForConsistency( order_parameters_ );
 
 
 	//---- Initial guess -----//
@@ -357,8 +351,8 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
 	header_stream << "# \"Rebiased\" free energy distributions: "
                 << " F_{rebias,i}(" << x.name_ << ") [k_B*T]\n";
 	header_stream << "# Data sets (by column)\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		header_stream << "# " << i+2 << ": " << simulations_[i].get_data_set_label() << "\n";
+	for ( int j=0; j<num_simulations; ++j ) {
+		header_stream << "# " << j+2 << ": " << simulations_[j].get_data_set_label() << "\n";
 	}
 	header_stream << "#\n"
 	              << "# " << x.name_ << " | F(" << x.name_ << ") [kBT]\n";
@@ -369,11 +363,11 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
 	file_name = "stats_" + x.name_ + ".out";
 	ofs.open(file_name);
 	ofs << "# data_set   avg(x)   var(x)   info_entropy(biased/rebiased)\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		ofs << simulations_[i].get_data_set_label() << "\t"
-		    << x.time_series_[i].average() << "\t"
-		    << x.time_series_[i].variance() << "\t"
-		    << x.info_entropy_[i] << "\n";
+	for ( int j=0; j<num_simulations; ++j ) {
+		ofs << simulations_[j].get_data_set_label() << "\t"
+		    << x.get_time_series(j).average() << "\t"
+		    << x.get_time_series(j).variance() << "\t"
+		    << x.info_entropy_[j] << "\n";
 	}
 	ofs.close(); ofs.clear();
 }

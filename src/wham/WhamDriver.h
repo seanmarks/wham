@@ -86,12 +86,17 @@ class WhamDriver
 	// FIXME Delete?
 	struct WhamResults1D
 	{
-		Distribution f_x_wham;
+		Distribution f_x_wham;  // consensus distribution
+
+		std::vector<double> f_bias;  // Free energy of turning on the bias (in kBT): Delta F_bias = -ln(Q_i/Q_0)
+
+		std::vector<Distribution> f_x_unbiased;  // manually unbiased
+		std::vector<Distribution> f_x_shifted;   // manually unbiased and shifted
+
 		std::vector<Distribution> f_x_rebiased;
 		std::vector<double>       info_entropy;
 		//std::vector<Distribution> f_x_rebiased;
 	};
-
 
 	// Driver: Manages solving the WHAM equations and printing output
 	void run_driver();
@@ -107,10 +112,6 @@ class WhamDriver
 
 	OrderParameterRegistry op_registry_;
 
-	//int col_data_label_;         // column with data label
-	//int col_t_min_, col_t_max_;  // columns with production phase bounds
-	//int col_T_;                  // column with temperature
-
 	std::string biases_log_file_;
 
 	std::vector<Simulation> simulations_;
@@ -121,9 +122,6 @@ class WhamDriver
 
 	// Organizes time series data and distributions for each OP
 	std::vector<OrderParameter> order_parameters_;
-
-	// Maps names of OrderParameters top their indices in the order_parameters_ vector
-	std::map<std::string, int> map_op_names_to_indices_;
 
 	// Objects that read in and evaluate the bias used in each simulation
 	std::vector<Bias> biases_;  // [num_simulations x 1]

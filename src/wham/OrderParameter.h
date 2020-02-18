@@ -33,19 +33,25 @@
 class OrderParameter
 {
  public:
+	using TimeSeriesPtr = Simulation::TimeSeriesPtr;
+
 	// FIXME
 	friend class Wham;
 	friend class WhamDriver;
 	
 	OrderParameter(
+		const std::string& name,
 		const ParameterPack& input_pack,
-		const std::vector<Simulation>& simulations,
-		const bool use_floored_times  // whether to floor input time values
+		std::vector<Simulation>& simulations
 	);
 
 	// Get functions
 	const std::string& get_name() const { return name_; }
-	const std::vector<TimeSeries>& get_time_series() const { return time_series_; }
+	const TimeSeries& get_time_series(const int i) const {
+		// TODO debug: ptr check
+		return *(time_series_ptrs_[i]);
+	}
+	//const std::vector<TimeSeries>& get_time_series() const { return time_series_; }
 	const Bins& get_bins() const { return bins_; }
 
 	void printRawDistributions() const;
@@ -61,33 +67,32 @@ class OrderParameter
  private:
 	std::string name_;
 
-	// File containing the list of time series data files at column file_col_
-	std::string time_series_list_;
-	int file_col_;
-
-	const std::vector<Simulation>& simulations_;
+	std::vector<Simulation>& simulations_; // TODO eliminate?
 	Bins bins_;
 
 	// Time series data from each simulation
-	std::vector<TimeSeries> time_series_;
-	int data_col_;
+	//std::vector<TimeSeries> time_series_;
+	std::vector<TimeSeriesPtr> time_series_ptrs_;
 
+	// TODO: Move to driver?
 	std::vector<Distribution> biased_distributions_;
 	std::vector<Distribution> unbiased_distributions_;
 	std::vector<Distribution> rebiased_distributions_;
+	std::vector<Distribution> shifted_distributions_;
 
+	// TODO: Move to driver?
 	// WHAM results
 	Distribution wham_distribution_;
 	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
 
+	// TODO: Move to driver?
 	// Number of samples in each bin, across all simulations
 	std::vector<int> global_sample_counts_;
 
-	// Checks the list of order parameters for consistency:
-	// - Same number of time series
-	// - Lengths of time series match
-	// - Stored times match
+	/*
+	// Checks a set of OrderParameters for consistency:
 	static void checkForConsistency(const std::vector<OrderParameter>& ops);
+	*/
 };
 
 #endif /* ORDER_PARAMETER_H */
