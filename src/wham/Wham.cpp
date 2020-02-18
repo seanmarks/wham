@@ -1,13 +1,13 @@
 #include "Wham.h"
 
 Wham::Wham(
-	// TODO
-	const std::vector<Simulation>& simulations,
-	const std::vector<OrderParameter>& order_parameters,
-	const std::vector<Bias>& biases,
-	//const std::vector<std::vector<double>>& u_bias_as_other,
-	const double tol
+	const DataSummary& data_summary, const OrderParameterRegistry& op_registry,
+	const std::vector<Simulation>& simulations, const std::vector<OrderParameter>& order_parameters,
+	const std::vector<Bias>& biases, const double tol
+	// TODO initial guess
 ):
+	data_summary_(data_summary),
+	op_registry_(op_registry),
 	simulations_(simulations),
 	order_parameters_(order_parameters),
 	biases_(biases),
@@ -57,17 +57,6 @@ void Wham::setup()
 		simulation_data_ranges_[j] = std::make_pair(first, end);
 	}
 
-	// Build map from OrderParameter names to indices
-	int num_ops = order_parameters_.size();
-	for ( int p=0; p<num_ops; ++p ) {
-		auto ret = map_op_names_to_indices_.insert( std::make_pair( order_parameters_[p].get_name(), p ) );
-		if ( ret.second == false ) {
-			throw std::runtime_error("order parameter \"" + order_parameters_.back().name_ + "\" was defined more than once");
-		}
-	}
-
-	//u_bias_as_other_unbiased_.assign(num_samples_total_, 0.0);
-
 	// For each sample, evaluate the resulting potential under each bias
 	// - Populates 'u_bias_as_other_'
 	evaluateBiases();
@@ -88,14 +77,7 @@ void Wham::evaluateBiases()
 		// Search order parameter registry for matches
 		op_indices[r].resize(num_ops);
 		for ( int p=0; p<num_ops; ++p ) {
-			auto pair_it = map_op_names_to_indices_.find( op_names[p] );
-			if ( pair_it != map_op_names_to_indices_.end() ) {
-				op_indices[r][p] = pair_it->second;
-			}
-			else {
-				throw std::runtime_error( "Error evaluating biases: order parameter \'" + 
-				                          op_names[p] + "\' is not registered" );
-			}
+			op_indices[r][p] = op_registry_.get_index(op_names[p]);
 		}
 	}
 

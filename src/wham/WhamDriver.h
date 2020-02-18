@@ -51,10 +51,13 @@
 // Project headers
 #include "Bias.h"
 #include "Bins.h"
+#include "Constants.h"
+#include "DataSummary.h"
 #include "Distribution.h"
 #include "FileSystem.h"
 #include "InputParser.h"
 #include "OrderParameter.h"
+#include "OrderParameterRegistry.h"
 #include "Simulation.h"
 #include "Wham.h"
 
@@ -100,9 +103,13 @@ class WhamDriver
 	ParameterPack input_parameter_pack_;
 
 	std::string data_summary_file_;
-	int col_data_label_;         // column with data label
-	int col_t_min_, col_t_max_;  // columns with production phase bounds
-	int col_T_;                  // column with temperature
+	DataSummary data_summary_;
+
+	OrderParameterRegistry op_registry_;
+
+	//int col_data_label_;         // column with data label
+	//int col_t_min_, col_t_max_;  // columns with production phase bounds
+	//int col_T_;                  // column with temperature
 
 	std::string biases_log_file_;
 
@@ -131,15 +138,6 @@ class WhamDriver
 	std::vector<std::array<int,2>> output_f_x_y_;
 
 
-	//----- Setup -----//
-
-	// TODO Move to DataSummary class
-	// Reads the data summary
-	// - Used to determine the number of simulations
-	// - Contains production phase bounds [t0, tf] [ps]
-	void readDataSummary(const std::string& data_summary_file);
-
-
 	//----- Output Files -----//
 
 	// TODO move to OrderParameter?
@@ -152,15 +150,6 @@ class WhamDriver
 		const std::vector<std::vector<double>>& f_x_y_wham,
 		const std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
-
-
-	//----- Constants -----//
-
-	// Boltzmann's constant [kJ/mol]
-	static constexpr double K_B_ = 8.314e-3;
-
-	// Always good to have some double-precision PI lying around, just in case
-	static constexpr double PI_ = 3.14159265358979323846;
 };
 
 #endif // ifndef WHAM_DRIVER_H

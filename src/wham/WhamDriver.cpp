@@ -1,13 +1,8 @@
 #include "WhamDriver.h"
 
 WhamDriver::WhamDriver(const std::string& options_file):
-	options_file_(options_file),
-	// Columns in data summary file
-	// TODO add input options to change these
-	col_data_label_(0),
-	col_t_min_(3), col_t_max_(col_t_min_+1), col_T_(-1)
+	options_file_(options_file)
 {
-
 	// Read input file into a ParameterPack
 	InputParser input_parser;
 	input_parser.parseFile(options_file_, input_parameter_pack_);
@@ -15,7 +10,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	using KeyType = ParameterPack::KeyType;
 
 	input_parameter_pack_.readNumber("Temperature", KeyType::Required, wham_options_.T);
-	wham_options_.kBT = K_B_ * wham_options_.T;
+	wham_options_.kBT = Constants::k_B * wham_options_.T;
 
 	input_parameter_pack_.readNumber("SolverTolerance", KeyType::Required, wham_options_.tol);
 
@@ -24,33 +19,31 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	//   (2) production phase
 	// This sets the number of simulations expected in all files subsequently parsed
 	input_parameter_pack_.readString("DataSummaryFile", KeyType::Required, data_summary_file_);
-	readDataSummary(data_summary_file_);
-	int num_simulations = simulations_.size();
+	data_summary_ = DataSummary(data_summary_file_, input_parameter_pack_);
+	const auto& data_set_labels = data_summary_.get_data_set_labels();
+	const auto& t_min           = data_summary_.get_t_min();
+	const auto& t_max           = data_summary_.get_t_max();
 
+	const int num_simulations = data_set_labels.size();
 
-	//----- Order Parameters -----//
+	// Register all order parameters and their time series files
+	op_registry_ = OrderParameterRegistry(input_parameter_pack_, data_summary_);
 
-	// Register order parameters
-	// - When they are constructed, they read in their own time series data
-	std::vector<const ParameterPack*> op_pack_ptrs = 
-			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
-	order_parameters_.clear();
-	int num_ops = op_pack_ptrs.size();
-	if ( num_ops < 1 ) {
-		throw std::runtime_error("no order parameters were registered");
+	// FIXME replace?
+	simulations_.clear();
+	simulations_.reserve(num_simulations);
+	for ( int i=0; i<num_simulations; ++i ) {
+		simulations_.emplace_back(
+			data_set_labels[i], t_min[i], t_max[i], wham_options_.T, wham_options_.floor_t, op_registry_
+		);
+		/*
+		simulations_[i].data_set_label = data_set_labels[i];
+		simulations_[i].t_min          = t_min[i];
+		simulations_[i].t_max          = t_max[i];
+		simulations_[i].kBT            = wham_options_.kBT;
+		simulations_[i].beta           = 1.0/wham_options_.kBT;
+		*/
 	}
-	for ( int p=0; p<num_ops; ++p ) {
-		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
-
-		// Record the mapping from name to index
-		auto ret = map_op_names_to_indices_.insert( std::make_pair( order_parameters_.back().name_, p ) );
-		if ( ret.second == false ) {
-			throw std::runtime_error("order parameter \"" + order_parameters_.back().name_ + "\" was defined more than once");
-		}
-	}
-
-	// Check time series
-	OrderParameter::checkForConsistency( order_parameters_ );
 
 
 	//----- Biasing Potentials -----//
@@ -74,12 +67,12 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 	for ( int i=0; i<num_biases; ++i ) {
 		// TODO allow bias log and data summary to report simulations in different orders,
-		// or allow one to be a subset of the others
+		//      or allow one to be a subset of the others
 		// - Use data set labels to match everything
+		// TODO: variable T between simulations
+		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), wham_options_.kBT) );
 
-		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), simulations_[i].kBT) );
-
-		if ( simulations_[i].data_set_label != biases_.back().get_data_set_label() ) {
+		if ( data_set_labels[i] != biases_.back().get_data_set_label() ) {
 			throw std::runtime_error("Mismatch between data set labels in biasing parameters file and data summary file");
 		}
 	}
@@ -96,6 +89,28 @@ WhamDriver::WhamDriver(const std::string& options_file):
 		}
 	}
 #endif /* DEBUG */
+
+
+	//----- Order Parameters -----//
+
+	// Register order parameters
+	// - When they are constructed, they read in their own time series data
+	// - TODO: Move to Simulation class
+	std::vector<const ParameterPack*> op_pack_ptrs = 
+			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
+	order_parameters_.clear();
+	int num_ops = op_pack_ptrs.size();
+	if ( num_ops < 1 ) {
+		throw std::runtime_error("no order parameters were registered");
+	}
+
+	for ( int p=0; p<num_ops; ++p ) {
+		order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
+	}
+
+	// Check time series
+	OrderParameter::checkForConsistency( order_parameters_ );
+
 
 	//---- Initial guess -----//
 
@@ -140,16 +155,9 @@ WhamDriver::WhamDriver(const std::string& options_file):
 				int num_ops_for_output = vec.size();
 
 				// Map names to indices
-				std::vector<int> op_indices;
+				std::vector<int> op_indices(num_ops_for_output);
 				for ( int j=0; j<num_ops_for_output; ++j ) {
-					auto pair_it = map_op_names_to_indices_.find( vec[j] );
-					if ( pair_it != map_op_names_to_indices_.end() ) {
-						op_indices.push_back( pair_it->second );
-					}
-					else {
-						throw std::runtime_error( "Error setting up F_WHAM outputs: order parameter \'" + 
-																			vec[j] + "\' is not registered" );
-					}
+					op_indices[j] = op_registry_.get_index(vec[j]);
 				}
 
 				// Store indices
@@ -192,66 +200,6 @@ WhamDriver::WhamDriver(const std::string& options_file):
 }
 
 
-void WhamDriver::readDataSummary(const std::string& data_summary_file)
-{
-	simulations_.clear();
-
-	// Largest column index of interest
-	int max_col = std::max( { col_data_label_, col_t_min_, col_T_ }, std::less<int>() );
-
-	// Get the location of the data summary file
-	std::string data_summary_path = FileSystem::get_basename(data_summary_file);
-
-	std::ifstream ifs(data_summary_file);
-	if ( not ifs.is_open() ) {
-		throw std::runtime_error("Unable to open data summary file: " + data_summary_file + "\n");
-	}
-
-	std::string line, token, rel_path;
-	std::vector<std::string> tokens;
-
-	while ( getline(ifs, line) ) {
-		std::stringstream ss(line);
-		ss >> token;
-
-		if ( line.empty() or token[0] == '#' ) {
-			continue;  // skip empty lines and comments
-		}
-		
-		// Tokenize the line
-		tokens = {{ token }};
-		while ( ss >> token ) {
-			tokens.push_back( token );
-		}
-
-		// Check that the appropriate number of tokens was parsed
-		int num_tokens = tokens.size();
-		if ( max_col >= num_tokens ) {
-			throw std::runtime_error("a line in the data summary has too few columns");
-		}
-
-		// Create a new simulation
-		simulations_.push_back( Simulation() );
-		Simulation& new_sim = simulations_.back();  // convenient alias
-
-		// Data set label
-		new_sim.data_set_label = tokens[col_data_label_];
-
-		// Production phase
-		new_sim.t_min = std::stod( tokens[col_t_min_] );
-		new_sim.t_max = std::stod( tokens[col_t_max_] );
-
-		// Temperature (optional; defaults to value from WHAM options file)
-		double kBT = wham_options_.kBT;
-		if ( col_T_ >= 0 ) {
-			simulations_.back().kBT = K_B_ * std::stod(tokens[col_T_]);
-		}
-		new_sim.kBT  = kBT;
-		new_sim.beta = 1.0/kBT;
-	}
-}
-
-
 void WhamDriver::run_driver()
 {
 	int num_simulations = simulations_.size();
@@ -271,7 +219,7 @@ void WhamDriver::run_driver()
 	// TODO errors
 
 	// FIXME
-	Wham wham(simulations_, order_parameters_, biases_, wham_options_.tol);
+	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, wham_options_.tol);
 	wham.solveWhamEquations(f_init, f_bias_opt_);
 
 	// Print optimal biasing free energies to file
@@ -410,7 +358,7 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
                 << " F_{rebias,i}(" << x.name_ << ") [k_B*T]\n";
 	header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		header_stream << "# " << i+2 << ": " << simulations_[i].data_set_label << "\n";
+		header_stream << "# " << i+2 << ": " << simulations_[i].get_data_set_label() << "\n";
 	}
 	header_stream << "#\n"
 	              << "# " << x.name_ << " | F(" << x.name_ << ") [kBT]\n";
@@ -422,7 +370,7 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
 	ofs.open(file_name);
 	ofs << "# data_set   avg(x)   var(x)   info_entropy(biased/rebiased)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		ofs << simulations_[i].data_set_label << "\t"
+		ofs << simulations_[i].get_data_set_label() << "\t"
 		    << x.time_series_[i].average() << "\t"
 		    << x.time_series_[i].variance() << "\t"
 		    << x.info_entropy_[i] << "\n";

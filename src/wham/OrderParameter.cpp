@@ -70,7 +70,7 @@ OrderParameter::OrderParameter(
 	for ( int i=0; i<num_simulations; ++i ) {
 		// Read time series data for the production phase
 		time_series_.push_back( 
-			TimeSeries( data_files[i], data_col_, simulations_[i].t_min, simulations_[i].t_max, 
+			TimeSeries( data_files[i], data_col_, simulations_[i].get_t_min(), simulations_[i].get_t_max(), 
 			            use_floored_times )
 		);
 
@@ -177,7 +177,7 @@ void OrderParameter::printRawDistributions() const
 	std::stringstream table_header_stream;
 	table_header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "# " << i+2 << ": " << simulations_[i].data_set_label << "\n";
+		table_header_stream << "# " << i+2 << ": " << simulations_[i].get_data_set_label() << "\n";
 	}
 	table_header_stream << "#\n"
 	                    << "# " << name_ << " | F(" << name_ << ") [kBT]\n";

@@ -25,10 +25,12 @@
 // Project headers
 #include "Bias.h"
 #include "Bins.h"
+#include "DataSummary.h"
 #include "Distribution.h"
 #include "FileSystem.h"
 #include "InputParser.h"
 #include "OrderParameter.h"
+#include "OrderParameterRegistry.h"
 #include "Simulation.h"
 #include "WhamDlibWrappers.h"
 
@@ -36,12 +38,14 @@ class Wham
 {
  public:
 	Wham(
+		const DataSummary& data_summary,
+		const OrderParameterRegistry& op_registry,
 		const std::vector<Simulation>& simulations,
 		const std::vector<OrderParameter>& order_parameters,
 		const std::vector<Bias>& biases,
 		//const std::vector<std::vector<double>>& u_bias_as_other,
 		const double tol
-		// TODO
+		// TODO initial guess for f_bias
 	);
 
 	// TODO Make private and run as part of constructor?
@@ -68,12 +72,12 @@ class Wham
 	std::vector<Distribution> manuallyUnbiasDistributions(const OrderParameter& x) const;
 
  private:
+	// Objects owned by the driver
+	const DataSummary&                 data_summary_;
+	const OrderParameterRegistry&      op_registry_;
 	const std::vector<Simulation>&     simulations_;
 	const std::vector<OrderParameter>& order_parameters_;
 	const std::vector<Bias>&           biases_;
-
-	// Maps names of OrderParameters top their indices in the order_parameters_ vector
-	std::map<std::string, int> map_op_names_to_indices_;
 
 	// The value of the bias for each sample, evaluating using each potential (i.e. in each ensemble):
 	//    u_{bias,r}( x_{j,i} )
