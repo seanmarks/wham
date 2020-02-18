@@ -319,7 +319,7 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
 	std::ofstream ofs;
 	const int num_simulations = simulations_.size();
 
-	const Bins& bins_x   = x.get_bins().get_num_bins();
+	const Bins& bins_x   = x.get_bins();
 	const int num_bins_x = bins_x.get_num_bins();
 
 	// Unpack for readability below
