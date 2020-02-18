@@ -318,7 +318,9 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
 	std::string file_name;
 	std::ofstream ofs;
 	const int num_simulations = simulations_.size();
-	const int num_bins_x      = x.bins_.get_num_bins();
+
+	const Bins& bins_x   = x.get_bins().get_num_bins();
+	const int num_bins_x = bins_x.get_num_bins();
 
 	// Unpack for readability below
 	//const std::vector<double>& p_x_wham      = x.wham_distribution_.p_x;
@@ -335,7 +337,7 @@ void WhamDriver::printWhamResults(const OrderParameter& x) const
       << "#   F(" << x.name_ << ") [in k_B*T] with T = " << wham_options_.T << " K\n";
 	ofs << "# " << x.name_ << "\tF[kBT]  NumSamples\n";  //"\t" << "\tstderr(F)\n"; TODO error estimate
 	for ( int b=0; b<num_bins_x; ++b ) {
-		ofs << std::setw(8) << std::setprecision(5) << x.bins_[b] << "\t";
+		ofs << std::setw(8) << std::setprecision(5) << bins_x[b] << "\t";
 		ofs << std::setw(8) << std::setprecision(5);
 			Distribution::print_free_energy(ofs, f_x_wham_shifted[b], sample_counts[b]);
 		ofs << std::setw(8) << std::setprecision(5) << sample_counts[b];
@@ -382,8 +384,8 @@ void WhamDriver::print_f_x_y(
 ) const
 {
 	// Working variables
-	const Bins& bins_x = x.bins_;
-	const Bins& bins_y = y.bins_;
+	const Bins& bins_x = x.get_bins();
+	const Bins& bins_y = y.get_bins();
 	int num_bins_x = bins_x.get_num_bins();
 	int num_bins_y = bins_y.get_num_bins();
 	std::string file_name, sep;
@@ -396,9 +398,10 @@ void WhamDriver::print_f_x_y(
 		ofs.open(file_name);
 		ofs << "# Bins for " << op_ptrs[i]->name_ << " for F_WHAM(" << x.name_ << "," << y.name_ << ")\n"
 				<< "# " << op_ptrs[i]->name_ << "\n";
-		int num_bins = op_ptrs[i]->bins_.get_num_bins();
+		const auto& bins = op_ptrs[i]->get_bins();
+		int num_bins = bins.get_num_bins();
 		for ( int j=0; j<num_bins; ++j ) {
-			ofs << op_ptrs[i]->bins_[j]  << "\n";
+			ofs << bins[j]  << "\n";
 		}
 		ofs.close(); ofs.clear();
 	}

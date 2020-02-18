@@ -1,5 +1,6 @@
 #include "Wham.h"
 
+
 Wham::Wham(
 	const DataSummary& data_summary, const OrderParameterRegistry& op_registry,
 	const std::vector<Simulation>& simulations, const std::vector<OrderParameter>& order_parameters,
@@ -11,7 +12,6 @@ Wham::Wham(
 	simulations_(simulations),
 	order_parameters_(order_parameters),
 	biases_(biases),
-	//u_bias_as_other_(u_bias_as_other),
 	tol_(tol)
 {
 	setup();
@@ -26,8 +26,6 @@ void Wham::setup()
 	// per simulation (and the total)
 	num_samples_per_simulation_.resize(num_simulations);
 	num_samples_total_ = 0;
-	//const std::vector<TimeSeries>& sample_time_series = order_parameters_[0].get_time_series();
-	//const auto& ref_op = order_parameters_[0];
 	for ( int j=0; j<num_simulations; ++j ) {
 		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples(); //ref_op.get_time_series(j).size();
 		num_samples_total_             += num_samples_per_simulation_[j];
