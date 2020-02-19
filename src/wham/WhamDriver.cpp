@@ -171,7 +171,6 @@ WhamDriver::WhamDriver(const std::string& options_file):
 		}
 	}
 
-
 #ifdef DEBUG
 	std::cout << "DEBUG: " << num_ops << " order parameters registered\n";
 	for ( int i=0; i<num_ops; ++i ) {
@@ -185,12 +184,6 @@ WhamDriver::WhamDriver(const std::string& options_file):
 #endif /* DEBUG */
 
 
-	/* FIXME
-	// Manually unbias each OP
-	for ( int p=0; p<num_ops; ++p ) {
-		manuallyUnbiasDistributions( order_parameters_[p] );
-	}
-	*/
 }
 
 
@@ -203,18 +196,16 @@ void WhamDriver::run_driver()
 
 	// Initial guess
 	// - Shift so that f[0] = 0
-	std::vector<double> f_init(num_simulations, 0.0);
+	std::vector<double> f_bias_init(num_simulations, 0.0);
 	double f_shift = f_bias_guess_[0];
 	for ( int j=0; j<num_simulations; ++j ) {
-		f_init[j] = f_bias_guess_[j] - f_shift;
+		f_bias_init[j] = f_bias_guess_[j] - f_shift;
 	}
 
-	// Run solver
+	// Solve for optimal free energies of biasing
 	// TODO errors
-
-	// FIXME
-	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, wham_options_.tol);
-	wham.solveWhamEquations(f_init, f_bias_opt_);
+	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
+	f_bias_opt_ = wham.get_f_bias_opt();
 
 	// Print optimal biasing free energies to file
 	std::string file_name = "f_bias_WHAM.out";
@@ -225,40 +216,36 @@ void WhamDriver::run_driver()
 	}
 	ofs.close(); ofs.clear();
 
+	// Manually unbias each OP
+	// FIXME
+	const int num_ops = order_parameters_.size();
+	for ( int p=0; p<num_ops; ++p ) {
+		order_parameters_[p].unbiased_distributions_ = wham.manuallyUnbiasDistributions( order_parameters_[p].get_name() );
+	}
 
 	//----- Output -----//
 
-	// FIXME
-
-	/*
 	// TODO Move elsewhere?
 	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 		if ( be_verbose ) {
-			std::cout << "Computing F_WHAM(" << x.name_ << ")\n";
+			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n";
 		}
 
 		// "Raw" distributions (i.e. using only data from each individual simulation)
 		x.printRawDistributions();
 
 		// F_WHAM(x)
-		compute_consensus_f_x( 
-			x.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_unbiased_, f_unbiased_, x.bins_,
-			// Output
-			x.wham_distribution_
-		);
+		x.wham_distribution_ = wham.compute_consensus_f_x_unbiased( x.get_name() );
 
 		// TODO errors
 		int num_bins_x = x.bins_.get_num_bins();
 		x.wham_distribution_.error_f_x.assign(num_bins_x, 0.0);
 
 		// "Rebias" consensus histograms (for validation)
-		for ( int k=0; k<num_simulations; ++k ) {
-			compute_consensus_f_x( 
-				x.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_[k], f_bias_opt_[k], x.bins_,
-				// Output
-				x.rebiased_distributions_[k] );
+		for ( int j=0; j<num_simulations; ++j ) {
+			x.rebiased_distributions_[j] = wham.compute_consensus_f_x_rebiased( x.get_name(), data_summary_.get_data_set_label(j) );
 		}
 
 		// Relative entropy between distributions (aka Kullback-Leibler divergence)
@@ -283,6 +270,7 @@ void WhamDriver::run_driver()
 		printWhamResults(x);
 	}
 
+	/*
 	// 2-variable outputs
 	for ( unsigned i=0; i<output_f_x_y_.size(); ++i ) {
 		// F_WHAM(x,y)
@@ -311,7 +299,7 @@ void WhamDriver::run_driver()
 }
 
 
-// TODO Move to OrderParameter?
+// TODO Move to OrderParameter/output-handling class?
 void WhamDriver::printWhamResults(const OrderParameter& x) const
 {
 	// Working variables

@@ -83,7 +83,7 @@ class WhamDriver
 	};
 
 
-	// FIXME Delete?
+	// FIXME Delete/move?
 	struct WhamResults1D
 	{
 		Distribution f_x_wham;  // consensus distribution

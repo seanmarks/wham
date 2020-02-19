@@ -44,15 +44,11 @@ class Wham
 		const std::vector<OrderParameter>& order_parameters,
 		const std::vector<Bias>& biases,
 		//const std::vector<std::vector<double>>& u_bias_as_other,
+		const std::vector<double>& f_bias_guess,
 		const double tol
-		// TODO initial guess for f_bias
 	);
 
 	// TODO Make private and run as part of constructor?
-	void solveWhamEquations(
-		const std::vector<double>& f_init,
-		std::vector<double>& f_bias_opt
-	);
 
 
 	//----- Objective Function -----//
@@ -67,9 +63,24 @@ class Wham
 	//   - dA_df = gradient wrt. biasing free energies themselves
 	const ColumnVector evalObjectiveDerivatives(const ColumnVector& df) const;
 
+
+	//----- WHAM Estimators -----//
+
+	const std::vector<double>& get_f_bias_opt() const { return f_bias_opt_; }
+
 	// "Manually" unbias the distributions for the given OrderParameter (i.e. using only
 	// each individual simulation's data, not the consensus estimates)
-	std::vector<Distribution> manuallyUnbiasDistributions(const OrderParameter& x) const;
+	std::vector<Distribution> manuallyUnbiasDistributions(const std::string& op_name) const;
+	//std::vector<Distribution> manuallyUnbiasDistributions(const OrderParameter& x) const; // FIXME
+
+	// TODO descriptions
+	Distribution compute_consensus_f_x_unbiased(
+		const std::string& op_name
+	) const;
+	Distribution compute_consensus_f_x_rebiased(
+		const std::string& op_name,
+		const std::string& data_set_label
+	) const;
 
  private:
 	// Objects owned by the driver
@@ -111,10 +122,16 @@ class Wham
 	std::vector<double> u_bias_as_other_unbiased_;
 	const double f_unbiased_ = 0.0;  // Free energy of going to the *unbiased* ensemble is zero
 
+	// Free energy of turning on each bias
+	std::vector<double> f_bias_guess_;  // initial guess
+	std::vector<double> f_bias_opt_;    // optimal
 
 	// These are computed by Wham.evalObjectiveFunction and saved for re-use 
 	// in Wham.evalObjectiveDerivatives
 	// - FIXME: dangerous?
+
+
+	//----- Working Variables -----//
 
 	// Factors related to the weight given to each data sample in the *unbiased* ensemble
 	// - Computed as a log-sum-exp
@@ -130,13 +147,15 @@ class Wham
 	mutable std::vector<int> sample_bins_;
 
 
-	//----- Setup -----//
+	//----- Solve WHAM Equations -----//
 
 	void setup();
 
 	// For each sample (across all simulations), evaluate the bias that would be
 	// felt under each simulation's potential
 	void evaluateBiases();
+
+	std::vector<double> solveWhamEquations(const std::vector<double>& f_bias_guess);
 
 
 	//----- Helper Functions -----//
@@ -181,12 +200,11 @@ class Wham
 	// Compute the consensus distribution F_k^{WHAM}(x), where k is the index
 	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
 	void compute_consensus_f_x(
-		const std::vector<TimeSeries>& x,
+		const OrderParameter& x,
 		const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>&              f_opt,  // consensus free energies to use
 		const std::vector<double>&              u_bias_as_other_k,
 		const double                            f_k,
-		const Bins& bins_x,
 		// Consensus distribution for x in ensemble k
 		Distribution& wham_distribution_x
 	) const;
