@@ -192,6 +192,7 @@ void WhamDriver::run_driver()
 	int num_simulations = simulations_.size();
 	bool be_verbose = true;
 
+
 	//----- Solve WHAM equations -----//
 
 	// Initial guess
@@ -222,6 +223,7 @@ void WhamDriver::run_driver()
 	for ( int p=0; p<num_ops; ++p ) {
 		order_parameters_[p].unbiased_distributions_ = wham.manuallyUnbiasDistributions( order_parameters_[p].get_name() );
 	}
+
 
 	//----- Output -----//
 
@@ -270,32 +272,26 @@ void WhamDriver::run_driver()
 		printWhamResults(x);
 	}
 
-	/*
 	// 2-variable outputs
 	for ( unsigned i=0; i<output_f_x_y_.size(); ++i ) {
 		// F_WHAM(x,y)
 		OrderParameter& x = order_parameters_[ output_f_x_y_[i][0] ];
 		OrderParameter& y = order_parameters_[ output_f_x_y_[i][1] ];
 		if ( be_verbose ) {
-			std::cout << "Computing F_WHAM(" << x.name_ << ", " << y.name_ << ")\n";
+			std::cout << "Computing F_WHAM(" << x.get_name() << ", " << y.get_name() << ")\n";
 		}
 
-		std::vector<double> p_y_wham, f_y_wham;
-		std::vector<int> sample_counts_y;
 		std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
 		std::vector<std::vector<int>> sample_counts_x_y;
 
-		compute_consensus_f_x_y( 
-			x.time_series_, y.time_series_, u_bias_as_other_, f_bias_opt_, u_bias_as_other_unbiased_, f_unbiased_,
-			x.bins_, y.bins_,
-			// Output
+		wham.compute_consensus_f_x_y_unbiased(
+			x.get_name(), y.get_name(),
 			p_x_y_wham, f_x_y_wham, sample_counts_x_y
 		);
 
 		// Print results
 		print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
 	}
-	*/
 }
 
 

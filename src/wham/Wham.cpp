@@ -507,21 +507,39 @@ void Wham::compute_consensus_f_x(
 }
 
 
-// TODO Pass 'x' and 'y' as OrderParameters instead (?)
+void Wham::compute_consensus_f_x_y_unbiased(
+	const std::string& x_name, const std::string& y_name,
+	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
+	std::vector<std::vector<int>>& sample_counts_x_y
+) const
+{
+	int p = op_registry_.get_index(x_name);
+	int q = op_registry_.get_index(y_name);
+
+	compute_consensus_f_x_y( order_parameters_[p], order_parameters_[q], u_bias_as_other_, f_bias_opt_,
+	                         u_bias_as_other_unbiased_, f_unbiased_, 
+	                         p_x_y_wham, f_x_y_wham, sample_counts_x_y );
+}
+
+
 void Wham::compute_consensus_f_x_y(
-	const std::vector<TimeSeries>& x, const std::vector<TimeSeries>& y,
+	const OrderParameter& x, const OrderParameter& y,
 	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& f_bias_opt,
 	const std::vector<double>& u_bias_as_other_k, const double f_bias_k,
-	const Bins& bins_x, const Bins& bins_y,
 	// Consensus distributions for F_k(x,y)
 	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
 	std::vector<std::vector<int>>& sample_counts_x_y
 ) const
 {
-	// Input checks
+	/*
+	// Input checks TODO
 	if ( y.size() != x.size() or f_bias_opt.size() != x.size() or u_bias_as_other.size() != x.size() ) {
 		throw std::runtime_error("Error in Wham::compute_consensus_f_x_y - Array size inconsistency");
 	}
+	*/
+
+	const auto& bins_x = x.get_bins();
+	const auto& bins_y = y.get_bins();
 
 	// Allocate memory and set up grids
 	int num_bins_x = bins_x.get_num_bins();
@@ -544,10 +562,12 @@ void Wham::compute_consensus_f_x_y(
 	int sample_index = 0, bin_x, bin_y;
 	int num_simulations = simulations_.size();
 	for ( int j=0; j<num_simulations; ++j ) {
-		int num_samples = x[j].size();
+		const auto& x_j = x.get_time_series(j);
+		const auto& y_j = y.get_time_series(j);
+		int num_samples = x_j.size();
 		for ( int i=0; i<num_samples; ++i ) {
-			bin_x = bins_x.find_bin(x[j][i]);
-			bin_y = bins_y.find_bin(y[j][i]);
+			bin_x = bins_x.find_bin(x_j[i]);
+			bin_y = bins_y.find_bin(y_j[i]);
 			if ( bin_x >= 0 and bin_y >= 0 ) {
 				sample_bins_[sample_index] = bin_x*num_bins_y + bin_y;
 			}

@@ -71,7 +71,6 @@ class Wham
 	// "Manually" unbias the distributions for the given OrderParameter (i.e. using only
 	// each individual simulation's data, not the consensus estimates)
 	std::vector<Distribution> manuallyUnbiasDistributions(const std::string& op_name) const;
-	//std::vector<Distribution> manuallyUnbiasDistributions(const OrderParameter& x) const; // FIXME
 
 	// TODO descriptions
 	Distribution compute_consensus_f_x_unbiased(
@@ -80,6 +79,16 @@ class Wham
 	Distribution compute_consensus_f_x_rebiased(
 		const std::string& op_name,
 		const std::string& data_set_label
+	) const;
+
+	// TODO descriptions
+	void compute_consensus_f_x_y_unbiased(
+		const std::string& x_name,
+		const std::string& y_name,
+		// Output
+		std::vector<std::vector<double>>& p_x_y_wham, 
+		std::vector<std::vector<double>>& f_x_y_wham,
+		std::vector<std::vector<int>>& sample_counts_x_y
 	) const;
 
  private:
@@ -214,14 +223,12 @@ class Wham
 	// - Grids use 'ij' organization, i.e. grid[i][j] corresponds to (x_bins[i], y_bins[j])
 	// TODO generalize to n dimensions and combine with compute_consensus_f_x
 	void compute_consensus_f_x_y(
-		const std::vector<TimeSeries>& x,
-		const std::vector<TimeSeries>& y,
+		const OrderParameter& x,
+		const OrderParameter& y,
 		const std::vector<std::vector<double>>& u_bias_as_other,
-		const std::vector<double>&              f_opt,  // consensus free energies to use
+		const std::vector<double>&              f_bias_opt,  // consensus free energies to use
 		const std::vector<double>&              u_bias_as_other_k,
-		const double                            f_k,
-		const Bins& bins_x,
-		const Bins& bins_y,
+		const double                            f_bias_k,
 		// Consensus distributions for F_k(x,y)
 		std::vector<std::vector<double>>& p_x_y_wham,
 		std::vector<std::vector<double>>& f_x_y_wham,

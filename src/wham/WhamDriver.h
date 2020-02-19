@@ -83,19 +83,22 @@ class WhamDriver
 	};
 
 
-	// FIXME Delete/move?
+	// FIXME Delete/move/use?
 	struct WhamResults1D
 	{
+		const OrderParameter* op_ptr = nullptr;  // ptr to OP in question
+
 		Distribution f_x_wham;  // consensus distribution
 
-		std::vector<double> f_bias;  // Free energy of turning on the bias (in kBT): Delta F_bias = -ln(Q_i/Q_0)
+		// Free energy of turning on the bias (in kBT): Delta F_bias = -ln(Q_i/Q_0)
+		std::vector<double> f_bias;
 
 		std::vector<Distribution> f_x_unbiased;  // manually unbiased
 		std::vector<Distribution> f_x_shifted;   // manually unbiased and shifted
 
+		// Rebiased distributions and associated entropy
 		std::vector<Distribution> f_x_rebiased;
 		std::vector<double>       info_entropy;
-		//std::vector<Distribution> f_x_rebiased;
 	};
 
 	// Driver: Manages solving the WHAM equations and printing output
