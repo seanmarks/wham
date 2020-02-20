@@ -195,7 +195,6 @@ void WhamDriver::run_driver()
 	}
 
 	// Solve for optimal free energies of biasing
-	// TODO errors
 	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
 	f_bias_opt_ = wham.get_f_bias_opt();
 
@@ -208,27 +207,15 @@ void WhamDriver::run_driver()
 	}
 	ofs.close(); ofs.clear();
 
-	// Manually unbias each OP
-	// FIXME RESULTS
-	/*
-	const int num_ops = order_parameters_.size();
-	for ( int p=0; p<num_ops; ++p ) {
-		order_parameters_[p].unbiased_distributions_ = wham.manuallyUnbiasDistributions( order_parameters_[p].get_name() );
-	}
-	*/
-
 
 	//----- Output -----//
 
-	// TODO Move elsewhere?
 	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 		if ( be_verbose ) {
 			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n";
 		}
-
-		//WhamResults1D results_x(x, simulations_);
 
 		// "Manually" unbiased distributions (non-consensus, unshifted)
 		x.set_unbiased_distributions( wham.manuallyUnbiasDistributions( x.get_name() ) );
@@ -239,7 +226,7 @@ void WhamDriver::run_driver()
 		// TODO: shifted distributions
 
 		// F_WHAM(x)
-		// TODO errors
+		// - TODO errors
 		x.set_wham_distribution( wham.compute_consensus_f_x_unbiased( x.get_name() ) );
 		x.printWhamResults();
 

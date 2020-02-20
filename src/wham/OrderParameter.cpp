@@ -35,19 +35,13 @@ OrderParameter::OrderParameter(
 			global_sample_counts_[b] += biased_distributions_[j].sample_counts[b];
 		}
 	}
-
-	// Reserve memory for later
-	//unbiased_distributions_.resize(num_simulations);
-	//rebiased_distributions_.resize(num_simulations);
 }
 
 
 void OrderParameter::printRawDistributions() const
 {
 	int num_simulations = time_series_ptrs_.size();
-	if ( num_simulations < 1 ) {
-		throw std::runtime_error("OrderParameter::printRawDistributions: No data found.\n");
-	}
+	WHAM_ASSERT(num_simulations > 0, "no simulations present");
 
 	// Common header
 	std::stringstream table_header_stream;

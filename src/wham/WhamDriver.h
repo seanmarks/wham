@@ -60,7 +60,6 @@
 #include "OrderParameterRegistry.h"
 #include "Simulation.h"
 #include "Wham.h"
-#include "WhamResults1D.h"
 
 class WhamDriver
 {
@@ -83,11 +82,8 @@ class WhamDriver
 		double tol;      // tolerance for solver
 	};
 
-
-
 	// Driver: Manages solving the WHAM equations and printing output
 	void run_driver();
-
 
  private:
 	// Input file
@@ -125,9 +121,7 @@ class WhamDriver
 
 	//----- Output Files -----//
 
-	// TODO move to OrderParameter?
-	void printWhamResults(const OrderParameter& x) const;
-
+	// TODO: Separate class for 2D distributions?
 	void print_f_x_y(
 		const OrderParameter& x, const OrderParameter& y,
 		// Consensus distributions for F(x,y)

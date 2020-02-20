@@ -2,10 +2,6 @@
 // 
 // ABOUT: Organizes data and variables for a single order parameter 
 //        across multiple simulations
-// - Wham (friend class) sets much of its internal state
-//
-// TODO better to convert to struct to make it clear it's really POD?
-// - That's how friend class Wham sees it
 
 #ifndef ORDER_PARAMETER_H
 #define ORDER_PARAMETER_H
@@ -30,15 +26,12 @@
 #include "InputParser.h"
 #include "Simulation.h"
 #include "TimeSeries.h"
+#include "utils.h"
 
 class OrderParameter
 {
  public:
 	using TimeSeriesPtr = Simulation::TimeSeriesPtr;
-
-	// FIXME
-	friend class Wham;
-	friend class WhamDriver;
 	
 	OrderParameter(
 		const std::string& name,
@@ -108,11 +101,10 @@ class OrderParameter
 	// Time series data from each simulation
 	std::vector<TimeSeriesPtr> time_series_ptrs_;
 
-	// TODO: Move to driver?
 	std::vector<Distribution> biased_distributions_;
 	std::vector<Distribution> unbiased_distributions_;
-	std::vector<Distribution> rebiased_distributions_;
-	std::vector<Distribution> shifted_distributions_;
+	std::vector<Distribution> shifted_distributions_;   // unbiased and shifted
+	std::vector<Distribution> rebiased_distributions_;  // rebias consensus distribution
 
 	// WHAM results
 	Distribution wham_distribution_;
@@ -120,11 +112,6 @@ class OrderParameter
 
 	// Number of samples in each bin, across all simulations
 	std::vector<int> global_sample_counts_;
-
-	/*
-	// Checks a set of OrderParameters for consistency:
-	static void checkForConsistency(const std::vector<OrderParameter>& ops);
-	*/
 };
 
 #endif /* ORDER_PARAMETER_H */
