@@ -80,7 +80,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 			std::cout << "    op = " << biases_[j].get_order_parameter_names()[k] << "\n";
 		}
 	}
-#endif /* DEBUG */
+#endif // DEBUG
 
 
 	//----- Order Parameters -----//
@@ -90,20 +90,11 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	std::vector<const ParameterPack*> op_pack_ptrs = 
 			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
 	order_parameters_.clear();
-	/*
-	int num_ops = op_pack_ptrs.size();
-	if ( num_ops < 1 ) {
-		throw std::runtime_error("no order parameters were registered");
-	}
-	*/
 
 	for ( int p=0; p<num_ops; ++p ) {
 		order_parameters_.push_back( OrderParameter(op_names[p], *(op_pack_ptrs[p]), simulations_) );
 		//order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
 	}
-
-	// Check time series
-	//OrderParameter::checkForConsistency( order_parameters_ );
 
 
 	//---- Initial guess -----//
@@ -177,8 +168,8 @@ WhamDriver::WhamDriver(const std::string& options_file):
 		int num_time_series = order_parameters_[i].time_series_.size();
 		std::cout << "  op = " << order_parameters_[i].name_ << ": " << num_time_series << " time series\n";
 		for ( int j=0; j<num_time_series; ++j ) {
-			std::cout << "    file = " << order_parameters_[i].time_series_[j].get_file() << "\n"
-			          << "    size = " << order_parameters_[i].time_series_[j].size() << " data points\n";
+			std::cout << "    file = " << order_parameters_[i].get_time_series(j).get_file() << "\n"
+			          << "    size = " << order_parameters_[i].get_time_series(j).size() << " data points\n";
 		}
 	}
 #endif /* DEBUG */
@@ -218,7 +209,7 @@ void WhamDriver::run_driver()
 	ofs.close(); ofs.clear();
 
 	// Manually unbias each OP
-	// FIXME
+	// FIXME RESULTS
 	const int num_ops = order_parameters_.size();
 	for ( int p=0; p<num_ops; ++p ) {
 		order_parameters_[p].unbiased_distributions_ = wham.manuallyUnbiasDistributions( order_parameters_[p].get_name() );
@@ -235,41 +226,50 @@ void WhamDriver::run_driver()
 			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n";
 		}
 
+		WhamResults1D results_x(x, simulations_);
+
 		// "Raw" distributions (i.e. using only data from each individual simulation)
+		// FIXME RESULTS
 		x.printRawDistributions();
 
 		// F_WHAM(x)
-		x.wham_distribution_ = wham.compute_consensus_f_x_unbiased( x.get_name() );
+		results_x.f_x_wham = wham.compute_consensus_f_x_unbiased( x.get_name() );
+		//x.wham_distribution_ = wham.compute_consensus_f_x_unbiased( x.get_name() );
 
 		// TODO errors
 		int num_bins_x = x.bins_.get_num_bins();
-		x.wham_distribution_.error_f_x.assign(num_bins_x, 0.0);
+		results_x.f_x_wham.error_f_x.assign(num_bins_x, 0.0);
+		//x.wham_distribution_.error_f_x.assign(num_bins_x, 0.0);
 
 		// "Rebias" consensus histograms (for validation)
+		results_x.f_x_rebiased.clear();
 		for ( int j=0; j<num_simulations; ++j ) {
-			x.rebiased_distributions_[j] = wham.compute_consensus_f_x_rebiased( x.get_name(), data_summary_.get_data_set_label(j) );
+			results_x.f_x_rebiased.push_back(
+				wham.compute_consensus_f_x_rebiased( x.get_name(), data_summary_.get_data_set_label(j) )
+			);
 		}
 
 		// Relative entropy between distributions (aka Kullback-Leibler divergence)
 		// - Closely related to Shannon entropy
 		// - See Hummer and Zhu (J Comp Chem 2012), Eqn. 2
 		// TODO move to function which takes two arbitrary distributions
-		x.info_entropy_.assign(num_simulations, 0.0);
+		results_x.info_entropy.assign(num_simulations, 0.0);
 		double bin_size_x = x.bins_.get_bin_size();
-		for ( int i=0; i<num_simulations; ++i ) {
+		for ( int j=0; j<num_simulations; ++j ) {
 			for ( int b=0; b<num_bins_x; ++b ) {
-				const double& p_biased   = x.biased_distributions_[i].p_x[b];
-				const double& f_biased   = x.biased_distributions_[i].f_x[b];
-				const double& f_rebiased = x.rebiased_distributions_[i].f_x[b];
+				const double& p_biased   = x.biased_distributions_[j].p_x[b];
+				const double& f_biased   = x.biased_distributions_[j].f_x[b];
+				const double& f_rebiased = results_x.f_x_rebiased[j].f_x[b];
 
 				if ( p_biased > 0.0 and std::isfinite(f_rebiased) ) {
-					x.info_entropy_[i] += p_biased*(f_rebiased - f_biased)*bin_size_x;
+					results_x.info_entropy[j] += p_biased*(f_rebiased - f_biased)*bin_size_x;
 				}
 			}
 		}
 
 		// Print the results for this OP
-		printWhamResults(x);
+		results_x.print();
+		//printWhamResults(x);
 	}
 
 	// 2-variable outputs

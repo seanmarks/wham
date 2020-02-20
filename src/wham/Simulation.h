@@ -27,8 +27,9 @@ class Simulation
 	);
 
 	const std::string& get_data_set_label() const { return data_set_label_; }
-	double get_t_min() const { return t_min_; }
-	double get_t_max() const { return t_max_; }
+	double get_t_min()       const { return t_min_; }
+	double get_t_max()       const { return t_max_; }
+	double get_temperature() const { return temperature_; }
 
 	int get_num_samples() const {
 		if ( time_series_ptrs_.size() > 0 ) {

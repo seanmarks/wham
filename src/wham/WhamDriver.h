@@ -60,6 +60,7 @@
 #include "OrderParameterRegistry.h"
 #include "Simulation.h"
 #include "Wham.h"
+#include "WhamResults1D.h"
 
 class WhamDriver
 {
@@ -83,23 +84,6 @@ class WhamDriver
 	};
 
 
-	// FIXME Delete/move/use?
-	struct WhamResults1D
-	{
-		const OrderParameter* op_ptr = nullptr;  // ptr to OP in question
-
-		Distribution f_x_wham;  // consensus distribution
-
-		// Free energy of turning on the bias (in kBT): Delta F_bias = -ln(Q_i/Q_0)
-		std::vector<double> f_bias;
-
-		std::vector<Distribution> f_x_unbiased;  // manually unbiased
-		std::vector<Distribution> f_x_shifted;   // manually unbiased and shifted
-
-		// Rebiased distributions and associated entropy
-		std::vector<Distribution> f_x_rebiased;
-		std::vector<double>       info_entropy;
-	};
 
 	// Driver: Manages solving the WHAM equations and printing output
 	void run_driver();

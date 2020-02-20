@@ -1,3 +1,5 @@
+// Distribution
+// - Simple class
 
 #pragma once
 #ifndef DISTRIBUTION_H
@@ -13,10 +15,15 @@
 
 class Distribution {
  public:
+	//----- Data -----//
+
 	Bins                bins_x;
 	std::vector<double> f_x, error_f_x;
 	std::vector<double> p_x;
 	std::vector<int>    sample_counts;
+
+
+	//----- Setup ----//
 
 	Distribution();
 
