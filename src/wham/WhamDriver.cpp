@@ -210,10 +210,12 @@ void WhamDriver::run_driver()
 
 	// Manually unbias each OP
 	// FIXME RESULTS
+	/*
 	const int num_ops = order_parameters_.size();
 	for ( int p=0; p<num_ops; ++p ) {
 		order_parameters_[p].unbiased_distributions_ = wham.manuallyUnbiasDistributions( order_parameters_[p].get_name() );
 	}
+	*/
 
 
 	//----- Output -----//
@@ -226,50 +228,32 @@ void WhamDriver::run_driver()
 			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n";
 		}
 
-		WhamResults1D results_x(x, simulations_);
+		//WhamResults1D results_x(x, simulations_);
+
+		// "Manually" unbiased distributions (non-consensus, unshifted)
+		x.set_unbiased_distributions( wham.manuallyUnbiasDistributions( x.get_name() ) );
 
 		// "Raw" distributions (i.e. using only data from each individual simulation)
-		// FIXME RESULTS
 		x.printRawDistributions();
 
-		// F_WHAM(x)
-		results_x.f_x_wham = wham.compute_consensus_f_x_unbiased( x.get_name() );
-		//x.wham_distribution_ = wham.compute_consensus_f_x_unbiased( x.get_name() );
+		// TODO: shifted distributions
 
+		// F_WHAM(x)
 		// TODO errors
-		int num_bins_x = x.bins_.get_num_bins();
-		results_x.f_x_wham.error_f_x.assign(num_bins_x, 0.0);
-		//x.wham_distribution_.error_f_x.assign(num_bins_x, 0.0);
+		x.set_wham_distribution( wham.compute_consensus_f_x_unbiased( x.get_name() ) );
+		x.printWhamResults();
 
 		// "Rebias" consensus histograms (for validation)
-		results_x.f_x_rebiased.clear();
+		std::vector<Distribution> f_x_rebiased;
 		for ( int j=0; j<num_simulations; ++j ) {
-			results_x.f_x_rebiased.push_back(
+			f_x_rebiased.push_back(
 				wham.compute_consensus_f_x_rebiased( x.get_name(), data_summary_.get_data_set_label(j) )
 			);
 		}
+		x.set_rebiased_distributions( f_x_rebiased );
+		x.printRebiasedDistributions();
 
-		// Relative entropy between distributions (aka Kullback-Leibler divergence)
-		// - Closely related to Shannon entropy
-		// - See Hummer and Zhu (J Comp Chem 2012), Eqn. 2
-		// TODO move to function which takes two arbitrary distributions
-		results_x.info_entropy.assign(num_simulations, 0.0);
-		double bin_size_x = x.bins_.get_bin_size();
-		for ( int j=0; j<num_simulations; ++j ) {
-			for ( int b=0; b<num_bins_x; ++b ) {
-				const double& p_biased   = x.biased_distributions_[j].p_x[b];
-				const double& f_biased   = x.biased_distributions_[j].f_x[b];
-				const double& f_rebiased = results_x.f_x_rebiased[j].f_x[b];
-
-				if ( p_biased > 0.0 and std::isfinite(f_rebiased) ) {
-					results_x.info_entropy[j] += p_biased*(f_rebiased - f_biased)*bin_size_x;
-				}
-			}
-		}
-
-		// Print the results for this OP
-		results_x.print();
-		//printWhamResults(x);
+		x.printStats();
 	}
 
 	// 2-variable outputs
@@ -295,70 +279,6 @@ void WhamDriver::run_driver()
 }
 
 
-// TODO Move to OrderParameter/output-handling class?
-void WhamDriver::printWhamResults(const OrderParameter& x) const
-{
-	// Working variables
-	std::string file_name;
-	std::ofstream ofs;
-	const int num_simulations = simulations_.size();
-
-	const Bins& bins_x   = x.get_bins();
-	const int num_bins_x = bins_x.get_num_bins();
-
-	// Unpack for readability below
-	//const std::vector<double>& p_x_wham      = x.wham_distribution_.p_x;
-	const std::vector<double>& f_x_wham      = x.wham_distribution_.f_x;
-	const std::vector<int>&    sample_counts = x.wham_distribution_.sample_counts;
-
-	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
-	auto f_x_wham_shifted = Distribution::shift_f_x_to_zero( f_x_wham, sample_counts );
-
-	// Print F_0(x)
-	file_name = "F_" + x.name_ + "_WHAM.out";
-	ofs.open(file_name);
-	ofs << "# Consensus free energy distributions from WHAM: \n"
-      << "#   F(" << x.name_ << ") [in k_B*T] with T = " << wham_options_.T << " K\n";
-	ofs << "# " << x.name_ << "\tF[kBT]  NumSamples\n";  //"\t" << "\tstderr(F)\n"; TODO error estimate
-	for ( int b=0; b<num_bins_x; ++b ) {
-		ofs << std::setw(8) << std::setprecision(5) << bins_x[b] << "\t";
-		ofs << std::setw(8) << std::setprecision(5);
-			Distribution::print_free_energy(ofs, f_x_wham_shifted[b], sample_counts[b]);
-		ofs << std::setw(8) << std::setprecision(5) << sample_counts[b];
-		//<< std::setw(8) << std::setprecision(5) << wham_results_.error_f[b]
-		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
-
-	// "Rebiased" free energy distributions
-	file_name = "F_" + x.name_ + "_rebiased.out";
-
-	std::stringstream header_stream;
-	header_stream << "# \"Rebiased\" free energy distributions: "
-                << " F_{rebias,i}(" << x.name_ << ") [k_B*T]\n";
-	header_stream << "# Data sets (by column)\n";
-	for ( int j=0; j<num_simulations; ++j ) {
-		header_stream << "# " << j+2 << ": " << simulations_[j].get_data_set_label() << "\n";
-	}
-	header_stream << "#\n"
-	              << "# " << x.name_ << " | F(" << x.name_ << ") [kBT]\n";
-
-	x.printDistributions( x.rebiased_distributions_, file_name, header_stream.str() );
-
-	// Misc. stats
-	file_name = "stats_" + x.name_ + ".out";
-	ofs.open(file_name);
-	ofs << "# data_set   avg(x)   var(x)   info_entropy(biased/rebiased)\n";
-	for ( int j=0; j<num_simulations; ++j ) {
-		ofs << simulations_[j].get_data_set_label() << "\t"
-		    << x.get_time_series(j).average() << "\t"
-		    << x.get_time_series(j).variance() << "\t"
-		    << x.info_entropy_[j] << "\n";
-	}
-	ofs.close(); ofs.clear();
-}
-
-
 void WhamDriver::print_f_x_y(
 	const OrderParameter& x, const OrderParameter& y,
 	// Consensus distributions for F_k(x,y)
@@ -378,10 +298,10 @@ void WhamDriver::print_f_x_y(
 	// Print bins
 	std::vector<const OrderParameter*> op_ptrs = {{ &x, &y }};
 	for ( unsigned i=0; i<op_ptrs.size(); ++i ) {
-		file_name = "bins_" + op_ptrs[i]->name_ + ".out";
+		file_name = "bins_" + op_ptrs[i]->get_name() + ".out";
 		ofs.open(file_name);
-		ofs << "# Bins for " << op_ptrs[i]->name_ << " for F_WHAM(" << x.name_ << "," << y.name_ << ")\n"
-				<< "# " << op_ptrs[i]->name_ << "\n";
+		ofs << "# Bins for " << op_ptrs[i]->get_name() << " for F_WHAM(" << x.get_name() << "," << y.get_name() << ")\n"
+				<< "# " << op_ptrs[i]->get_name() << "\n";
 		const auto& bins = op_ptrs[i]->get_bins();
 		int num_bins = bins.get_num_bins();
 		for ( int j=0; j<num_bins; ++j ) {
@@ -391,7 +311,7 @@ void WhamDriver::print_f_x_y(
 	}
 
 	// Print F(x,y)  (TODO: shift so that F=0 at the minimum)
-	file_name = "F_" + x.name_ + "_" + y.name_ + "_WHAM.out";
+	file_name = "F_" + x.get_name() + "_" + y.get_name() + "_WHAM.out";
 	ofs.open(file_name);
 	sep = " ";
 	for ( int i=0; i<num_bins_x; ++i ) {
@@ -404,7 +324,7 @@ void WhamDriver::print_f_x_y(
 	ofs.close(); ofs.clear();
 
 	// Print sample distribution
-	file_name = "samples_" + x.name_ + "_" + y.name_ + ".out";
+	file_name = "samples_" + x.get_name() + "_" + y.get_name() + ".out";
 	ofs.open(file_name);
 	sep = " ";
 	for ( int i=0; i<num_bins_x; ++i ) {

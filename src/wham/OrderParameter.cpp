@@ -23,7 +23,7 @@ OrderParameter::OrderParameter(
 		time_series_ptrs_[i] = simulations_[i].copy_time_series_ptr(name_);
 		
 		// Make raw biased distributions
-		// - TODO: Move to driver?
+		// - TODO: Make optional?
 		biased_distributions_.emplace_back( Distribution(bins_, *(time_series_ptrs_[i])) );
 	}
 
@@ -37,8 +37,8 @@ OrderParameter::OrderParameter(
 	}
 
 	// Reserve memory for later
-	unbiased_distributions_.resize(num_simulations);
-	rebiased_distributions_.resize(num_simulations);
+	//unbiased_distributions_.resize(num_simulations);
+	//rebiased_distributions_.resize(num_simulations);
 }
 
 
@@ -79,6 +79,100 @@ void OrderParameter::printRawDistributions() const
                 << " F_{0,i}(" << name_ << ") [k_B*T]\n"
 	              << table_header_stream.str();
 	printDistributions( unbiased_distributions_, file_name, header_stream.str() );
+}
+
+
+void OrderParameter::printRebiasedDistributions(std::string file_name) const
+{
+	// TODO: consistency check for presence of output
+	const int num_simulations = simulations_.size();
+
+	if ( file_name.empty() ) {
+		file_name = "F_" + name_ + "_rebiased.out";
+	}
+	std::ofstream ofs(file_name);
+
+	// Header
+	std::stringstream header_stream;
+	header_stream << "# \"Rebiased\" free energy distributions: "
+                << " F_{rebias,i}(" << name_ << ") [k_B*T]\n";
+	header_stream << "# Data sets (by column)\n";
+	for ( int j=0; j<num_simulations; ++j ) {
+		header_stream << "# " << j+2 << ": " << simulations_[j].get_data_set_label() << "\n";
+	}
+	header_stream << "#\n"
+	              << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
+
+	// Print
+	printDistributions( rebiased_distributions_, file_name, header_stream.str() );
+}
+
+
+void OrderParameter::printWhamResults(std::string file_name) const
+{
+	// TODO: consistency check for presence of output
+	//const int num_simulations = simulations_.size();
+
+	if ( file_name.empty() ) {
+		file_name = "F_" + name_ + "_WHAM.out";
+	}
+	std::ofstream ofs(file_name);
+
+	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
+	const auto& f_x           = wham_distribution_.f_x;
+	const auto& sample_counts = wham_distribution_.sample_counts;
+	auto f_x_shifted = Distribution::shift_f_x_to_zero(f_x, sample_counts);
+
+	// Header
+	ofs << "# Consensus free energy distributions from WHAM: \n"
+      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulations_[0].get_temperature() << " K\n";  // FIXME temperature
+	ofs << "# " << name_ << "\tF[kBT]  NumSamples\n";  //"\t" << "\tstderr(F)\n"; TODO error estimate
+
+	// Print F_0(x)
+	const int num_bins  = bins_.get_num_bins();
+	for ( int b=0; b<num_bins; ++b ) {
+		ofs << std::setw(8) << std::setprecision(5) << bins_[b] << "\t";
+		ofs << std::setw(8) << std::setprecision(5);
+			Distribution::print_free_energy(ofs, f_x_shifted[b], sample_counts[b]);
+		ofs << std::setw(8) << std::setprecision(5) << sample_counts[b];
+		//<< std::setw(8) << std::setprecision(5) << wham_results_.error_f[b]
+		ofs << "\n";
+	}
+	ofs.close(); ofs.clear();
+}
+
+
+
+void OrderParameter::printStats(std::string file_name) const
+{
+	if ( file_name.empty() ) {
+		file_name = "stats_" + name_ + ".out";
+	}
+
+	// Check for presence of info entropy (TODO: private flag?)
+	int  num_simulations   = simulations_.size();
+	int  num_info_entropy  = info_entropy_.size();
+	bool have_info_entropy = ( num_info_entropy == num_simulations );
+
+	std::ofstream ofs(file_name);
+
+	// Header
+	ofs << "# data_set   avg(" << name_ << ")   var(" << name_ << ")";
+	if ( have_info_entropy ) {
+		ofs << "   info_entropy(biased/rebiased)";
+	}
+	ofs << "\n";
+
+	// Body
+	for ( int j=0; j<num_simulations; ++j ) {
+		ofs << simulations_[j].get_data_set_label() << "\t"
+		    << time_series_ptrs_[j]->average() << "\t"
+		    << time_series_ptrs_[j]->variance();
+		if ( have_info_entropy ) {
+ 			ofs << "\t" << info_entropy_[j] << "\n";
+		}
+	}
+	ofs.close();
 }
 
 

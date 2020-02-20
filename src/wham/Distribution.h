@@ -37,6 +37,11 @@ class Distribution {
 	) const;
 
 
+	//----- Analysis -----//
+
+	static double computeInformationEntropy(const Distribution& first, const Distribution& second);
+
+
 	//----- Output Helper Functions -----//
 
 	// When computed from a histogram, F(x) is finite only when num_samples > 0

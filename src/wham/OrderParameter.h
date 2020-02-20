@@ -11,6 +11,7 @@
 #define ORDER_PARAMETER_H
 
 // Standard headers
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <exception>
@@ -47,14 +48,48 @@ class OrderParameter
 
 	// Get functions
 	const std::string& get_name() const { return name_; }
-	const TimeSeries& get_time_series(const int i) const {
-		// TODO debug: ptr check
-		return *(time_series_ptrs_[i]);
+	const TimeSeries& get_time_series(const int j) const {
+#ifdef DEBUG
+		assert( time_series_ptrs_[j] != nullptr );
+#endif // ifdef DEBUG
+		return *(time_series_ptrs_[j]);
 	}
-	//const std::vector<TimeSeries>& get_time_series() const { return time_series_; }
 	const Bins& get_bins() const { return bins_; }
 
+	// Set functions
+	void set_unbiased_distributions(const std::vector<Distribution>& unbiased_distributions) {
+		unbiased_distributions_ = unbiased_distributions;
+	}
+	void set_shifted_distributions(const std::vector<Distribution>& shifted_distributions) {
+		shifted_distributions_ = shifted_distributions;
+	}
+	void set_rebiased_distributions(const std::vector<Distribution>& rebiased_distributions) {
+		rebiased_distributions_ = rebiased_distributions;
+
+		// Entropy between biased and rebiased distributions
+		int num_simulations = simulations_.size();
+		info_entropy_.resize(num_simulations);
+		for ( int j=0; j<num_simulations; ++j ) {
+			info_entropy_[j] = Distribution::computeInformationEntropy(
+				biased_distributions_[j], rebiased_distributions_[j]
+			);
+		}
+	}
+	void set_wham_distribution(const Distribution& wham_distribution) {
+		wham_distribution_ = wham_distribution;
+	}
+
+
+	//----- Printing Output -----//
+
+	// TODO rename
 	void printRawDistributions() const;
+
+	void printRebiasedDistributions(std::string file_name = "") const;
+
+	void printWhamResults(std::string file_name = "") const;
+
+	void printStats(std::string file_name = "") const;
 
 	// Prints a series of distributions, F_i(x), side-by-side
 	void printDistributions(
@@ -67,11 +102,10 @@ class OrderParameter
  private:
 	std::string name_;
 
-	std::vector<Simulation>& simulations_; // TODO eliminate?
+	std::vector<Simulation>& simulations_;
 	Bins bins_;
 
 	// Time series data from each simulation
-	//std::vector<TimeSeries> time_series_;
 	std::vector<TimeSeriesPtr> time_series_ptrs_;
 
 	// TODO: Move to driver?
@@ -80,12 +114,10 @@ class OrderParameter
 	std::vector<Distribution> rebiased_distributions_;
 	std::vector<Distribution> shifted_distributions_;
 
-	// TODO: Move to driver?
 	// WHAM results
 	Distribution wham_distribution_;
 	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
 
-	// TODO: Move to driver?
 	// Number of samples in each bin, across all simulations
 	std::vector<int> global_sample_counts_;
 
