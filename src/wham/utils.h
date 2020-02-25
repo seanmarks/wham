@@ -36,7 +36,7 @@ constexpr int factorial(int n) {
 // along with the associated file name and line number
 #define FANCY_FUNCTION __PRETTY_FUNCTION__ " (" LOCATION_IN_SOURCE ")"
 
-#define WHAM_ASSERT(test,message) if (not (test)) { \
+#define FANCY_ASSERT(test,message) if (not (test)) { \
   	throw std::runtime_error("assertion failed in " FANCY_FUNCTION "\n" "  " message "\n" "  test: " STRINGIFY(test) "\n"); \
 	}
 

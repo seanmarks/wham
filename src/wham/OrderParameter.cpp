@@ -41,7 +41,7 @@ OrderParameter::OrderParameter(
 void OrderParameter::printRawDistributions() const
 {
 	int num_simulations = time_series_ptrs_.size();
-	WHAM_ASSERT(num_simulations > 0, "no simulations present");
+	FANCY_ASSERT(num_simulations > 0, "no simulations present");
 
 	// Common header
 	std::stringstream table_header_stream;

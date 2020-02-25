@@ -74,9 +74,9 @@ double Statistics::varianceOverAverage(const std::vector<double>& x)
 
 
 // Compute the sample standard deviation 
-double Statistics::std_dev(const std::vector<double>& x)
+double Statistics::std_dev(const std::vector<double>& x, const int delta_dof)
 {
-	return sqrt( Statistics::variance(x, 1) );
+	return sqrt( Statistics::variance(x, delta_dof) );
 }
 
 
@@ -545,7 +545,8 @@ Statistics::PointEstmator Statistics::getPointEstimatorMethod(
 				|| (statistic == "standardDeviation") 	
 				|| (statistic == "std_dev") )
 	{
-		estimator_fxn = &Statistics::std_dev;
+		//estimator_fxn = &Statistics::std_dev;
+		throw std::runtime_error("FIXME");
 	}
 	else if ( statistic == "kurtosis" ) 
 	{ 

@@ -39,7 +39,7 @@ class Statistics
 
 	static double varianceOverAverage(const std::vector<double>& x); 
 
-	static double std_dev(const std::vector<double>& x);
+	static double std_dev(const std::vector<double>& x, const int delta_dof = 1);
 
 	static double kurtosis(const std::vector<double>& x);
 
