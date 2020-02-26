@@ -51,6 +51,7 @@
 // Project headers
 #include "Bias.h"
 #include "Bins.h"
+#include "BootstrapSubsampler.h"
 #include "Constants.h"
 #include "DataSummary.h"
 #include "Distribution.h"
@@ -58,6 +59,8 @@
 #include "InputParser.h"
 #include "OrderParameter.h"
 #include "OrderParameterRegistry.h"
+#include "PointEstimator.h"
+#include "Random.h"
 #include "Simulation.h"
 #include "Wham.h"
 

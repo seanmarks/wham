@@ -50,6 +50,8 @@ class OrderParameter
 	const Bins& get_bins() const { return bins_; }
 
 	// Set functions
+	// - TODO: Check for consistency with #simulations
+	void set_simulations(std::vector<Simulation>& simulations);
 	void set_unbiased_distributions(const std::vector<Distribution>& unbiased_distributions) {
 		unbiased_distributions_ = unbiased_distributions;
 	}
@@ -60,7 +62,7 @@ class OrderParameter
 		rebiased_distributions_ = rebiased_distributions;
 
 		// Entropy between biased and rebiased distributions
-		int num_simulations = simulations_.size();
+		int num_simulations = simulation_ptrs_.size();
 		info_entropy_.resize(num_simulations);
 		for ( int j=0; j<num_simulations; ++j ) {
 			info_entropy_[j] = Distribution::computeInformationEntropy(
@@ -95,7 +97,8 @@ class OrderParameter
  private:
 	std::string name_;
 
-	std::vector<Simulation>& simulations_;
+	std::vector<Simulation*> simulation_ptrs_;
+	//std::vector<Simulation>& simulations_;
 	Bins bins_;
 
 	// Time series data from each simulation

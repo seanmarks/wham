@@ -6,7 +6,7 @@ OrderParameter::OrderParameter(
 	std::vector<Simulation>& simulations
 ):
 	name_(name),
-	simulations_(simulations),
+	simulation_ptrs_(simulations.size(), nullptr),
 	bins_()
 {
 	using KeyType = ParameterPack::KeyType;
@@ -15,12 +15,22 @@ OrderParameter::OrderParameter(
 	const ParameterPack* bins_pack_ptr = input_pack.findParameterPack("Bins", KeyType::Required);
 	bins_.set_bins( *bins_pack_ptr );
 
-	int num_simulations = simulations_.size();
+	set_simulations(simulations);
+}
+
+
+void OrderParameter::set_simulations(std::vector<Simulation>& simulations)
+{
+	int num_simulations = simulations.size();
+	simulation_ptrs_.assign(num_simulations, nullptr);
 	time_series_ptrs_.resize(num_simulations);
 	biased_distributions_.clear();
+
 	for ( int i=0; i<num_simulations; ++i ) {
+		simulation_ptrs_[i] = &simulations[i];
+
 		// Share time series read by Simulation objects
-		time_series_ptrs_[i] = simulations_[i].copy_time_series_ptr(name_);
+		time_series_ptrs_[i] = simulations[i].copy_time_series_ptr(name_);
 		
 		// Make raw biased distributions
 		// - TODO: Make optional?
@@ -47,7 +57,7 @@ void OrderParameter::printRawDistributions() const
 	std::stringstream table_header_stream;
 	table_header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "# " << i+2 << ": " << simulations_[i].get_data_set_label() << "\n";
+		table_header_stream << "# " << i+2 << ": " << simulation_ptrs_[i]->get_data_set_label() << "\n";
 	}
 	table_header_stream << "#\n"
 	                    << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
@@ -79,7 +89,7 @@ void OrderParameter::printRawDistributions() const
 void OrderParameter::printRebiasedDistributions(std::string file_name) const
 {
 	// TODO: consistency check for presence of output
-	const int num_simulations = simulations_.size();
+	const int num_simulations = simulation_ptrs_.size();
 
 	if ( file_name.empty() ) {
 		file_name = "F_" + name_ + "_rebiased.out";
@@ -92,7 +102,7 @@ void OrderParameter::printRebiasedDistributions(std::string file_name) const
                 << " F_{rebias,i}(" << name_ << ") [k_B*T]\n";
 	header_stream << "# Data sets (by column)\n";
 	for ( int j=0; j<num_simulations; ++j ) {
-		header_stream << "# " << j+2 << ": " << simulations_[j].get_data_set_label() << "\n";
+		header_stream << "# " << j+2 << ": " << simulation_ptrs_[j]->get_data_set_label() << "\n";
 	}
 	header_stream << "#\n"
 	              << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
@@ -105,7 +115,7 @@ void OrderParameter::printRebiasedDistributions(std::string file_name) const
 void OrderParameter::printWhamResults(std::string file_name) const
 {
 	// TODO: consistency check for presence of output
-	//const int num_simulations = simulations_.size();
+	//const int num_simulations = simulation_ptrs_.size();
 
 	if ( file_name.empty() ) {
 		file_name = "F_" + name_ + "_WHAM.out";
@@ -119,7 +129,7 @@ void OrderParameter::printWhamResults(std::string file_name) const
 
 	// Header
 	ofs << "# Consensus free energy distributions from WHAM: \n"
-      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulations_[0].get_temperature() << " K\n";  // FIXME temperature
+      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulation_ptrs_[0]->get_temperature() << " K\n";  // FIXME temperature
 	ofs << "# " << name_ << "\tF[kBT]  NumSamples\n";  //"\t" << "\tstderr(F)\n"; TODO error estimate
 
 	// Print F_0(x)
@@ -144,7 +154,7 @@ void OrderParameter::printStats(std::string file_name) const
 	}
 
 	// Check for presence of info entropy (TODO: private flag?)
-	int  num_simulations   = simulations_.size();
+	int  num_simulations   = simulation_ptrs_.size();
 	int  num_info_entropy  = info_entropy_.size();
 	bool have_info_entropy = ( num_info_entropy == num_simulations );
 
@@ -159,7 +169,7 @@ void OrderParameter::printStats(std::string file_name) const
 
 	// Body
 	for ( int j=0; j<num_simulations; ++j ) {
-		ofs << simulations_[j].get_data_set_label() << "\t"
+		ofs << simulation_ptrs_[j]->get_data_set_label() << "\t"
 		    << time_series_ptrs_[j]->average() << "\t"
 		    << time_series_ptrs_[j]->variance();
 		if ( have_info_entropy ) {

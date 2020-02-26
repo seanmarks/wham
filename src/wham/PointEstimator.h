@@ -20,6 +20,9 @@ class PointEstimator
 	void clear() {
 		samples_.clear();
 	}
+	void reserve(const unsigned num_samples) {
+		samples_.reserve(num_samples);
+	}
 
 	void addSample(const T& sample) {
 		samples_.push_back(sample);

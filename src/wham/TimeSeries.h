@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+#include "utils.h"
+
 class TimeSeries
 {
  public:
@@ -31,14 +33,16 @@ class TimeSeries
 	);
 
 	// Construct using a set of plain values
-	TimeSeries(
-		const std::vector<double>& data
-	): file_(""), col_(-1), t0_(-1.0), tf_(-1.0), data_(data)
-	{
-		times_.assign( data_.size(), -1.0 );
-	}
+	TimeSeries(const std::vector<double>& data):
+		times_(data.size(), -1.0), data_(data)
+	{}
 
-	// TODO Construct a shuffled TimeSeries from another time series
+	TimeSeries():
+		times_(0), data_(0)
+	{}
+
+	// Extract data from another TimeSeries according to 'indices'
+	void setShuffledFromOther(const TimeSeries& other, const std::vector<int>& indices);
 
 	// Returns the number of samples in the time series
 	unsigned size() const { return data_.size(); }
@@ -65,7 +69,9 @@ class TimeSeries
 	std::string file_ = "";
 	int col_ = -1;
 	double t0_ = -1.0, tf_ = -1.0;  // time range to keep
+
 	bool use_floored_input_times_ = false;
+	bool is_shuffled_ = false;
 
 	// Underlying time series
 	std::vector<double> times_;

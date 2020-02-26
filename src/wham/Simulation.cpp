@@ -10,14 +10,14 @@ Simulation::Simulation(
 	temperature_(temperature),
 	kBT_(Constants::k_B * temperature_), beta_(1.0/kBT_),
 	use_floored_times_(use_floored_times),
-	op_registry_(op_registry)
+	op_registry_ptr_(&op_registry)
 {
 	// Read time series
-	const auto& time_series_files = op_registry_.get_simulation_files(data_set_label);
+	const auto& time_series_files = op_registry_ptr_->get_simulation_files(data_set_label);
 	const int num_ops = time_series_files.size();
 	time_series_ptrs_.reserve(num_ops);
 	for ( int p=0; p<num_ops; ++p ) {
-		int data_col = op_registry_.get_time_series_data_col(p);
+		int data_col = op_registry_ptr_->get_time_series_data_col(p);
 
 		time_series_ptrs_.push_back( 
 			std::make_shared<TimeSeries>(time_series_files[p], data_col, t_min_, t_max_, use_floored_times)
@@ -27,11 +27,45 @@ Simulation::Simulation(
 }
 
 
+void Simulation::setShuffledFromOther(const Simulation& other, const std::vector<int>& indices)
+{
+	FANCY_ASSERT(this != &other, "unsupported usage");
+
+	// TODO: Would be cleaner to use a copy operation, but this would *also* copy the shared_ptrs
+	// - This releases all of the memory allocated for this object's TimeSeries
+	data_set_label_ = other.data_set_label_;
+	t_min_          = other.t_min_;
+	t_max_          = other.t_max_;
+	temperature_    = other.temperature_;
+	kBT_            = other.kBT_;
+	beta_           = other.beta_;
+
+	use_floored_times_ = other.use_floored_times_;
+	op_registry_ptr_   = other.op_registry_ptr_;
+
+	// Shuffle time series
+	unsigned num_time_series = other.time_series_ptrs_.size();
+	if ( this->time_series_ptrs_.size() != num_time_series ) {
+		// Reallocate own time series
+		this->time_series_ptrs_.clear();
+		this->time_series_ptrs_.assign(num_time_series, nullptr);
+		for ( unsigned p=0; p<num_time_series; ++p ) {
+			this->time_series_ptrs_[p] = TimeSeriesPtr( new TimeSeries() );
+		}
+	}
+	for ( unsigned p=0; p<num_time_series; ++p ) {
+		this->time_series_ptrs_[p]->setShuffledFromOther( *(other.time_series_ptrs_[p]), indices );
+	}
+}
+
+
 void Simulation::checkTimeSeries() const
 {
+	FANCY_ASSERT(op_registry_ptr_ != nullptr, "order parameter registry is missing");
+
 	// Check number present
 	int num_time_series = time_series_ptrs_.size();
-	int num_ops         = op_registry_.getNumberOfOrderParameters();
+	int num_ops         = op_registry_ptr_->getNumberOfOrderParameters();
 	if ( num_time_series != num_ops ) {
 		std::stringstream err_ss;
 		err_ss << "Error setting up Simulation with data set label " << data_set_label_ << "\n"
@@ -56,7 +90,7 @@ void Simulation::checkTimeSeries() const
 			for ( auto j : op_indices ) {
 				const auto& time_series_j = *(time_series_ptrs_[j]);
 
-				err_ss << "    " << op_registry_.get_name(j) << ": " << time_series_j.size() << " points from file "
+				err_ss << "    " << op_registry_ptr_->get_name(j) << ": " << time_series_j.size() << " points from file "
 				                 << time_series_j.get_file() << "\n";
 			}
 			throw std::runtime_error( err_ss.str() );

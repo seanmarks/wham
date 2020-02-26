@@ -90,10 +90,8 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	std::vector<const ParameterPack*> op_pack_ptrs = 
 			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
 	order_parameters_.clear();
-
 	for ( int p=0; p<num_ops; ++p ) {
 		order_parameters_.push_back( OrderParameter(op_names[p], *(op_pack_ptrs[p]), simulations_) );
-		//order_parameters_.push_back( OrderParameter(*(op_pack_ptrs[p]), simulations_, wham_options_.floor_t) );
 	}
 
 
@@ -208,6 +206,82 @@ void WhamDriver::run_driver()
 	ofs.close(); ofs.clear();
 
 
+	//----- Estimate Errors for F(x) -----//
+
+	// FIXME
+
+	int num_boostrap_samples_ = 100;  // TODO: input option
+
+	// Allocate memory for bootstrap samples
+	// - Dimensions: #outputs x #bins/output
+	int num_output_f_x = output_f_x_.size();
+	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x(num_output_f_x);
+	for ( int i=0; i<num_output_f_x; ++i ) {
+		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
+
+		int num_bins_x = x.get_bins().get_num_bins();
+		bootstrap_samples_f_x[i].resize(num_bins_x);
+
+		for ( int b=0; b<num_bins_x; ++b ) {
+			bootstrap_samples_f_x[i][b].clear();
+			bootstrap_samples_f_x[i][b].reserve(num_boostrap_samples_);
+		}
+	}
+
+	// Prepare subsamplers
+	std::vector<BootstrapSubsampler> subsamplers;
+	std::vector<std::vector<int>> resample_indices(num_simulations);
+	for ( int j=0; j<num_simulations; ++j ) {
+		int num_samples_j = simulations_[j].get_num_samples();
+		// TODO: different seeds depending on debug mode flag
+		subsamplers.emplace_back( num_samples_j, Random::getDebugSequence() );
+		resample_indices[j].reserve( num_samples_j );
+	}
+
+	std::vector<Simulation> bootstrap_simulations(num_simulations);
+	std::vector<OrderParameter> bootstrap_ops = order_parameters_;
+	for ( int s=0; s<num_boostrap_samples_; ++s ) {
+		// Subsample each simulation
+		for ( int j=0; j<num_simulations; ++j ) {
+			subsamplers[j].generate( resample_indices[j] );
+			bootstrap_simulations[j].setShuffledFromOther( simulations_[j], resample_indices[j] );
+		}
+
+		int num_ops = order_parameters_.size();
+		for ( int p=0; p<num_ops; ++p ) {
+			bootstrap_ops[p].set_simulations(bootstrap_simulations);
+		}
+		/*
+		// TODO Share with bootstrap order parameters instead of reallocating?
+		bootstrap_ops.clear();
+		int num_ops = order_parameters_.size();
+		for ( int p=0; p<num_ops; ++p ) {
+			bootstrap_ops.push_back( OrderParameter(op_names[p], *(op_pack_ptrs[p]), bootstrap_simulations) );
+		}
+		*/
+
+		// Re-solve WHAM equations
+		// - TODO: option to re-solve with new data rather than reallocating for each loop?
+		Wham bootstrap_wham( data_summary_, op_registry_, bootstrap_simulations, bootstrap_ops, 
+		                     biases_, f_bias_opt_, wham_options_.tol );
+
+		// TODO: errors for f_bias_opt_ as well
+
+		// Compute boostrap estimates of each F(x)
+		for ( int i=0; i<num_output_f_x; ++i ) {
+			OrderParameter& x = order_parameters_[ output_f_x_[i] ];
+
+			auto bootstrap_f_x = bootstrap_wham.compute_consensus_f_x_unbiased( x.get_name() );
+
+			int num_bins_x = x.get_bins().get_num_bins();
+			for ( int b=0; b<num_bins_x; ++b ) {
+				// TODO only save sample for if F(x) if its value is finite, i.e. bin has samples in it
+				bootstrap_samples_f_x[i][b].addSample( bootstrap_f_x.f_x[b] );
+			}
+		}
+	};
+
+
 	//----- Output -----//
 
 	// 1-variable outputs
@@ -223,7 +297,7 @@ void WhamDriver::run_driver()
 		// "Raw" distributions (i.e. using only data from each individual simulation)
 		x.printRawDistributions();
 
-		// TODO: shifted distributions
+		// TODO: "shifted" distributions
 
 		// F_WHAM(x)
 		// - TODO errors
