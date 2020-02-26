@@ -301,7 +301,14 @@ void WhamDriver::run_driver()
 
 		// F_WHAM(x)
 		// - TODO errors
-		x.set_wham_distribution( wham.compute_consensus_f_x_unbiased( x.get_name() ) );
+		auto wham_distribution = wham.compute_consensus_f_x_unbiased( x.get_name() );
+		int num_bins_x = x.get_bins().get_num_bins();
+		std::vector<double> err_f_x(num_bins_x);
+		for ( int b=0; b<num_bins_x; ++b ) {
+			err_f_x[b] = bootstrap_samples_f_x[i][b].std_dev();
+		}
+		wham_distribution.error_f_x = err_f_x;  // TODO set fxn
+		x.set_wham_distribution( wham_distribution );
 		x.printWhamResults();
 
 		// "Rebias" consensus histograms (for validation)

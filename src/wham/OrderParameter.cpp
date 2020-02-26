@@ -127,19 +127,33 @@ void OrderParameter::printWhamResults(std::string file_name) const
 	const auto& sample_counts = wham_distribution_.sample_counts;
 	auto f_x_shifted = Distribution::shift_f_x_to_zero(f_x, sample_counts);
 
+	// TODO: safer check?
+	bool have_error = ( wham_distribution_.error_f_x.size() == f_x.size() );
+
 	// Header
 	ofs << "# Consensus free energy distributions from WHAM: \n"
       << "#   F(" << name_ << ") [in k_B*T] with T = " << simulation_ptrs_[0]->get_temperature() << " K\n";  // FIXME temperature
-	ofs << "# " << name_ << "\tF[kBT]  NumSamples\n";  //"\t" << "\tstderr(F)\n"; TODO error estimate
+	ofs << "# " << name_ << "\tF[kBT]  NumSamples";
+	if ( have_error ) {
+		ofs << "\tstderr(F)[kBT]";
+	}
+	ofs << "\n";
 
 	// Print F_0(x)
 	const int num_bins  = bins_.get_num_bins();
 	for ( int b=0; b<num_bins; ++b ) {
-		ofs << std::setw(8) << std::setprecision(5) << bins_[b] << "\t";
-		ofs << std::setw(8) << std::setprecision(5);
+		ofs << std::setw(8) << std::setprecision(5) << bins_[b];
+		ofs << "  " << std::setw(8) << std::setprecision(5);
 			Distribution::print_free_energy(ofs, f_x_shifted[b], sample_counts[b]);
-		ofs << std::setw(8) << std::setprecision(5) << sample_counts[b];
-		//<< std::setw(8) << std::setprecision(5) << wham_results_.error_f[b]
+		ofs << "  " << std::setw(8) << std::setprecision(5) << sample_counts[b];
+		if ( have_error ) {
+			ofs << "  " << std::setw(8) << std::setprecision(5) << wham_distribution_.error_f_x[b];
+		}
+		/*
+		else {
+			ofs << "nan";
+		}
+		*/
 		ofs << "\n";
 	}
 	ofs.close(); ofs.clear();

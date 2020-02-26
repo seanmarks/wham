@@ -29,12 +29,10 @@ class PointEstimator
 	}
 
 	// Statistics
-	template<typename F>
-	F average() const {
+	double average() const {
 		return Statistics::average(samples_);
 	}
-	template<typename F>
-	F std_dev(const int delta_dof = 1) const {
+	double std_dev(const int delta_dof = 1) const {
 		return Statistics::std_dev(samples_, delta_dof);
 	}
 
