@@ -26,6 +26,8 @@ void OrderParameter::set_simulations(std::vector<Simulation>& simulations)
 	time_series_ptrs_.resize(num_simulations);
 	biased_distributions_.clear();
 
+	// TODO: Move everything besides setting of simulation_ptrs to a separate fxn
+
 	for ( int i=0; i<num_simulations; ++i ) {
 		simulation_ptrs_[i] = &simulations[i];
 
@@ -88,8 +90,7 @@ void OrderParameter::printRawDistributions() const
 
 void OrderParameter::printRebiasedDistributions(std::string file_name) const
 {
-	// TODO: consistency check for presence of output
-	const int num_simulations = simulation_ptrs_.size();
+	FANCY_ASSERT(simulation_ptrs_.size() == rebiased_distributions_.size(), "length mismatch");
 
 	if ( file_name.empty() ) {
 		file_name = "F_" + name_ + "_rebiased.out";
@@ -101,6 +102,7 @@ void OrderParameter::printRebiasedDistributions(std::string file_name) const
 	header_stream << "# \"Rebiased\" free energy distributions: "
                 << " F_{rebias,i}(" << name_ << ") [k_B*T]\n";
 	header_stream << "# Data sets (by column)\n";
+	const int num_simulations = simulation_ptrs_.size();
 	for ( int j=0; j<num_simulations; ++j ) {
 		header_stream << "# " << j+2 << ": " << simulation_ptrs_[j]->get_data_set_label() << "\n";
 	}

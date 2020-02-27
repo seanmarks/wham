@@ -1,3 +1,7 @@
+// Wham
+// - Solves binless WHAM equations via log-likelihood maximization
+//   - Minimization uses BFGS implementation from dlib library
+// - Computes consensus estimates using optimal biasing free energies
 
 #pragma once
 #ifndef WHAM_H

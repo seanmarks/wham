@@ -8,6 +8,9 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	input_parser.parseFile(options_file_, input_parameter_pack_);
 
 	using KeyType = ParameterPack::KeyType;
+	bool found = false;
+
+	input_parameter_pack_.readFlag("be_verbose", KeyType::Optional, be_verbose_);
 
 	input_parameter_pack_.readNumber("Temperature", KeyType::Required, wham_options_.T);
 	wham_options_.kBT = Constants::k_B * wham_options_.T;
@@ -35,6 +38,12 @@ WhamDriver::WhamDriver(const std::string& options_file):
 		simulations_.emplace_back(
 			data_set_labels[i], t_min[i], t_max[i], wham_options_.T, wham_options_.floor_t, op_registry_
 		);
+	}
+
+	// Bootstrap error estimation (optional)
+	found = input_parameter_pack_.readNumber("num_bootstrap_samples", KeyType::Optional, num_bootstrap_samples_);
+	if ( found ) {
+		error_method_ = ErrorMethod::Bootstrap;
 	}
 
 
@@ -100,7 +109,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	// TODO: Option to read from input
 	f_bias_guess_.assign(num_simulations, 0.0);
 	std::string f_bias_guess_file;
-	bool found = input_parameter_pack_.readString("InitialGuess", KeyType::Optional, f_bias_guess_file);
+	found = input_parameter_pack_.readString("InitialGuess", KeyType::Optional, f_bias_guess_file);
 	if ( found ) {
 	}
 
@@ -185,7 +194,7 @@ void WhamDriver::run_driver()
 	//----- Solve WHAM equations -----//
 
 	// Initial guess
-	// - Shift so that f[0] = 0
+	// - Shift so that f[0] = 0 (free to choose free energy offset)
 	std::vector<double> f_bias_init(num_simulations, 0.0);
 	double f_shift = f_bias_guess_[0];
 	for ( int j=0; j<num_simulations; ++j ) {
@@ -196,93 +205,111 @@ void WhamDriver::run_driver()
 	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
 	f_bias_opt_ = wham.get_f_bias_opt();
 
-	// Print optimal biasing free energies to file
-	std::string file_name = "f_bias_WHAM.out";
-	std::ofstream ofs(file_name);
-	ofs << "# F_bias [k_B*T] for each window after minimization\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		ofs << std::setprecision(7) << f_bias_opt_[i] << "\n";
-	}
-	ofs.close(); ofs.clear();
 
+	//----- Estimate Errors -----//
 
-	//----- Estimate Errors for F(x) -----//
+	// TODO: Move this section to a different function?
 
-	// FIXME
+	bool calc_error = ( error_method_ != ErrorMethod::None );
 
-	int num_boostrap_samples_ = 100;  // TODO: input option
+	std::vector<PointEstimator<double>> bootstrap_samples_f_bias;
+	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x;
 
-	// Allocate memory for bootstrap samples
-	// - Dimensions: #outputs x #bins/output
-	int num_output_f_x = output_f_x_.size();
-	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x(num_output_f_x);
-	for ( int i=0; i<num_output_f_x; ++i ) {
-		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
-
-		int num_bins_x = x.get_bins().get_num_bins();
-		bootstrap_samples_f_x[i].resize(num_bins_x);
-
-		for ( int b=0; b<num_bins_x; ++b ) {
-			bootstrap_samples_f_x[i][b].clear();
-			bootstrap_samples_f_x[i][b].reserve(num_boostrap_samples_);
-		}
-	}
-
-	// Prepare subsamplers
-	std::vector<BootstrapSubsampler> subsamplers;
-	std::vector<std::vector<int>> resample_indices(num_simulations);
-	for ( int j=0; j<num_simulations; ++j ) {
-		int num_samples_j = simulations_[j].get_num_samples();
-		// TODO: different seeds depending on debug mode flag
-		subsamplers.emplace_back( num_samples_j, Random::getDebugSequence() );
-		resample_indices[j].reserve( num_samples_j );
-	}
-
-	std::vector<Simulation> bootstrap_simulations(num_simulations);
-	std::vector<OrderParameter> bootstrap_ops = order_parameters_;
-	for ( int s=0; s<num_boostrap_samples_; ++s ) {
-		// Subsample each simulation
-		for ( int j=0; j<num_simulations; ++j ) {
-			subsamplers[j].generate( resample_indices[j] );
-			bootstrap_simulations[j].setShuffledFromOther( simulations_[j], resample_indices[j] );
-		}
-
-		int num_ops = order_parameters_.size();
-		for ( int p=0; p<num_ops; ++p ) {
-			bootstrap_ops[p].set_simulations(bootstrap_simulations);
-		}
-		/*
-		// TODO Share with bootstrap order parameters instead of reallocating?
-		bootstrap_ops.clear();
-		int num_ops = order_parameters_.size();
-		for ( int p=0; p<num_ops; ++p ) {
-			bootstrap_ops.push_back( OrderParameter(op_names[p], *(op_pack_ptrs[p]), bootstrap_simulations) );
-		}
-		*/
-
-		// Re-solve WHAM equations
-		// - TODO: option to re-solve with new data rather than reallocating for each loop?
-		Wham bootstrap_wham( data_summary_, op_registry_, bootstrap_simulations, bootstrap_ops, 
-		                     biases_, f_bias_opt_, wham_options_.tol );
-
-		// TODO: errors for f_bias_opt_ as well
-
-		// Compute boostrap estimates of each F(x)
+	if ( error_method_ == ErrorMethod::Bootstrap ) {
+		// Allocate memory for bootstrap samples
+		// - Dimensions: #outputs x #bins/output
+		bootstrap_samples_f_bias.resize(num_simulations);
+		int num_output_f_x = output_f_x_.size();
+		bootstrap_samples_f_x.resize(num_output_f_x);
 		for ( int i=0; i<num_output_f_x; ++i ) {
 			OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 
-			auto bootstrap_f_x = bootstrap_wham.compute_consensus_f_x_unbiased( x.get_name() );
-
 			int num_bins_x = x.get_bins().get_num_bins();
+			bootstrap_samples_f_x[i].resize(num_bins_x);
+
 			for ( int b=0; b<num_bins_x; ++b ) {
-				// TODO only save sample for if F(x) if its value is finite, i.e. bin has samples in it
-				bootstrap_samples_f_x[i][b].addSample( bootstrap_f_x.f_x[b] );
+				bootstrap_samples_f_x[i][b].clear();
+				bootstrap_samples_f_x[i][b].reserve(num_bootstrap_samples_);
 			}
 		}
-	};
+
+		// Prepare subsamplers
+		std::vector<BootstrapSubsampler> subsamplers;
+		std::vector<std::vector<int>> resample_indices(num_simulations);
+		for ( int j=0; j<num_simulations; ++j ) {
+			int num_samples_j = simulations_[j].get_num_samples();
+			// TODO: different seeds depending on debug mode flag
+			subsamplers.emplace_back( num_samples_j, Random::getDebugSequence() );
+			resample_indices[j].reserve( num_samples_j );
+		}
+
+		std::vector<Simulation> bootstrap_simulations(num_simulations);
+		std::vector<OrderParameter> bootstrap_ops = order_parameters_;
+		for ( int s=0; s<num_bootstrap_samples_; ++s ) {
+			// Subsample each simulation
+			for ( int j=0; j<num_simulations; ++j ) {
+				subsamplers[j].generate( resample_indices[j] );
+				bootstrap_simulations[j].setShuffledFromOther( simulations_[j], resample_indices[j] );
+			}
+
+			int num_ops = order_parameters_.size();
+			for ( int p=0; p<num_ops; ++p ) {
+				bootstrap_ops[p].set_simulations(bootstrap_simulations);
+			}
+
+			// Re-solve WHAM equations
+			// - TODO: option to re-solve with new data rather than reallocating for each loop?
+			Wham bootstrap_wham( data_summary_, op_registry_, bootstrap_simulations, bootstrap_ops, 
+													 biases_, f_bias_opt_, wham_options_.tol );
+
+			// Save bootstrap estimates for f_bias_opt
+			const auto& bootstrap_f_bias_opt = bootstrap_wham.get_f_bias_opt();
+			for ( int j=0; j<num_simulations; ++j ) {
+				bootstrap_samples_f_bias[j].addSample( bootstrap_f_bias_opt[j] );
+			}
+
+			// Compute boostrap estimates of each F(x)
+			for ( int i=0; i<num_output_f_x; ++i ) {
+				OrderParameter& x = order_parameters_[ output_f_x_[i] ];
+				auto bootstrap_f_x = bootstrap_wham.compute_consensus_f_x_unbiased( x.get_name() );
+
+				int num_bins_x = x.get_bins().get_num_bins();
+				for ( int b=0; b<num_bins_x; ++b ) {
+					// Only save this sample for if F(x) if its value is finite (i.e. bin has samples in it)
+					// - Otherwise, statistics over the samples will be corrupted
+					if ( bootstrap_f_x.sample_counts[b] > 0 ) {
+						bootstrap_samples_f_x[i][b].addSample( bootstrap_f_x.f_x[b] );
+					}
+				}
+			}
+		};
+
+		// Finalize errors
+		error_f_bias_opt_.resize(num_simulations);
+		for ( int j=0; j<num_simulations; ++j ) {
+			error_f_bias_opt_[j] = bootstrap_samples_f_bias[j].std_dev();
+		}
+
+		// TODO: Compute errors for F(x) here
+	} // end bootstrap resampling
 
 
 	//----- Output -----//
+
+	// Print optimal biasing free energies to file
+	std::string file_name("f_bias_WHAM.out");
+	std::ofstream ofs(file_name);
+	ofs << "# F_bias [k_B*T]";
+	if ( calc_error ) { ofs << " +/- error"; }
+	ofs << " for each window after minimization\n";
+	for ( int j=0; j<num_simulations; ++j ) {
+		ofs << std::setprecision(7) << f_bias_opt_[j];
+		if ( calc_error ) {
+			ofs << "  " << std::setprecision(7) << error_f_bias_opt_[j];
+		}
+		ofs << "\n";
+	}
+	ofs.close(); ofs.clear();
 
 	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
@@ -300,14 +327,15 @@ void WhamDriver::run_driver()
 		// TODO: "shifted" distributions
 
 		// F_WHAM(x)
-		// - TODO errors
 		auto wham_distribution = wham.compute_consensus_f_x_unbiased( x.get_name() );
-		int num_bins_x = x.get_bins().get_num_bins();
-		std::vector<double> err_f_x(num_bins_x);
-		for ( int b=0; b<num_bins_x; ++b ) {
-			err_f_x[b] = bootstrap_samples_f_x[i][b].std_dev();
+		if ( calc_error ) {
+			int num_bins_x = x.get_bins().get_num_bins();
+			std::vector<double> err_f_x(num_bins_x);
+			for ( int b=0; b<num_bins_x; ++b ) {
+				err_f_x[b] = bootstrap_samples_f_x[i][b].std_dev();
+			}
+			wham_distribution.error_f_x = err_f_x;  // TODO set fxn
 		}
-		wham_distribution.error_f_x = err_f_x;  // TODO set fxn
 		x.set_wham_distribution( wham_distribution );
 		x.printWhamResults();
 

@@ -104,7 +104,7 @@ class WhamDriver
 	WhamDriver::WhamOptions wham_options_;
 
 	std::vector<double> f_bias_guess_;
-	std::vector<double> f_bias_opt_;
+	std::vector<double> f_bias_opt_, error_f_bias_opt_;
 
 	// Organizes time series data and distributions for each OP
 	std::vector<OrderParameter> order_parameters_;
@@ -112,8 +112,15 @@ class WhamDriver
 	// Objects that read in and evaluate the bias used in each simulation
 	std::vector<Bias> biases_;  // [num_simulations x 1]
 
+	// Error estimation
+	enum class ErrorMethod { None, Bootstrap };
+	ErrorMethod error_method_ = ErrorMethod::None;
+	int num_bootstrap_samples_ = 100;
+
 
 	//----- Output -----//
+
+	bool be_verbose_ = false;
 
 	// OP indices for F(x) to print
 	std::vector<int> output_f_x_;
