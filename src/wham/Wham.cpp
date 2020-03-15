@@ -140,7 +140,8 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	// Call dlib to perform the optimization
 	double min_A = dlib::find_min( 
 			dlib::bfgs_search_strategy(), 
-			dlib::objective_delta_stop_strategy(tol_).be_verbose(),
+			dlib::objective_delta_stop_strategy(tol_),
+			//dlib::objective_delta_stop_strategy(tol_).be_verbose(),
 			evaluate_wrapper,
 			derivatives_wrapper,
 			df,

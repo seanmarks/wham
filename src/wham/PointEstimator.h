@@ -36,6 +36,8 @@ class PointEstimator
 		return Statistics::std_dev(samples_, delta_dof);
 	}
 
+	int get_num_samples() const { return samples_.size(); }
+
  private:
 	std::vector<T> samples_;
 };

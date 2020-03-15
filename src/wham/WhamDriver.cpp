@@ -216,6 +216,8 @@ void WhamDriver::run_driver()
 	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x;
 
 	if ( error_method_ == ErrorMethod::Bootstrap ) {
+		std::cout << "  Estimate errors using bootstrap subsampling\n";
+
 		// Allocate memory for bootstrap samples
 		// - Dimensions: #outputs x #bins/output
 		bootstrap_samples_f_bias.resize(num_simulations);
@@ -246,6 +248,11 @@ void WhamDriver::run_driver()
 		std::vector<Simulation> bootstrap_simulations(num_simulations);
 		std::vector<OrderParameter> bootstrap_ops = order_parameters_;
 		for ( int s=0; s<num_bootstrap_samples_; ++s ) {
+			// User feedback
+			if ( (s+1 % 100) == 0 ) {
+				std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n";
+			}
+
 			// Subsample each simulation
 			for ( int j=0; j<num_simulations; ++j ) {
 				subsamplers[j].generate( resample_indices[j] );
@@ -332,7 +339,12 @@ void WhamDriver::run_driver()
 			int num_bins_x = x.get_bins().get_num_bins();
 			std::vector<double> err_f_x(num_bins_x);
 			for ( int b=0; b<num_bins_x; ++b ) {
-				err_f_x[b] = bootstrap_samples_f_x[i][b].std_dev();
+				if ( bootstrap_samples_f_x[i][b].get_num_samples() >= 2 ) {
+					err_f_x[b] = bootstrap_samples_f_x[i][b].std_dev();
+				}
+				else {
+					err_f_x[b] = -1.0;  // junk value (TODO: print as nan instead?)
+				}
 			}
 			wham_distribution.error_f_x = err_f_x;  // TODO set fxn
 		}
