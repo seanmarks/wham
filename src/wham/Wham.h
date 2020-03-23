@@ -139,12 +139,33 @@ class Wham
 	std::vector<double> f_bias_guess_;  // initial guess
 	std::vector<double> f_bias_opt_;    // optimal
 
-	// These are computed by Wham.evalObjectiveFunction and saved for re-use 
-	// in Wham.evalObjectiveDerivatives
-	// - FIXME: dangerous?
 
 
 	//----- Working Variables -----//
+
+	// Helper object for organizing data
+	struct DataForBin {
+		DataForBin(const int num_biases):
+			u_bias_as_other(num_biases)
+		{}
+
+		void clearData() {
+			//int num_biases = u_bias_as_other.size();
+			for ( auto& v : u_bias_as_other ) {
+				v.clear();
+			}
+			u_bias_as_other_k.clear();
+		}
+
+		std::vector<std::vector<double>> u_bias_as_other;
+		std::vector<double>              u_bias_as_other_k;
+	};
+
+
+	// Some of these are computed by Wham.evalObjectiveFunction and saved for re-use 
+	// in Wham.evalObjectiveDerivatives
+	// - The dlib optimization algorithm used guarantees that these functions are called in pairs,
+	//   with the same order each time 
 
 	// Factors related to the weight given to each data sample in the *unbiased* ensemble
 	// - Computed as a log-sum-exp

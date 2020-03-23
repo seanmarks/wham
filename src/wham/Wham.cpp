@@ -430,7 +430,7 @@ Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) co
 }
 
 
-// TODO
+
 Distribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, const std::string& data_set_label) const
 {
 	int p = op_registry_.get_index(op_name);
@@ -444,7 +444,6 @@ Distribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, co
 }
 
 
-// TODO Pass as OrderParameter 'x' instead? Then 'bins_x' is accessed from 'x'
 void Wham::compute_consensus_f_x(
 	const OrderParameter& x,
 	const std::vector<std::vector<double>>& u_bias_as_other,	const std::vector<double>& f_bias_opt,
@@ -542,12 +541,15 @@ void Wham::compute_consensus_f_x_y(
 	const auto& bins_x = x.get_bins();
 	const auto& bins_y = y.get_bins();
 
-	// Allocate memory and set up grids
 	int num_bins_x = bins_x.get_num_bins();
+	int num_bins_y = bins_y.get_num_bins();
+	int num_bins_total = num_bins_x*num_bins_y;
+
+	// Allocate memory and set up grids
+	// - TODO: Wrap in a simple struct/class
 	p_x_y_wham.resize( num_bins_x );
 	f_x_y_wham.resize( num_bins_x );
 	sample_counts_x_y.resize( num_bins_x );
-	int num_bins_y = bins_y.get_num_bins();
 	for ( int a=0; a<num_bins_x; ++a ) {
 		// Second dimension
 		p_x_y_wham[a].resize( num_bins_y );
@@ -555,13 +557,18 @@ void Wham::compute_consensus_f_x_y(
 		sample_counts_x_y[a].resize( num_bins_y );
 	}
 
+	// TODO: use mutable buffer variables?
+	int num_biases = u_bias_as_other_.size();
+	std::vector<DataForBin> binned_data(num_bins_total, DataForBin(num_biases));
+
 	// TODO check vs. 'u_bias_as_other[r]'?
 	int num_samples_total = u_bias_as_other_k.size();
 
-	// Find each sample's (linearly indexed) bin
+	// Bin the data
 	sample_bins_.resize(num_samples_total);
 	int sample_index = 0, bin_x, bin_y;
 	int num_simulations = simulations_.size();
+	int bin_index;
 	for ( int j=0; j<num_simulations; ++j ) {
 		const auto& x_j = x.get_time_series(j);
 		const auto& y_j = y.get_time_series(j);
@@ -570,7 +577,15 @@ void Wham::compute_consensus_f_x_y(
 			bin_x = bins_x.find_bin(x_j[i]);
 			bin_y = bins_y.find_bin(y_j[i]);
 			if ( bin_x >= 0 and bin_y >= 0 ) {
-				sample_bins_[sample_index] = bin_x*num_bins_y + bin_y;
+				// Sample is in the binned ranges
+				bin_index = bin_x*num_bins_y + bin_y;
+				sample_bins_[sample_index] = bin_index;
+
+				// Save corresponding values of the bias
+				for ( int r=0; r<num_biases; ++r ) {
+					binned_data[bin_index].u_bias_as_other[r].push_back( u_bias_as_other[r][sample_index] );
+				}
+				binned_data[bin_index].u_bias_as_other_k.push_back( u_bias_as_other_k[sample_index] );
 			}
 			else {
 				sample_bins_[sample_index] = -1;
@@ -579,37 +594,18 @@ void Wham::compute_consensus_f_x_y(
 		}
 	}
 
-	// Allocate memory for working buffers
-	int num_biases = u_bias_as_other_.size();
-	std::vector<std::vector<double>> u_bias_as_other_binned(num_biases);
-	std::vector<double> u_bias_as_other_k_binned;
-
 	// Normalization
 	double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
 	double normalization_factor = log( num_samples_total_ * bin_area );
 
 	// Compute F_k(x_a, y_b) for each bin (a,b)
-	int bin_index = 0;
 	for ( int a=0; a<num_bins_x; ++a ) {
 		for ( int b=0; b<num_bins_y; ++b ) {
-			// Reset buffers
-			for ( int r=0; r<num_biases; ++r ) {
-				u_bias_as_other_binned[r].resize(0);
-			}
-			u_bias_as_other_k_binned.resize(0);
-
-			// Find samples for this bin
-			for ( int n=0; n<num_samples_total; ++n ) {
-				if ( sample_bins_[n] == bin_index ) {
-					for ( int r=0; r<num_biases; ++r ) {
-						u_bias_as_other_binned[r].push_back( u_bias_as_other[r][n] );
-					}
-					u_bias_as_other_k_binned.push_back( u_bias_as_other_k[n] );
-				}
-			}
+			bin_index = a*num_bins_y + b;
+			const auto& data = binned_data[bin_index];
 
 			// Compute weights
-			compute_log_sigma( u_bias_as_other_binned, f_bias_opt, u_bias_as_other_k_binned, f_bias_k,
+			compute_log_sigma( data.u_bias_as_other, f_bias_opt, data.u_bias_as_other_k, f_bias_k,
 			                   log_sigma_k_ );
 
 			// Compute free energy and probability
