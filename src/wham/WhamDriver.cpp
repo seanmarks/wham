@@ -297,7 +297,7 @@ void WhamDriver::run_driver()
 			error_f_bias_opt_[j] = bootstrap_samples_f_bias[j].std_dev();
 		}
 
-		// TODO: Compute errors for F(x) here
+		// TODO: Compute errors for F(x) here instead of below
 	} // end bootstrap resampling
 
 
@@ -318,6 +318,20 @@ void WhamDriver::run_driver()
 	}
 	ofs.close(); ofs.clear();
 
+	if ( error_method_ == ErrorMethod::Bootstrap ) {
+		ofs.open("bootstrap_convergence.out");
+		ofs << "# Convergence of bootstrap subsampling\n"
+		    << "# n_B[samples]  F_bias(last_window)[kBT]\n";
+
+		const auto& all_samples = bootstrap_samples_f_bias.back().get_samples();
+		std::vector<double> samples(1, all_samples[0]);
+		for ( int s=1; s<num_bootstrap_samples_; ++s ) {
+			samples.push_back( all_samples[s] );
+			ofs << s+1 << "  " << std::setprecision(7) << Statistics::std_dev(samples) << "\n";
+		}
+		ofs.close(); ofs.clear();
+	}
+
 	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
@@ -335,7 +349,7 @@ void WhamDriver::run_driver()
 
 		// F_WHAM(x)
 		auto wham_distribution = wham.compute_consensus_f_x_unbiased( x.get_name() );
-		if ( calc_error ) {
+		if ( calc_error and error_method_ == ErrorMethod::Bootstrap ) {
 			int num_bins_x = x.get_bins().get_num_bins();
 			std::vector<double> err_f_x(num_bins_x);
 			for ( int b=0; b<num_bins_x; ++b ) {

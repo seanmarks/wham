@@ -87,6 +87,9 @@ if(OPENMP_ENABLED)
 	if(NOT DEFINED OpenMP_SHARED_LINKER_FLAGS)
 			set(OpenMP_SHARED_LINKER_FLAGS "${OpenMP_CXX_FLAGS}")
 	endif()
+
+	# TODO OpenMP SIMD
+	
 else()
 	# Unset all OpenMP flags in case OpenMP was disabled either by the user
 	# or because it was only partially detected (e.g. only for C but not C++ compiler)

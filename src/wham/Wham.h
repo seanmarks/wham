@@ -154,11 +154,11 @@ class Wham
 			for ( auto& v : u_bias_as_other ) {
 				v.clear();
 			}
-			u_bias_as_other_k.clear();
+			u_bias_as_k.clear();
 		}
 
 		std::vector<std::vector<double>> u_bias_as_other;
-		std::vector<double>              u_bias_as_other_k;
+		std::vector<double>              u_bias_as_k;
 	};
 
 
@@ -195,12 +195,12 @@ class Wham
 	//----- Helper Functions -----//
 
 	// Compute log( sigma_k(x_{j,i}) ) for the given set of biasing free energies
-	// - k: index of ensemble to which the weights correspond
+	// - These correspond to the weights given to each sample x_{j,i} in the kth ensemble
 	//   - f_k: free energy of turning on kth bias
 	void compute_log_sigma(
 		const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>&              f,
-		const std::vector<double>&              u_bias_as_other_k,
+		const std::vector<double>&              u_bias_as_k,
 		const double                            f_k,
 		// Output
 		std::vector<double>& log_sigma
@@ -237,7 +237,7 @@ class Wham
 		const OrderParameter& x,
 		const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>&              f_opt,  // consensus free energies to use
-		const std::vector<double>&              u_bias_as_other_k,
+		const std::vector<double>&              u_bias_as_k,
 		const double                            f_k,
 		// Consensus distribution for x in ensemble k
 		Distribution& wham_distribution_x
@@ -252,7 +252,7 @@ class Wham
 		const OrderParameter& y,
 		const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>&              f_bias_opt,  // consensus free energies to use
-		const std::vector<double>&              u_bias_as_other_k,
+		const std::vector<double>&              u_bias_as_k,
 		const double                            f_bias_k,
 		// Consensus distributions for F_k(x,y)
 		std::vector<std::vector<double>>& p_x_y_wham,

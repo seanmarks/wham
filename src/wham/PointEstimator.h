@@ -38,6 +38,8 @@ class PointEstimator
 
 	int get_num_samples() const { return samples_.size(); }
 
+	const std::vector<T>& get_samples() const { return samples_; }
+
  private:
 	std::vector<T> samples_;
 };
