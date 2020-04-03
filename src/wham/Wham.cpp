@@ -94,11 +94,11 @@ void Wham::evaluateBiases()
 
 	// Now, for each biasing potential, evaluate the value of the bias that *would*
 	// result if that sample were obtained from that biased simulation
-	std::vector<double> args;
+	#pragma omp parallel for
 	for ( int r=0; r<num_biases; ++r ) {
 		// Number of OPs involved in this bias
 		int num_ops_for_bias = op_indices[r].size();
-		args.resize( num_ops_for_bias );
+		std::vector<double> args(num_ops_for_bias);
 
 		// Evaluate bias for each sample
 		int sample_index = 0;
@@ -237,22 +237,32 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 		f_bias_last_ = f;
 	}
 
-	// First, compute derivatives of the objective fxn (A) wrt. the biasing free
-	// energies themselves (f)
+	int num_threads = OpenMP::get_max_threads();
+	args_buffers_.resize(num_threads); 
+
 	Wham::ColumnVector dA_df(num_simulations);
 	dA_df(0) = 0.0;
-	args_buffer_.resize(num_samples_total_); 
-	double log_sum_exp_args;
-	for ( int k=1; k<num_simulations; ++k ) {
-		double fac = log_c_[k] + f[k];
-		// TODO OMP
-		//#pragma omp simd
-		for ( int n=0; n<num_samples_total_; ++n ) {
-			args_buffer_[n] = fac - u_bias_as_other_[k][n] - log_sigma_unbiased_[n];
-		}
-		log_sum_exp_args = log_sum_exp(args_buffer_);
 
-		dA_df(k) = inv_num_samples_total_*exp(log_sum_exp_args) - c_[k];
+	#pragma omp parallel
+	{
+		// Prepare buffer
+		const int thread_id = OpenMP::get_thread_num();
+		auto& args_buffer   = args_buffers_[thread_id];
+
+		// First, compute derivatives of the objective fxn (A) wrt. the biasing free
+		// energies themselves (f)
+		args_buffer.resize(num_samples_total_); 
+		#pragma omp for
+		for ( int k=1; k<num_simulations; ++k ) {
+			double fac = log_c_[k] + f[k];
+			#pragma omp simd
+			for ( int n=0; n<num_samples_total_; ++n ) {
+				args_buffer[n] = fac - u_bias_as_other_[k][n] - log_sigma_unbiased_[n];
+			}
+			double log_sum_exp_args = log_sum_exp(args_buffer);
+
+			dA_df(k) = inv_num_samples_total_*exp(log_sum_exp_args) - c_[k];
+		}
 	}
 
 	// Now compute the gradient of the objective function with respect to the 
@@ -337,8 +347,7 @@ double Wham::log_sum_exp(const std::vector<double>& args) const
 
 	// Compute sum of exp(args[i] - max_arg)
 	double sum = 0.0;
-	// TODO OMP
-	//#pragma omp simd reduction(+: sum)
+	#pragma omp simd reduction(+: sum)
 	for ( int i=0; i<num_args; ++i ) {
 		sum += exp(args[i] - max_arg);
 	}

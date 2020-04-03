@@ -1,0 +1,83 @@
+# Biasing parameters log
+#   x = N_v
+#   y = Ntilde_v
+
+Bias = {
+  DataSet = nstar_30.0  
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+  	x_star = 30.0
+		kappa  =  0.0 
+	}
+}
+
+Bias = {
+  DataSet = nstar_25.0  
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+  	x_star = 25.0    
+		kappa  = 0.98 
+	}
+}
+
+Bias = {
+  DataSet = nstar_20.0  
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+  	x_star = 20.0 
+		kappa  = 0.98 
+	}
+}
+
+Bias = {
+  DataSet = nstar_15.0  
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+   	x_star = 15.0    
+		kappa  = 0.98 
+	}
+}
+
+Bias = {
+  DataSet = nstar_10.0  
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+  	x_star = 10.0
+		kappa  = 0.98 
+	}
+}
+
+Bias = {
+  DataSet = nstar_5.0   
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+    x_star = 5.0
+		kappa  = 0.98 
+	}
+}
+
+Bias = {
+  DataSet = nstar_0.0   
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+    x_star = 0.0
+		kappa  = 0.98 
+	}
+}
+
+Bias = {
+  DataSet = nstar_-5.0  
+  Potential = {
+		order_parameter = Ntilde
+		type   = harmonic
+  	x_star = -5.0
+		kappa  =  0.98 
+	}
+}

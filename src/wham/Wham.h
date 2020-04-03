@@ -33,6 +33,7 @@
 #include "Distribution.h"
 #include "FileSystem.h"
 #include "InputParser.h"
+#include "OpenMP.h"
 #include "OrderParameter.h"
 #include "OrderParameterRegistry.h"
 #include "Simulation.h"
@@ -175,10 +176,11 @@ class Wham
 	mutable std::vector<double> log_sigma_unbiased_;
 
 	// Buffers
-	mutable std::vector<double> args_buffer_;               // for log_sum_exp
 	mutable std::vector<double> log_sigma_k_, minus_log_sigma_k_;
 	mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
 	mutable std::vector<int> sample_bins_;
+
+	mutable std::vector<std::vector<double>> args_buffers_;  // for log_sum_exp
 
 
 	//----- Solve WHAM Equations -----//
@@ -197,6 +199,7 @@ class Wham
 	// Compute log( sigma_k(x_{j,i}) ) for the given set of biasing free energies
 	// - These correspond to the weights given to each sample x_{j,i} in the kth ensemble
 	//   - f_k: free energy of turning on kth bias
+	// *** NOT thread safe: encloses an OpenMP region
 	void compute_log_sigma(
 		const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>&              f,
@@ -208,6 +211,7 @@ class Wham
 
 	// Returns the logarithm of a sum of exponentials
 	// - input: arguments of exponentials
+	// - THREAD_SAFE
 	double log_sum_exp(const std::vector<double>& args) const;
 
 	// Convert between the free energies of turning on the bias (f) and the free energy 

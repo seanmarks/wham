@@ -1,0 +1,54 @@
+# WHAM input file
+
+Temperature = 300.0
+
+DataSummaryFile = ../data/data_summary.log
+
+SolverTolerance = 1.0e-7
+
+# Bootstrap error estimation
+num_bootstrap_samples = 100
+
+# Record of biases used
+BiasesLogFile = biases.log
+
+# x = Ntilde_v
+OrderParameter = {
+	Name       = Ntilde
+	# Location of files list, and which column contans the file locations
+	FilesList  = [ time_series_files_list.input  2 ]
+	# Expected format: t(ps), N_v, Ntilde_v
+	DataColumn = 3
+
+	# Binning
+	Bins = {
+		NumBins  = 35
+		BinRange = [ 0.0  35.0 ]
+		BinStyle = left
+	}
+}
+
+# y = N_v
+OrderParameter = {
+	Name       = N
+	# Location of files list, and which column contans the file locations
+	FilesList  = [ time_series_files_list.input  2 ]
+	# Expected format: t(ps), N_v, Ntilde_v
+	DataColumn = 2
+
+	# Binning
+	Bins = {
+		NumBins  = 35
+		BinRange = [ 0.0  35.0 ]
+		BinStyle = left
+	}
+}
+
+# Output options
+Output = {
+	# Print F_WHAM(...) and associated output files for each 
+	# combination of order parameters indicated
+	F_WHAM = [ Ntilde ]
+	F_WHAM = [ N ]
+	F_WHAM = [ Ntilde  N ]
+}

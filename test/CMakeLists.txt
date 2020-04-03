@@ -54,3 +54,20 @@ foreach(TEST_NAME IN LISTS BASIC_TESTS)
 					 COMMAND ${BASH_PROGRAM} ${TEST_DRIVER_SCRIPT} -e ${PROGRAM_PATH} -d ${TEST_DIR} ${ECHO_FAILED_DIFFS}
 					 )
 endforeach()
+
+
+### OpenMP tests ###
+
+set(OPENMP_TESTS "")
+list(APPEND OPENMP_TESTS "indus/bulk_water/omp_run_wham")
+
+foreach(TEST_NAME IN LISTS OPENMP_TESTS)
+	# TODO allow this to be specified on the command line
+	set(OMP_NUM_THREADS 4)
+
+	set(TEST_DIR ${TEST_DIR_ROOT}/${TEST_NAME})
+	add_test(NAME ${TEST_NAME}
+					 COMMAND ${BASH_PROGRAM} ${TEST_DRIVER_SCRIPT} -e ${PROGRAM_PATH} -d ${TEST_DIR} ${ECHO_FAILED_DIFFS}
+	                 -nt ${OMP_NUM_THREADS}
+					 )
+endforeach()

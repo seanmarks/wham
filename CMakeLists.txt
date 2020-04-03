@@ -31,11 +31,21 @@ setIfUnset(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
 
 #set(DLIB_DIR "${HOME}/programs/dlib" CACHE STRING "Location of dlib installation")
 
-option(OPENMP_ENABLED "Enable OpenMP" OFF)
+option(OPENMP_ENABLED      "Enable OpenMP"      OFF)
+option(OPENMP_SIMD_ENABLED "Enable OpenMP SIMD" OFF)
 
 #set(DLIB_DIR   "${HOME}/programs/dlib" CACHE STRING "Location of dlib installation")
 set(LIB_WHAM    "libwham"                  CACHE STRING "Name of the library to be created")
 set(WHAM_DRIVER "${PROJECT_NAME}"       CACHE STRING "Name of the executable")
+
+# GPTL (for benchmarking)
+option(GPTL_ENABLED "Enable GPTL" OFF)
+set(GPTL_DIR "${HOME}/programs/gptl" CACHE STRING "Location of GPTL installation")
+
+
+######################
+### Find Libraries ###
+######################
 
 ### dlib ###
 
@@ -50,23 +60,26 @@ else()
 endif()
 
 
-#message("-- dlib location: ${DLIB_DIR}")
-
-# Look for static library
-#set(LIB_DLIB "dlib")
-#find_library(LIB_DLIB_STATIC
-#             NAMES lib${LIB_DLIB}.a ${LIB_DLIB}.a
-#             HINTS "${DLIB_DIR}/lib"
-#             )
-#if(LIB_DLIB_STATIC)
-#	message("-- Found static library for ${LIB_DLIB}: ${DLIB_LIB_STATIC}")
-#endif()
-
-
 ### OpenMP ###
 
 if(OPENMP_ENABLED)
 	message("-- OpenMP enabled")
+
+	if(OPENMP_SIMD_ENABLED)
+		# FIXME Use a more robust method for enabling/adding OpenMP SIMD
+		set(OpenMP_SIMD_FLAG "-fopenmp-simd")
+		if($<COMPILE_LANG_AND_ID:CXX,Intel>)
+			if(NOT WIN32)
+				set(OpenMP_SIMD_FLAG "-qopenmp-simd")
+			else()
+				set(OpenMP_SIMD_FLAG "-Qopenmp-simd")
+			endif()
+		endif()
+		message("-- OpenMP SIMD enabled (flag: ${OpenMP_SIMD_FLAG})")
+		set(OpenMP_C_FLAGS   "${OpenMP_C_FLAGS}   ${OpenMP_SIMD_FLAG}")
+		set(OpenMP_CXX_FLAGS "${OpenMP_CXX_FLAGS} ${OpenMP_SIMD_FLAG}")
+	endif()
+
 	# Add OpenMP
 	find_package(OpenMP)
 	if(NOT OpenMP_FOUND)
@@ -87,9 +100,6 @@ if(OPENMP_ENABLED)
 	if(NOT DEFINED OpenMP_SHARED_LINKER_FLAGS)
 			set(OpenMP_SHARED_LINKER_FLAGS "${OpenMP_CXX_FLAGS}")
 	endif()
-
-	# TODO OpenMP SIMD
-	
 else()
 	# Unset all OpenMP flags in case OpenMP was disabled either by the user
 	# or because it was only partially detected (e.g. only for C but not C++ compiler)
@@ -97,6 +107,26 @@ else()
 	unset(OpenMP_CXX_FLAGS CACHE)
 endif()
 
+
+### GPTL ###
+
+if(GPTL_ENABLED)
+	# TODO: make target-wise? put in config file, that also gets included in the plumed patch?
+	add_definitions(-DHAVE_GPTL)
+
+	message("-- gptl enabled")
+	message("-- gptl location: ${GPTL_DIR}")
+
+	# Look for static library
+	set(LIB_GPTL "gptl")
+	find_library(LIB_GPTL_STATIC
+							 NAMES lib${LIB_GPTL}.a ${LIB_GPTL}.a
+							 HINTS "${GPTL_DIR}/lib"
+							 )
+	if(LIB_GPTL_STATIC)
+		message("-- Found static library for ${LIB_GPTL}: ${LIB_GPTL_STATIC}")
+	endif()
+endif()
 
 ######################
 ### Compiler Flags ###
