@@ -25,6 +25,7 @@ Wham::Wham(
 
 void Wham::setup()
 {
+	setup_timer_.start();
 	int num_simulations = simulations_.size();
 
 	// Use the time series of the first OP registered to count the number of samples
@@ -64,11 +65,14 @@ void Wham::setup()
 	// For each sample, evaluate the resulting potential under each bias
 	// - Populates 'u_bias_as_other_'
 	evaluateBiases();
+	setup_timer_.stop();
 }
 
 
 void Wham::evaluateBiases()
 {
+	biases_timer_.start();
+
 	// First, figure out which order parameters are needed for each bias
 	int num_simulations = simulations_.size();
 	int num_biases      = biases_.size();
@@ -118,6 +122,7 @@ void Wham::evaluateBiases()
 			}
 		}
 	}
+	biases_timer_.stop();
 }
 
 
@@ -138,6 +143,7 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	WhamDlibDerivWrapper derivatives_wrapper(*this);
 
 	// Call dlib to perform the optimization
+	solve_timer_.start();
 	double min_A = dlib::find_min( 
 			dlib::bfgs_search_strategy(), 
 			dlib::objective_delta_stop_strategy(tol_),
@@ -147,6 +153,7 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 			df,
 			std::numeric_limits<double>::lowest() 
 	);
+	solve_timer_.stop();
 
 	// Compute optimal free energies of biasing from the differences between windows
 	std::vector<double> f_bias_opt(num_simulations);
@@ -188,6 +195,8 @@ void Wham::convert_df_to_f(const Wham::ColumnVector& df, std::vector<double>& f)
 
 double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 {
+	objective_timer_.start();
+
 	// Compute free energies of biasing from the differences between windows
 	int num_simulations = simulations_.size();
 	std::vector<double> f(num_simulations);
@@ -215,12 +224,16 @@ double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 	std::cout << "EVALUATED: A = " << val << "\n";
 #endif
 
+	objective_timer_.stop();
+
 	return val;
 }
 
 
 const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector& df) const
 {
+	gradient_timer_.start();
+
 	// Compute free energies of biasing from differences between windows
 	int num_simulations = simulations_.size();
 	std::vector<double> f(num_simulations);
@@ -245,6 +258,7 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 
 	#pragma omp parallel
 	{
+
 		// Prepare buffer
 		const int thread_id = OpenMP::get_thread_num();
 		auto& args_buffer   = args_buffers_[thread_id];
@@ -254,6 +268,8 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 		args_buffer.resize(num_samples_total_); 
 		#pragma omp for
 		for ( int k=1; k<num_simulations; ++k ) {
+			gradient_omp_timer_.start();
+
 			double fac = log_c_[k] + f[k];
 			#pragma omp simd
 			for ( int n=0; n<num_samples_total_; ++n ) {
@@ -262,6 +278,8 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 			double log_sum_exp_args = log_sum_exp(args_buffer);
 
 			dA_df(k) = inv_num_samples_total_*exp(log_sum_exp_args) - c_[k];
+
+			gradient_omp_timer_.stop();
 		}
 	}
 
@@ -291,6 +309,8 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	std::cout << "\n\n";
 #endif
 
+	gradient_timer_.stop();
+
 	return grad;
 }
 
@@ -301,6 +321,8 @@ void Wham::compute_log_sigma(
 	std::vector<double>& log_sigma
 ) const
 {
+	log_sigma_timer_.start();
+
 	int num_samples_total = u_bias_as_k.size();
 //#ifdef WHAM_DEBUG
 // TODO check consistency of # samples btw. u_bias_as_k and each 'u_bias_as_other[r]'
@@ -321,39 +343,45 @@ void Wham::compute_log_sigma(
 
 		#pragma omp for schedule(static,8)
 		for ( int n=0; n<num_samples_total; ++n ) {
+			log_sigma_omp_timer_.start();
+
 			for ( int r=0; r<num_biases; ++r ) {
 				args[r] = common_terms[r] + (u_bias_as_k[n] - u_bias_as_other[r][n]);
 			}
 			log_sigma[n] = log_sum_exp( args );
+
+			log_sigma_omp_timer_.stop();
 		}
 	}
+
+	log_sigma_timer_.stop();
 }
 
 
 // Returns the logarithm of a sum of exponentials (input: arguments of exponentials)
 double Wham::log_sum_exp(const std::vector<double>& args) const
 {
+	log_sum_exp_timer_.start();
+
 	// Check input
 	int num_args = static_cast<int>( args.size() );
 	if ( num_args < 1 ) {
 		throw std::runtime_error("Wham::log_sum_exp: No arguments supplied.\n");
 	}
 
-	// Find the largest argument
-	double max_arg = args[0];
-	for ( int i=1; i<num_args; ++i ) {
-		if ( args[i] > max_arg ) { max_arg = args[i]; }
-	}
-
 	// Compute sum of exp(args[i] - max_arg)
+	double max_arg = *std::max_element( args.begin(), args.end() );
 	double sum = 0.0;
 	#pragma omp simd reduction(+: sum)
 	for ( int i=0; i<num_args; ++i ) {
 		sum += exp(args[i] - max_arg);
 	}
 
-	// Return log of desired summation
-	return max_arg + log(sum);
+	// Since exp(max_arg) might be huge, return log(sum_exp) instead of sum_exp
+	double log_sum_exp_out = max_arg + log(sum);
+	log_sum_exp_timer_.stop();
+
+	return log_sum_exp_out;
 }
 
 
@@ -475,6 +503,8 @@ void Wham::compute_consensus_f_x(
 	Distribution& wham_distribution_x
 ) const
 {
+	f_x_timer_.start();
+
 	const auto& bins_x = x.get_bins();
 
 	// Compute log(sigma_k) using the buffer, since the array can be quite large
@@ -527,6 +557,8 @@ void Wham::compute_consensus_f_x(
 			p_x_wham[b] = 0.0;
 		}
 	}
+
+	f_x_timer_.stop();
 }
 
 
@@ -554,6 +586,7 @@ void Wham::compute_consensus_f_x_y(
 	std::vector<std::vector<int>>& sample_counts_x_y
 ) const
 {
+	f_x_y_timer_.start();
 	/*
 	// Input checks TODO
 	if ( y.size() != x.size() or f_bias_opt.size() != x.size() or u_bias_as_other.size() != x.size() ) {
@@ -654,4 +687,6 @@ void Wham::compute_consensus_f_x_y(
 			bin_index++;
 		}
 	}
+
+	f_x_y_timer_.stop();
 }

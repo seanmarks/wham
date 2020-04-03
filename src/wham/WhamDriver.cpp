@@ -3,6 +3,8 @@
 WhamDriver::WhamDriver(const std::string& options_file):
 	options_file_(options_file)
 {
+	setup_timer_.start();
+
 	// Read input file into a ParameterPack
 	InputParser input_parser;
 	input_parser.parseFile(options_file_, input_parameter_pack_);
@@ -184,12 +186,14 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	}
 #endif /* DEBUG */
 
-
+	setup_timer_.stop();
 }
 
 
 void WhamDriver::run_driver()
 {
+	driver_timer_.start();
+
 	if ( not be_quiet_ ) {
 		std::cout << "  Running WHAM ...\n";
 	}
@@ -207,7 +211,9 @@ void WhamDriver::run_driver()
 	}
 
 	// Solve for optimal free energies of biasing
+	solve_wham_timer_.start();
 	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
+	solve_wham_timer_.stop();
 	f_bias_opt_ = wham.get_f_bias_opt();
 
 	if ( not be_quiet_ ) {
@@ -229,6 +235,8 @@ void WhamDriver::run_driver()
 	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x;
 
 	if ( error_method_ == ErrorMethod::Bootstrap ) {
+		bootstrap_timer_.start();
+
 		if ( not be_quiet_ ) {
 			std::cout << "  Estimate errors using bootstrap subsampling ...\n";
 		}
@@ -269,10 +277,13 @@ void WhamDriver::run_driver()
 			}
 
 			// Subsample each simulation
+			// - TODO: OpenMP?
+			subsample_timer_.start();
 			for ( int j=0; j<num_simulations; ++j ) {
 				subsamplers[j].generate( resample_indices[j] );
 				bootstrap_simulations[j].setShuffledFromOther( simulations_[j], resample_indices[j] );
 			}
+			subsample_timer_.stop();
 
 			int num_ops = order_parameters_.size();
 			for ( int p=0; p<num_ops; ++p ) {
@@ -281,8 +292,10 @@ void WhamDriver::run_driver()
 
 			// Re-solve WHAM equations
 			// - TODO: option to re-solve with new data rather than reallocating for each loop?
+			solve_wham_timer_.start();
 			Wham bootstrap_wham( data_summary_, op_registry_, bootstrap_simulations, bootstrap_ops, 
 													 biases_, f_bias_opt_, wham_options_.tol );
+			solve_wham_timer_.stop();
 
 			// Save bootstrap estimates for f_bias_opt
 			const auto& bootstrap_f_bias_opt = bootstrap_wham.get_f_bias_opt();
@@ -313,10 +326,14 @@ void WhamDriver::run_driver()
 		}
 
 		// TODO: Compute errors for F(x) here instead of below
+
+		bootstrap_timer_.stop();
 	} // end bootstrap resampling
 
 
 	//----- Output -----//
+
+	print_output_timer_.start();
 
 	// Print optimal biasing free energies to file
 	std::string file_name("f_bias_WHAM.out");
@@ -413,6 +430,10 @@ void WhamDriver::run_driver()
 		// Print results
 		print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
 	}
+
+	print_output_timer_.stop();
+
+	driver_timer_.stop();
 }
 
 

@@ -9,6 +9,7 @@
 
 // Standard headers
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -32,6 +33,7 @@
 #include "DataSummary.h"
 #include "Distribution.h"
 #include "FileSystem.h"
+#include "GptlWrappers.h"
 #include "InputParser.h"
 #include "OpenMP.h"
 #include "OrderParameter.h"
@@ -263,6 +265,28 @@ class Wham
 		std::vector<std::vector<double>>& f_x_y_wham,
 		std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
+
+
+	//----- GPTL -----//
+
+	using Timer = GPTL::Timer;
+
+	// Core functions
+	mutable Timer setup_timer_     = Timer("Wham::setup");
+	mutable Timer biases_timer_    = Timer("Wham::evaluate_biases");
+	mutable Timer solve_timer_     = Timer("Wham::solve");
+	mutable Timer objective_timer_ = Timer("Wham::objective");
+	mutable Timer gradient_timer_  = Timer("Wham::gradient");
+	mutable Timer gradient_omp_timer_ = Timer("Wham::gradient_omp");
+
+	// Output functions
+	mutable Timer f_x_timer_   = Timer("Wham::consensus_f_x");
+	mutable Timer f_x_y_timer_ = Timer("Wham::consensus_f_x_y");
+
+	// Low-level, expensive functions
+	mutable Timer log_sigma_timer_     = Timer("Wham::compute_log_sigma");
+	mutable Timer log_sigma_omp_timer_ = Timer("Wham::compute_log_sigma_omp");
+	mutable Timer log_sum_exp_timer_   = Timer("Wham::compute_log_sum_exp");
 };
 
 #endif // ifndef WHAM_H

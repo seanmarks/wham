@@ -31,6 +31,8 @@ setIfUnset(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
 
 #set(DLIB_DIR "${HOME}/programs/dlib" CACHE STRING "Location of dlib installation")
 
+# Parallelization
+option(MPI_ENABLED         "Enable MPI"         OFF)
 option(OPENMP_ENABLED      "Enable OpenMP"      OFF)
 option(OPENMP_SIMD_ENABLED "Enable OpenMP SIMD" OFF)
 
@@ -127,6 +129,23 @@ if(GPTL_ENABLED)
 		message("-- Found static library for ${LIB_GPTL}: ${LIB_GPTL_STATIC}")
 	endif()
 endif()
+
+
+### MPI ###
+
+if(MPI_ENABLED)
+	message("-- MPI enabled")
+	# Add MPI
+	find_package(MPI)
+	if(MPI_FOUND)
+		# TODO Move to config.h?
+		add_definitions(-DMPI_ENABLED)
+		add_definitions(-DHAVE_LIBMPI)
+	else()
+    message(FATAL_ERROR "MPI could not be located")
+	endif()
+endif()
+
 
 ######################
 ### Compiler Flags ###

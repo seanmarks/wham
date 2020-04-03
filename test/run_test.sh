@@ -84,13 +84,15 @@ if [[ ! -d $test_dir ]]; then
 fi
 
 is_parallel=0
-if [[ $num_threads -gt 1 || $num_threads -gt 1 ]]; then
+if [[ $num_ranks -gt 1 || $num_threads -gt 1 ]]; then
 	is_parallel=1
-	export MPI_NUM_RANKS=$num_ranks
-	export OMP_NUM_THREADS=$num_threads
-	program="mpirun --use-hwthread-cpus -np $MPI_NUM_RANKS $program"
+	if [[ $num_ranks -gt 1 ]]; then
+		export MPI_NUM_RANKS=$num_ranks
+		program="mpirun --use-hwthread-cpus -np $MPI_NUM_RANKS $program"
+	fi
 fi
 export OMP_NUM_THREADS=$num_threads
+
 
 ###############
 ### Logging ###
