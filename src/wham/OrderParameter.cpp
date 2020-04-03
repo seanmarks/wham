@@ -1,81 +1,42 @@
 #include "OrderParameter.h"
 
 OrderParameter::OrderParameter(
-		const ParameterPack& input_pack, const std::vector<Simulation>& simulations,
-		const bool use_floored_times):
-	file_col_(0),
-	simulations_(simulations),
+	const std::string& name,
+	const ParameterPack& input_pack,
+	std::vector<Simulation>& simulations
+):
+	name_(name),
+	simulation_ptrs_(simulations.size(), nullptr),
 	bins_()
 {
 	using KeyType = ParameterPack::KeyType;
-
-	input_pack.readString("Name", KeyType::Required, name_);
-
-	// Files list
-	std::vector<std::string> tokens;
-	input_pack.readVector("FilesList", KeyType::Required, tokens);
-	time_series_list_ = tokens[0];
-	if ( tokens.size() > 1 ) {
-		// User also provided the column in the file which has the 
-		// time series file locations
-		file_col_ = std::stoi( tokens[1] );
-		if ( file_col_ < 1 ) {
-			std::stringstream err_ss;
-			err_ss << "Error setting up order parameter " << name_ << "\n"
-			       << "  Column number for data must be a positive integer\n";
-			throw std::runtime_error( err_ss.str() );
-		}
-		--file_col_;  // input is indexed from 1
-	}
-
-	input_pack.readNumber("DataColumn", KeyType::Required, data_col_);
-	if ( data_col_ < 1 ) {
-		std::stringstream err_ss;
-		err_ss << "Error setting up order parameter " << name_ << "\n"
-		       << "  DataColumn must be a positive integer\n";
-		throw std::runtime_error( err_ss.str() );
-	}
-	--data_col_;  // input is indexed from 1
 
 	// Histogram settings
 	const ParameterPack* bins_pack_ptr = input_pack.findParameterPack("Bins", KeyType::Required);
 	bins_.set_bins( *bins_pack_ptr );
 
-	//----- Read time series -----//
-
-	// Get list of files
-	std::vector<std::string> data_files;
-	FileSystem::readFilesList(time_series_list_, file_col_, data_files);
-	if ( data_files.size() != simulations.size() ) {
-		std::stringstream err_ss;
-		err_ss << "Error setting up order parameter " << name_ << "\n"
-		       << "  Mismatch between number of time series files parsed (" << data_files.size()
-		         << ") and number expected (" << simulations.size() << "\n";
-		throw std::runtime_error( err_ss.str() );
-	}
-	int num_simulations = data_files.size();
+	set_simulations(simulations);
+}
 
 
-#ifdef DEBUG
-	std::cout << "OrderParameter: " << name_ << "\n"
-	          << "  From files list " << time_series_list_ << "\n"
-	          << "  Found " << num_simulations << " file names\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		std::cout << "    " << data_files[i] << "\n";
-	}
-#endif /* DEBUG */
-
-	time_series_.clear();
+void OrderParameter::set_simulations(std::vector<Simulation>& simulations)
+{
+	int num_simulations = simulations.size();
+	simulation_ptrs_.assign(num_simulations, nullptr);
+	time_series_ptrs_.resize(num_simulations);
 	biased_distributions_.clear();
-	for ( int i=0; i<num_simulations; ++i ) {
-		// Read time series data for the production phase
-		time_series_.push_back( 
-			TimeSeries( data_files[i], data_col_, simulations_[i].t_min, simulations_[i].t_max, 
-			            use_floored_times )
-		);
 
+	// TODO: Move everything besides setting of simulation_ptrs to a separate fxn
+
+	for ( int i=0; i<num_simulations; ++i ) {
+		simulation_ptrs_[i] = &simulations[i];
+
+		// Share time series read by Simulation objects
+		time_series_ptrs_[i] = simulations[i].copy_time_series_ptr(name_);
+		
 		// Make raw biased distributions
-		biased_distributions_.emplace_back( Distribution(bins_, time_series_.back()) );
+		// - TODO: Make optional?
+		biased_distributions_.emplace_back( Distribution(bins_, *(time_series_ptrs_[i])) );
 	}
 
 	// Number of samples in each bin, across all data sets
@@ -86,98 +47,19 @@ OrderParameter::OrderParameter(
 			global_sample_counts_[b] += biased_distributions_[j].sample_counts[b];
 		}
 	}
-
-	// Reserve memory for later
-	unbiased_distributions_.resize(num_simulations);
-	rebiased_distributions_.resize(num_simulations);
-}
-
-
-void OrderParameter::checkForConsistency(const std::vector<OrderParameter>& ops)
-{
-	int num_ops = ops.size();
-	if ( num_ops < 1 ) {
-		throw std::runtime_error("there are no order parameters to check for consistency");
-	}
-
-	// Use the first OP as a reference
-	const OrderParameter& ref_op = ops[0];
-	int num_simulations = ref_op.time_series_.size();
-	if ( num_simulations < 1 ) {
-		throw std::runtime_error("order parameter \"" + ref_op.name_ + "\" has no time series data");
-	}
-	for ( int j=0; j<num_simulations; ++j ) {
-		// Ensure each time series contains data
-		if ( ref_op.time_series_[j].size() < 1 ) {
-			std::stringstream err_ss;
-			err_ss << "Order parameter " << ref_op.name_ << ": time series " << j+1 << " contains no data\n"
-			       << "  file = " << ref_op.time_series_[j].get_file() << "\n";
-			throw std::runtime_error( err_ss.str() );
-		}
-	}
-
-	for ( int i=1; i<num_ops; ++i ) {
-		// Check number of time series
-		if ( ops[i].time_series_.size() != ref_op.time_series_.size() ) {
-			std::stringstream err_ss;
-			err_ss << "Order parameters " << ref_op.name_ << " and " << ops[i].name_
-			       << " have different numbers of time series.\n";
-		}
-
-		// Check each time series
-		for ( int j=0; j<num_simulations; ++j ) {
-			// Convenient aliases
-			const TimeSeries& series_i   = ops[i].time_series_[j];
-			const TimeSeries& series_ref = ref_op.time_series_[j];
-
-			// Time series from the same simulation should have the same number of points
-			if ( series_i.size() != series_ref.size() ) {
-				std::stringstream err_ss;
-				err_ss << "Order parameters: time series length mismatch for simulation " 
-				       << j+1 << " of " << num_simulations << "\n";
-
-				std::vector<int> op_indices = {{ 0, i }};
-				for ( unsigned k=0; k<op_indices.size(); ++k ) {
-					int l = op_indices[k];
-					const TimeSeries& time_series = ops[l].time_series_[j];
-					err_ss << "  OrderParameter = " << ops[l].name_ << ": " << time_series.size() << " points stored\n"
-					       << "    file = " << time_series.get_file() << "\n";
-				}
-				throw std::runtime_error( err_ss.str() );
-			}
-
-			// These time series should also refer to the same times sampled
-			if ( series_i.get_times() != series_ref.get_times() ) {
-				std::stringstream err_ss;
-				err_ss << "Order parameters: stored times for each sample do not match for simulation "
-				       << j+1 << " of " << num_simulations << "\n";
-
-				std::vector<int> op_indices = {{ 0, i }};
-				for ( unsigned k=0; k<op_indices.size(); ++k ) {
-					int l = op_indices[k];
-					const TimeSeries& time_series = ops[l].time_series_[j];
-					err_ss << "  OrderParameter = " << ops[l].name_ << ":\n"
-					       << "    file = " << time_series.get_file() << "\n";
-				}
-				throw std::runtime_error( err_ss.str() );
-			}
-		}
-	}
 }
 
 
 void OrderParameter::printRawDistributions() const
 {
-	int num_simulations = time_series_.size();
-	if ( num_simulations < 1 ) {
-		throw std::runtime_error("OrderParameter::printRawDistributions: No data found.\n");
-	}
+	int num_simulations = time_series_ptrs_.size();
+	FANCY_ASSERT(num_simulations > 0, "no simulations present");
 
 	// Common header
 	std::stringstream table_header_stream;
 	table_header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "# " << i+2 << ": " << simulations_[i].data_set_label << "\n";
+		table_header_stream << "# " << i+2 << ": " << simulation_ptrs_[i]->get_data_set_label() << "\n";
 	}
 	table_header_stream << "#\n"
 	                    << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
@@ -203,6 +85,114 @@ void OrderParameter::printRawDistributions() const
                 << " F_{0,i}(" << name_ << ") [k_B*T]\n"
 	              << table_header_stream.str();
 	printDistributions( unbiased_distributions_, file_name, header_stream.str() );
+}
+
+
+void OrderParameter::printRebiasedDistributions(std::string file_name) const
+{
+	FANCY_ASSERT(simulation_ptrs_.size() == rebiased_distributions_.size(), "length mismatch");
+
+	if ( file_name.empty() ) {
+		file_name = "F_" + name_ + "_rebiased.out";
+	}
+	std::ofstream ofs(file_name);
+
+	// Header
+	std::stringstream header_stream;
+	header_stream << "# \"Rebiased\" free energy distributions: "
+                << " F_{rebias,i}(" << name_ << ") [k_B*T]\n";
+	header_stream << "# Data sets (by column)\n";
+	const int num_simulations = simulation_ptrs_.size();
+	for ( int j=0; j<num_simulations; ++j ) {
+		header_stream << "# " << j+2 << ": " << simulation_ptrs_[j]->get_data_set_label() << "\n";
+	}
+	header_stream << "#\n"
+	              << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
+
+	// Print
+	printDistributions( rebiased_distributions_, file_name, header_stream.str() );
+}
+
+
+void OrderParameter::printWhamResults(std::string file_name) const
+{
+	// TODO: consistency check for presence of output
+	//const int num_simulations = simulation_ptrs_.size();
+
+	if ( file_name.empty() ) {
+		file_name = "F_" + name_ + "_WHAM.out";
+	}
+	std::ofstream ofs(file_name);
+
+	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
+	const auto& f_x           = wham_distribution_.f_x;
+	const auto& sample_counts = wham_distribution_.sample_counts;
+	auto f_x_shifted = Distribution::shift_f_x_to_zero(f_x, sample_counts);
+
+	// TODO: safer check?
+	bool have_error = ( wham_distribution_.error_f_x.size() == f_x.size() );
+
+	// Header
+	ofs << "# Consensus free energy distributions from WHAM: \n"
+      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulation_ptrs_[0]->get_temperature() << " K\n";  // FIXME temperature
+	ofs << "# " << name_ << "\tF[kBT]  NumSamples";
+	if ( have_error ) {
+		ofs << "\tstderr(F)[kBT]";
+	}
+	ofs << "\n";
+
+	// Print F_0(x)
+	const int num_bins  = bins_.get_num_bins();
+	for ( int b=0; b<num_bins; ++b ) {
+		ofs << std::setw(8) << std::setprecision(5) << bins_[b];
+		ofs << "  " << std::setw(8) << std::setprecision(5);
+			Distribution::print_free_energy(ofs, f_x_shifted[b], sample_counts[b]);
+		ofs << "  " << std::setw(8) << std::setprecision(5) << sample_counts[b];
+		if ( have_error ) {
+			ofs << "  " << std::setw(8) << std::setprecision(5) << wham_distribution_.error_f_x[b];
+		}
+		/*
+		else {
+			ofs << "nan";
+		}
+		*/
+		ofs << "\n";
+	}
+	ofs.close(); ofs.clear();
+}
+
+
+
+void OrderParameter::printStats(std::string file_name) const
+{
+	if ( file_name.empty() ) {
+		file_name = "stats_" + name_ + ".out";
+	}
+
+	// Check for presence of info entropy (TODO: private flag?)
+	int  num_simulations   = simulation_ptrs_.size();
+	int  num_info_entropy  = info_entropy_.size();
+	bool have_info_entropy = ( num_info_entropy == num_simulations );
+
+	std::ofstream ofs(file_name);
+
+	// Header
+	ofs << "# data_set   avg(" << name_ << ")   var(" << name_ << ")";
+	if ( have_info_entropy ) {
+		ofs << "   info_entropy(biased/rebiased)";
+	}
+	ofs << "\n";
+
+	// Body
+	for ( int j=0; j<num_simulations; ++j ) {
+		ofs << simulation_ptrs_[j]->get_data_set_label() << "\t"
+		    << time_series_ptrs_[j]->average() << "\t"
+		    << time_series_ptrs_[j]->variance();
+		if ( have_info_entropy ) {
+ 			ofs << "\t" << info_entropy_[j] << "\n";
+		}
+	}
+	ofs.close();
 }
 
 

@@ -26,7 +26,7 @@ class WhamDlibEvalWrapper
 	double operator() (const ColumnVector& df) const;
 
  private:
-	Wham& wham_;
+	Wham* wham_ptr_;
 
 };
 
@@ -43,7 +43,7 @@ class WhamDlibDerivWrapper
 	const ColumnVector operator() (const ColumnVector& df) const;
 
  private:
-	Wham& wham_;
+	Wham* wham_ptr_;
 };
 
 #endif // WHAM_DLIB_WRAPPERS_H

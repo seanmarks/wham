@@ -51,6 +51,27 @@ TimeSeries::TimeSeries(
 }
 
 
+void TimeSeries::setShuffledFromOther(const TimeSeries& other, const std::vector<int>& indices)
+{
+	FANCY_ASSERT(this != &other, "self-shuffling is not supported");
+
+	// TODO: safer to manually copy everything?
+	*this = other;
+	this->is_shuffled_ = true;
+
+	int num_samples = indices.size();
+	this->times_.resize(num_samples);
+	this->data_.resize(num_samples);
+
+	// Shuffle data according to 'indices'
+	int index;
+	for ( int i=0; i<num_samples; ++i ) {
+		index = indices[i];
+		this->times_[i] = other.times_[index];
+		this->data_[i]  = other.data_[index];
+	}
+}
+
 
 double TimeSeries::average(const std::vector<double>& x) const
 {

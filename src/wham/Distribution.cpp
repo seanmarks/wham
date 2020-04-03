@@ -48,4 +48,27 @@ Distribution::Distribution(const Bins& bins_x_in, const TimeSeries& time_series_
 void Distribution::print(const std::string& file, const std::string& header) const
 {
 	// TODO
+	throw std::runtime_error("Distribution::print is not yet implemented");
+}
+
+
+double Distribution::computeInformationEntropy(const Distribution& first, const Distribution& second)
+{
+	// TODO consistency checks
+	double info_entropy = 0.0;
+
+	double bin_size_x = first.bins_x.get_bin_size();
+	int num_bins_x = first.bins_x.get_num_bins();
+
+	for ( int b=0; b<num_bins_x; ++b ) {
+		const double& p_first  = first.p_x[b];
+		const double& f_first  = first.f_x[b];
+		const double& f_second = second.f_x[b];
+
+		if ( p_first > 0.0 and std::isfinite(f_second) ) {
+			info_entropy += p_first*(f_second - f_first)*bin_size_x;
+		}
+	}
+
+	return info_entropy;
 }

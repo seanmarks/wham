@@ -23,7 +23,7 @@
 #include <vector>
 
 // Project headers
-#include "../wham/Wham.h"
+#include "../wham/WhamDriver.h"
 
 int main(int argc, char* argv[]) 
 {
@@ -37,8 +37,8 @@ int main(int argc, char* argv[])
 
 	//----- Run Wham -----//
 
-	Wham wham(options_file);
-	wham.run_driver();
+	WhamDriver wham_driver(options_file);
+	wham_driver.run_driver();
 
 	return 0;
 }

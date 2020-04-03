@@ -3,14 +3,14 @@
 //----- Objective Function Wrapper -----//
 
 WhamDlibEvalWrapper::WhamDlibEvalWrapper(Wham& wham) 
- : wham_(wham) 
+ : wham_ptr_(&wham) 
 {
 };
 
 
 double WhamDlibEvalWrapper::operator() (const Wham::ColumnVector& df) const
 {
-	return wham_.evalObjectiveFunction(df);
+	return wham_ptr_->evalObjectiveFunction(df);
 };
 
 
@@ -18,12 +18,12 @@ double WhamDlibEvalWrapper::operator() (const Wham::ColumnVector& df) const
 //----- Objective Function Derivatives Wrapper -----//
 
 WhamDlibDerivWrapper::WhamDlibDerivWrapper(Wham& wham) 
- : wham_(wham) 
+ : wham_ptr_(&wham) 
 {
 }
 
 
 const Wham::ColumnVector WhamDlibDerivWrapper::operator() (const Wham::ColumnVector& df) const
 {
-	return wham_.evalObjectiveDerivatives(df);
+	return wham_ptr_->evalObjectiveDerivatives(df);
 };

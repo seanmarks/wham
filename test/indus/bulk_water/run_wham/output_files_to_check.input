@@ -15,3 +15,5 @@ stats_N.out
 # F_0(Ntilde,N)
 F_Ntilde_N_WHAM.out
 samples_Ntilde_N.out
+# Error estimation
+bootstrap_convergence.out
