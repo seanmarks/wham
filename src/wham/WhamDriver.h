@@ -120,7 +120,8 @@ class WhamDriver
 
 	//----- Output -----//
 
-	bool be_verbose_ = false;
+	bool be_verbose_ = false;  // extra feedback
+	bool be_quiet_   = false;  // minimal/no feedback
 
 	// OP indices for F(x) to print
 	std::vector<int> output_f_x_;

@@ -124,7 +124,7 @@ void Wham::evaluateBiases()
 // TODO add toggle for be_verbose
 std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_guess)
 {
-	bool be_verbose = true;
+	bool be_verbose = false;
 
 	// Compute differences btw. successive windows for initial guess
 	int num_simulations = simulations_.size();

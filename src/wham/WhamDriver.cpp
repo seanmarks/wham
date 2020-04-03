@@ -32,6 +32,9 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	const int num_ops    = op_registry_.getNumberOfOrderParameters();
 
 	// Load simulation data
+	if ( not be_quiet_ ) {
+		std::cout << "  Loading data ...\n";
+	}
 	simulations_.clear();
 	simulations_.reserve(num_simulations);
 	for ( int i=0; i<num_simulations; ++i ) {
@@ -187,9 +190,11 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 void WhamDriver::run_driver()
 {
-	int num_simulations = simulations_.size();
-	bool be_verbose = true;
+	if ( not be_quiet_ ) {
+		std::cout << "  Running WHAM ...\n";
+	}
 
+	int num_simulations = simulations_.size();
 
 	//----- Solve WHAM equations -----//
 
@@ -205,6 +210,14 @@ void WhamDriver::run_driver()
 	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
 	f_bias_opt_ = wham.get_f_bias_opt();
 
+	if ( not be_quiet_ ) {
+		std::cout << "  Done\n";
+		std::cout << "  Optimal biasing free energies (in kBT):\n";
+		for ( int i=0; i<num_simulations; ++i ) {
+			std::cout << "  " << i+1 << ":  " << f_bias_opt_[i] << "  (initial: " << f_bias_guess_[i] << ")\n"; 
+		}
+	}
+
 
 	//----- Estimate Errors -----//
 
@@ -216,7 +229,9 @@ void WhamDriver::run_driver()
 	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x;
 
 	if ( error_method_ == ErrorMethod::Bootstrap ) {
-		std::cout << "  Estimate errors using bootstrap subsampling\n";
+		if ( not be_quiet_ ) {
+			std::cout << "  Estimate errors using bootstrap subsampling ...\n";
+		}
 
 		// Allocate memory for bootstrap samples
 		// - Dimensions: #outputs x #bins/output
@@ -249,7 +264,7 @@ void WhamDriver::run_driver()
 		std::vector<OrderParameter> bootstrap_ops = order_parameters_;
 		for ( int s=0; s<num_bootstrap_samples_; ++s ) {
 			// User feedback
-			if ( (s+1 % 100) == 0 ) {
+			if ( (not be_quiet_) and ((s == 0) or (((s+1) % 25) == 0)) ) {
 				std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n";
 			}
 
@@ -335,7 +350,7 @@ void WhamDriver::run_driver()
 	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
-		if ( be_verbose ) {
+		if ( not be_quiet_ ) {
 			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n";
 		}
 
@@ -383,7 +398,7 @@ void WhamDriver::run_driver()
 		// F_WHAM(x,y)
 		OrderParameter& x = order_parameters_[ output_f_x_y_[i][0] ];
 		OrderParameter& y = order_parameters_[ output_f_x_y_[i][1] ];
-		if ( be_verbose ) {
+		if ( not be_quiet_ ) {
 			std::cout << "Computing F_WHAM(" << x.get_name() << ", " << y.get_name() << ")\n";
 		}
 
