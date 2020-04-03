@@ -324,6 +324,12 @@ void Wham::compute_log_sigma(
 	log_sigma_timer_.start();
 
 	int num_samples_total = u_bias_as_k.size();
+	if ( num_samples_total == 0 ) {
+		// Nothing to do
+		log_sigma.resize(0);
+		log_sigma_timer_.stop();
+		return;
+	}
 //#ifdef WHAM_DEBUG
 // TODO check consistency of # samples btw. u_bias_as_k and each 'u_bias_as_other[r]'
 //#endif
@@ -521,6 +527,7 @@ void Wham::compute_consensus_f_x(
 	// Sort log(sigma_k)-values by bin
 	int bin, sample_index, num_simulations = simulations_.size();
 	double bin_size_x = bins_x.get_bin_size();
+	f_x_sort_timer_.start();
 	for ( int j=0; j<num_simulations; ++j ) {
 		const auto& x_j = x.get_time_series(j);
 		int num_samples = x_j.size();
@@ -532,6 +539,7 @@ void Wham::compute_consensus_f_x(
 			}
 		}
 	}
+	f_x_sort_timer_.stop();
 
 	// Unpack for readability
 	std::vector<double>& p_x_wham      = wham_distribution_x.p_x;
@@ -544,11 +552,11 @@ void Wham::compute_consensus_f_x(
 	f_x_wham.resize(num_bins_x);
 	p_x_wham.resize(num_bins_x);
 	sample_counts.resize(num_bins_x);
-	double log_sum_exp_bin;
+	#pragma omp parallel for //schedule(static,8)
 	for ( int b=0; b<num_bins_x; ++b ) {
 		sample_counts[b] = minus_log_sigma_k_binned_[b].size();
 		if ( sample_counts[b] > 0 ) {
-			log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_binned_[b] );
+			double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_binned_[b] );
 			f_x_wham[b] = -log(inv_num_samples_total_/bin_size_x) - log_sum_exp_bin;
 			p_x_wham[b] = exp( -f_x_wham[b] );
 		}
@@ -594,9 +602,11 @@ void Wham::compute_consensus_f_x_y(
 	}
 	*/
 
+	// Compute weight factors
+	compute_log_sigma(u_bias_as_other, f_bias_opt, u_bias_as_k, f_bias_k, log_sigma_k_);
+
 	const auto& bins_x = x.get_bins();
 	const auto& bins_y = y.get_bins();
-
 	int num_bins_x = bins_x.get_num_bins();
 	int num_bins_y = bins_y.get_num_bins();
 	int num_bins_total = num_bins_x*num_bins_y;
@@ -613,18 +623,19 @@ void Wham::compute_consensus_f_x_y(
 		sample_counts_x_y[a].resize( num_bins_y );
 	}
 
-	// TODO: use mutable buffer variables?
-	int num_biases = u_bias_as_other_.size();
-	std::vector<DataForBin> binned_data(num_bins_total, DataForBin(num_biases));
+	minus_log_sigma_k_binned_.resize(num_bins_total);
+	for ( int b=0; b<num_bins_total; ++b ) {
+		minus_log_sigma_k_binned_[b].resize( 0 );
+		minus_log_sigma_k_binned_[b].reserve( x.get_time_series(0).size()/10 );
+	}
 
-	// TODO check vs. 'u_bias_as_other[r]'?
-	int num_samples_total = u_bias_as_k.size();
-
-	// Bin the data
-	sample_bins_.resize(num_samples_total);
-	int sample_index = 0, bin_x, bin_y;
+	// Sort log(sigma_k)-values by bin
+	//sample_bins_.resize(num_samples_total);
+	// TODO parallelize sorting
+	int sample_index, bin_x, bin_y;
 	int num_simulations = simulations_.size();
 	int bin_index;
+	f_x_y_sort_timer_.start();
 	for ( int j=0; j<num_simulations; ++j ) {
 		const auto& x_j = x.get_time_series(j);
 		const auto& y_j = y.get_time_series(j);
@@ -634,46 +645,27 @@ void Wham::compute_consensus_f_x_y(
 			bin_y = bins_y.find_bin(y_j[i]);
 			if ( bin_x >= 0 and bin_y >= 0 ) {
 				// Sample is in the binned ranges
-				bin_index = bin_x*num_bins_y + bin_y;
-				sample_bins_[sample_index] = bin_index;
-
-				// Save corresponding values of the bias
-				for ( int r=0; r<num_biases; ++r ) {
-					binned_data[bin_index].u_bias_as_other[r].push_back( u_bias_as_other[r][sample_index] );
-				}
-				binned_data[bin_index].u_bias_as_k.push_back( u_bias_as_k[sample_index] );
+				bin_index    = bin_x*num_bins_y + bin_y;
+				sample_index = simulation_data_ranges_[j].first + i;  
+				minus_log_sigma_k_binned_[bin_index].push_back( -log_sigma_k_[sample_index] );
 			}
-			else {
-				sample_bins_[sample_index] = -1;
-			}
-			sample_index++;
 		}
 	}
+	f_x_y_sort_timer_.stop();
 
 	// Normalization
-	double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
-	double normalization_factor = log( num_samples_total_ * bin_area );
+	const double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
+	const double normalization_factor = log( num_samples_total_ * bin_area );
 
 	// Compute F_k(x_a, y_b) for each bin (a,b)
+	#pragma omp parallel for collapse(2) //schedule(static,8)
 	for ( int a=0; a<num_bins_x; ++a ) {
 		for ( int b=0; b<num_bins_y; ++b ) {
-			bin_index = a*num_bins_y + b;
-			const auto& data = binned_data[bin_index];
+			int bin_index = a*num_bins_y + b;
 
-			// Compute weights
-			compute_log_sigma( data.u_bias_as_other, f_bias_opt, data.u_bias_as_k, f_bias_k,
-			                   log_sigma_k_ );
-
-			// Compute free energy and probability
-			int num_samples_in_bin = log_sigma_k_.size();
+			int num_samples_in_bin = minus_log_sigma_k_binned_[bin_index].size();
 			if ( num_samples_in_bin > 0 ) {
-				// Perform the required log-sum-exp
-				minus_log_sigma_k_.resize(num_samples_in_bin);
-				for ( int s=0; s<num_samples_in_bin; ++s ) {
-					minus_log_sigma_k_[s] = -log_sigma_k_[s];
-				}
-				double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_ );
-
+				double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_binned_[bin_index] );
 				f_x_y_wham[a][b] = normalization_factor - log_sum_exp_bin;
 				p_x_y_wham[a][b] = exp( -f_x_y_wham[a][b] );
 			}
@@ -682,9 +674,6 @@ void Wham::compute_consensus_f_x_y(
 				p_x_y_wham[a][b] = 0.0;
 			}
 			sample_counts_x_y[a][b] = num_samples_in_bin;
-
-			// Go to next bin
-			bin_index++;
 		}
 	}
 

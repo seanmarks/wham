@@ -180,9 +180,7 @@ class Wham
 	// Buffers
 	mutable std::vector<double> log_sigma_k_, minus_log_sigma_k_;
 	mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
-	mutable std::vector<int> sample_bins_;
-
-	mutable std::vector<std::vector<double>> args_buffers_;  // for log_sum_exp
+	mutable std::vector<std::vector<double>> args_buffers_;  // for log_sum_exp during optimization
 
 
 	//----- Solve WHAM Equations -----//
@@ -280,8 +278,10 @@ class Wham
 	mutable Timer gradient_omp_timer_ = Timer("Wham::gradient_omp");
 
 	// Output functions
-	mutable Timer f_x_timer_   = Timer("Wham::consensus_f_x");
-	mutable Timer f_x_y_timer_ = Timer("Wham::consensus_f_x_y");
+	mutable Timer f_x_timer_        = Timer("Wham::consensus_f_x");
+	mutable Timer f_x_sort_timer_   = Timer("Wham::consensus_f_x_sort");
+	mutable Timer f_x_y_timer_      = Timer("Wham::consensus_f_x_y");
+	mutable Timer f_x_y_sort_timer_ = Timer("Wham::consensus_f_x_y_sort");
 
 	// Low-level, expensive functions
 	mutable Timer log_sigma_timer_     = Timer("Wham::compute_log_sigma");
