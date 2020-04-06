@@ -5,6 +5,13 @@ WhamDriver::WhamDriver(const std::string& options_file):
 {
 	setup_timer_.start();
 
+	if ( not be_quiet_ ) {
+		std::cout << "WHAM\n";
+		if ( OpenMP::is_enabled() ) {
+			std::cout << "  Using " << OpenMP::get_max_threads() << " threads (max.)\n";
+		}
+	}
+
 	// Read input file into a ParameterPack
 	InputParser input_parser;
 	input_parser.parseFile(options_file_, input_parameter_pack_);
@@ -195,7 +202,7 @@ void WhamDriver::run_driver()
 	driver_timer_.start();
 
 	if ( not be_quiet_ ) {
-		std::cout << "  Running WHAM ...\n";
+		std::cout << "  Solving ...\n";
 	}
 
 	int num_simulations = simulations_.size();

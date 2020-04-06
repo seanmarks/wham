@@ -58,6 +58,7 @@
 #include "FileSystem.h"
 #include "GptlWrappers.h"
 #include "InputParser.h"
+#include "OpenMP.h"
 #include "OrderParameter.h"
 #include "OrderParameterRegistry.h"
 #include "PointEstimator.h"

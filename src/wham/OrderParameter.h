@@ -66,7 +66,7 @@ class OrderParameter
 		info_entropy_.resize(num_simulations);
 		for ( int j=0; j<num_simulations; ++j ) {
 			info_entropy_[j] = Distribution::computeInformationEntropy(
-				biased_distributions_[j], rebiased_distributions_[j]
+				rebiased_distributions_[j], biased_distributions_[j]
 			);
 		}
 	}
