@@ -208,7 +208,8 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	}
 	// FIXME DEBUG
 	for ( int i=0; i<num_simulations; ++i ) {
-		std::cout << i << ":  " << f_bias_opt_[i] << " +/- " << error_f_bias_opt_[i] << ")\n";
+		std::cout << i << ":  " << f_bias_opt_[i] << " +/- " << error_f_bias_opt_[i] 
+		          << "  (theta = cov = " << theta(i,i) << ")\n";
 	}
 
 
@@ -928,8 +929,8 @@ void Wham::compute_cov_matrix(
 	//     eigenvalue_decomposition also checks for this when given a general matrix
 	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
 	EigenvalueDecomposition eigen_decomp( wT_w );
-	const auto& V       = eigen_decomp.get_pseudo_v();
-	const auto& lambdas = eigen_decomp.get_real_eigenvalues();
+	Matrix       V       = eigen_decomp.get_pseudo_v();
+	ColumnVector lambdas = eigen_decomp.get_real_eigenvalues();
 
 	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
 	// singular value decomposition (SVD) of W are trivial
