@@ -10,6 +10,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 		if ( OpenMP::is_enabled() ) {
 			std::cout << "  Using " << OpenMP::get_max_threads() << " threads (max.)\n";
 		}
+		std::cout << std::flush;
 	}
 
 	// Read input file into a ParameterPack
@@ -42,7 +43,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 	// Load simulation data
 	if ( not be_quiet_ ) {
-		std::cout << "  Loading data ...\n";
+		std::cout << "  Loading data ...\n" << std::flush;
 	}
 	simulations_.clear();
 	simulations_.reserve(num_simulations);
@@ -202,7 +203,7 @@ void WhamDriver::run_driver()
 	driver_timer_.start();
 
 	if ( not be_quiet_ ) {
-		std::cout << "  Solving ...\n";
+		std::cout << "  Solving ...\n" << std::flush;
 	}
 
 	int num_simulations = simulations_.size();
@@ -229,6 +230,7 @@ void WhamDriver::run_driver()
 		for ( int i=0; i<num_simulations; ++i ) {
 			std::cout << "  " << i+1 << ":  " << f_bias_opt_[i] << "  (initial: " << f_bias_guess_[i] << ")\n"; 
 		}
+		std::cout << std::flush;
 	}
 
 
@@ -245,7 +247,7 @@ void WhamDriver::run_driver()
 		bootstrap_timer_.start();
 
 		if ( not be_quiet_ ) {
-			std::cout << "  Estimate errors using bootstrap subsampling ...\n";
+			std::cout << "  Estimate errors using bootstrap subsampling ...\n" << std::flush;
 		}
 
 		// Allocate memory for bootstrap samples
@@ -280,7 +282,7 @@ void WhamDriver::run_driver()
 		for ( int s=0; s<num_bootstrap_samples_; ++s ) {
 			// User feedback
 			if ( (not be_quiet_) and ((s == 0) or (((s+1) % 25) == 0)) ) {
-				std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n";
+				std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n" << std::flush;
 			}
 
 			// Subsample each simulation
@@ -375,7 +377,7 @@ void WhamDriver::run_driver()
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 		if ( not be_quiet_ ) {
-			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n";
+			std::cout << "Computing F_WHAM(" << x.get_name() << ")\n" << std::flush;
 		}
 
 		// "Manually" unbiased distributions (non-consensus, unshifted)
@@ -423,7 +425,7 @@ void WhamDriver::run_driver()
 		OrderParameter& x = order_parameters_[ output_f_x_y_[i][0] ];
 		OrderParameter& y = order_parameters_[ output_f_x_y_[i][1] ];
 		if ( not be_quiet_ ) {
-			std::cout << "Computing F_WHAM(" << x.get_name() << ", " << y.get_name() << ")\n";
+			std::cout << "Computing F_WHAM(" << x.get_name() << ", " << y.get_name() << ")\n" << std::flush;
 		}
 
 		std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 

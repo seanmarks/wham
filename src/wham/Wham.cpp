@@ -33,7 +33,7 @@ void Wham::setup()
 	num_samples_per_simulation_.resize(num_simulations);
 	num_samples_total_ = 0;
 	for ( int j=0; j<num_simulations; ++j ) {
-		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples(); //ref_op.get_time_series(j).size();
+		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples();
 		num_samples_total_             += num_samples_per_simulation_[j];
 	}
 	inv_num_samples_total_ = 1.0/static_cast<double>(num_samples_total_);
@@ -168,6 +168,29 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 		}
 	}
 
+	f_bias_opt_ = f_bias_opt;
+
+
+
+	// TODO Move to separate function(s)/only compute if error is desired?
+	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );
+	w_.set_size( num_samples_total_, num_simulations );
+
+	#pragma omp parallel for
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		for ( int i=0; i<num_simulations; ++i ) {
+			// TODO: precision issues?
+			w_(n,i) = exp( f_bias_opt_[i] - u_bias_as_other_[i][n] - log_dhat_[n] );
+		}
+	}
+
+	wT_w_ = dlib::trans(w_) * w_;
+	// Note: dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
+	// eigenvalue_decomposition also checks for this
+
+	// TODO: when augmenting, ...
+
+
 	return f_bias_opt;
 }
 
@@ -202,18 +225,17 @@ double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 	std::vector<double> f(num_simulations);
 	convert_df_to_f(df, f);
 
-	// Compute log(sigma)
+	// Compute log(dhat)
 	// - These values are used here, and are stored for use when computing
 	//   the derivatives later
-	//   - TODO: Move buffer check elsewhere?
-	compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
-	                   log_sigma_unbiased_ );
+	compute_log_dhat( u_bias_as_other_, f, log_dhat_tmp_ );
 	f_bias_last_ = f;
 
 	// Compute the objective function's value
 	double val = 0.0;
+	#pragma omp parallel for reduction(+:val)
 	for ( int n=0; n<num_samples_total_; ++n ) {
-		val += log_sigma_unbiased_[n];
+		val += log_dhat_tmp_[n];
 	}
 	val *= inv_num_samples_total_;
 	for ( int r=0; r<num_simulations; ++r ) {
@@ -239,14 +261,17 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	std::vector<double> f(num_simulations);
 	convert_df_to_f(df, f);
 
-	// Recompute log(sigma) as necessary
-	// TODO: move buffer check to 'compute_log_sigma' instead?
+	// Recompute log(dhat) as necessary
+	// TODO: move buffer check to 'compute_log_dhat' instead?
 	//   - Probably not safe, since the function is used on different
 	//     subsets of data in compute_consensus_f_* functions
-	//   - Maybe use a wrapper: "compute_log_sigma_all_data" ?
+	//   - Maybe use a wrapper: "compute_log_dhat_all_data" ?
 	if ( f != f_bias_last_ ) {  
+		/*
 		compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
 		                   log_sigma_unbiased_ );
+		*/
+		compute_log_dhat( u_bias_as_other_, f, log_dhat_tmp_ );
 		f_bias_last_ = f;
 	}
 
@@ -254,30 +279,29 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	args_buffers_.resize(num_threads); 
 
 	Wham::ColumnVector dA_df(num_simulations);
-	dA_df(0) = 0.0;
+	dA_df(0) = 0.0;  // fix \hat{f}_1 = 0 (first ensemble's free energy)
 
 	#pragma omp parallel
 	{
-
 		// Prepare buffer
 		const int thread_id = OpenMP::get_thread_num();
 		auto& args_buffer   = args_buffers_[thread_id];
 
-		// First, compute derivatives of the objective fxn (A) wrt. the biasing free
+		// First, compute derivatives of the objective fxn (A) wrt. the biased free
 		// energies themselves (f)
 		args_buffer.resize(num_samples_total_); 
 		#pragma omp for
 		for ( int k=1; k<num_simulations; ++k ) {
 			gradient_omp_timer_.start();
 
-			double fac = log_c_[k] + f[k];
+			double fac = log(num_samples_per_simulation_[k]) + f[k];
 			#pragma omp simd
 			for ( int n=0; n<num_samples_total_; ++n ) {
-				args_buffer[n] = fac - u_bias_as_other_[k][n] - log_sigma_unbiased_[n];
+				args_buffer[n] = fac - log_dhat_tmp_[n] - u_bias_as_other_[k][n];
 			}
-			double log_sum_exp_args = log_sum_exp(args_buffer);
+			double log_sum = log_sum_exp(args_buffer);
 
-			dA_df(k) = inv_num_samples_total_*exp(log_sum_exp_args) - c_[k];
+			dA_df(k) = inv_num_samples_total_*exp(log_sum) - c_[k];
 
 			gradient_omp_timer_.stop();
 		}
@@ -361,6 +385,47 @@ void Wham::compute_log_sigma(
 	}
 
 	log_sigma_timer_.stop();
+}
+
+
+void Wham::compute_log_dhat(
+	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& fhat,
+	std::vector<double>& log_dhat
+) const
+{
+	// TODO input checks
+
+	log_dhat_timer_.start();
+
+	// Precompute some terms
+	int num_biases = u_bias_as_other.size(); 
+	std::vector<double> common_terms(num_biases);
+	for ( int r=0; r<num_biases; ++r ) {
+		common_terms[r] = log(num_samples_per_simulation_[r]) + fhat[r];
+	}
+
+	// Compute log(dhat(x_n)) for each sample 'n'
+	int num_samples_total = u_bias_as_other[0].size();
+	//int num_samples_total = num_samples_total_;
+	log_dhat.resize(num_samples_total);
+	#pragma omp parallel
+	{
+		std::vector<double> args(num_biases);
+
+		#pragma omp for schedule(static,8)
+		for ( int n=0; n<num_samples_total; ++n ) {
+			log_dhat_omp_timer_.start();
+
+			for ( int r=0; r<num_biases; ++r ) {
+				args[r] = common_terms[r] - u_bias_as_other[r][n];
+			}
+			log_dhat[n] = log_sum_exp( args );
+
+			log_dhat_omp_timer_.stop();
+		}
+	}
+
+	log_dhat_timer_.stop();
 }
 
 

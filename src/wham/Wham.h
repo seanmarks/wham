@@ -24,7 +24,8 @@
 #include <string>
 #include <vector>
 
-// Library headers
+// dlib
+#include "dlib/matrix.h"
 #include "dlib/optimization.h"
 
 // Project headers
@@ -44,6 +45,11 @@
 class Wham
 {
  public:
+	// Runtime-sized arrays
+	using Matrix       = dlib::matrix<double,0,0>;
+	using ColumnVector = dlib::matrix<double,0,1>;
+	using RowVector    = dlib::matrix<double,1,0>;
+
 	Wham(
 		const DataSummary& data_summary,
 		const OrderParameterRegistry& op_registry,
@@ -59,8 +65,6 @@ class Wham
 
 
 	//----- Objective Function -----//
-
-	using ColumnVector = dlib::matrix<double,0,1>;
 
 	double evalObjectiveFunction(const ColumnVector& df) const;
 
@@ -111,10 +115,11 @@ class Wham
 	//      r = 0, ..., m-1    (m = number of biasing potentials/ensembles)
 	//      j = 0, ..., m-1    (m = num_simulations)
 	//      i = 0, ..., n_j-1  (n_j = # samples from simulation j)
-	// - For each bias r = 0, ..., m-1:
+	// - For each bias r = 0, ...,
 	//     u_bias_as_other_[r] = [(data_sim_0), ..., (data_sim_j), ... , (data_sim_m)]
 	//                                                     |
-	//                                              [(n_j samples)]
+	//                                                N_j samples
+	//   - Overall length of u_bias_as_other_[r]:  N = sum_{j=0}^{m} N_j
 	std::vector<std::vector<double>> u_bias_as_other_;
 	// - For each simulation j = 0, ..., m-1:
 	//     simulation_data_ranges_[j] = indices (first, end) for the 'j'th simulation's data
@@ -142,38 +147,25 @@ class Wham
 	std::vector<double> f_bias_guess_;  // initial guess
 	std::vector<double> f_bias_opt_;    // optimal
 
-
-
 	//----- Working Variables -----//
 
-	// Helper object for organizing data
-	struct DataForBin {
-		DataForBin(const int num_biases):
-			u_bias_as_other(num_biases)
-		{}
+	std::vector<double> log_dhat_;
 
-		void clearData() {
-			//int num_biases = u_bias_as_other.size();
-			for ( auto& v : u_bias_as_other ) {
-				v.clear();
-			}
-			u_bias_as_k.clear();
-		}
-
-		std::vector<std::vector<double>> u_bias_as_other;
-		std::vector<double>              u_bias_as_k;
-	};
+	Matrix w_;
+	Matrix wT_w_;
 
 
-	// Some of these are computed by Wham.evalObjectiveFunction and saved for re-use 
-	// in Wham.evalObjectiveDerivatives
-	// - The dlib optimization algorithm used guarantees that these functions are called in pairs,
-	//   with the same order each time 
+	mutable std::vector<double> log_dhat_tmp_;
+
 
 	// Factors related to the weight given to each data sample in the *unbiased* ensemble
 	// - Computed as a log-sum-exp
 	// - Formula:
 	//     sigma_0(x_{j,i}) = sum_{r=1}^m exp{ log(c_r) + f_r - u_{bias,r}(x_{j,i}) }
+	// - These are computed by Wham.evalObjectiveFunction and saved for re-use 
+	//   in Wham.evalObjectiveDerivatives
+	//   - The dlib optimization algorithm used guarantees that these functions are called in pairs,
+	//     with the same order each time 
 	mutable std::vector<double> f_bias_last_;
 	mutable std::vector<double> log_sigma_unbiased_;
 
@@ -207,6 +199,16 @@ class Wham
 		const double                            f_k,
 		// Output
 		std::vector<double>& log_sigma
+	) const;
+
+	// Compute log( \hat{D}(x_n) ) for the given set of biasing free energies
+	// - These are the common denominator of the consensus weights given to each sample
+	// *** NOT thread safe: encloses an OpenMP region
+	void compute_log_dhat(
+		const std::vector<std::vector<double>>& u_bias_as_other,
+		const std::vector<double>&              fhat,
+		// Output
+		std::vector<double>& log_dhat
 	) const;
 
 	// Returns the logarithm of a sum of exponentials
@@ -287,6 +289,9 @@ class Wham
 	mutable Timer log_sigma_timer_     = Timer("Wham::compute_log_sigma");
 	mutable Timer log_sigma_omp_timer_ = Timer("Wham::compute_log_sigma_omp");
 	mutable Timer log_sum_exp_timer_   = Timer("Wham::compute_log_sum_exp");
+
+	mutable Timer log_dhat_timer_     = Timer("Wham::compute_log_dhat");
+	mutable Timer log_dhat_omp_timer_ = Timer("Wham::compute_log_dhat_omp");
 };
 
 #endif // ifndef WHAM_H
