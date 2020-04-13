@@ -156,42 +156,64 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	solve_timer_.stop();
 
 	// Compute optimal free energies of biasing from the differences between windows
-	std::vector<double> f_bias_opt(num_simulations);
-	convert_df_to_f(df, f_bias_opt);
+	convert_df_to_f(df, f_bias_opt_);
 
-	// Report results 
+	// Current, the free energy of the first biased ensemble is zero.
+	// Set the free energy for the *unbiased* ensemble as the zero point instead.
+	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );
+	/*
+	FIXME worth it?
+	double delta_f = compute_consensus_f_k( u_bias_as_other_unbiased_ ); 
+	for ( int i=0; i<num_simulations; ++i ) {
+		f_bias_opt_[i] -= delta_f;
+	}
+	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );  // update
+	*/
+
 	if ( be_verbose ) {
+		// Report results 
 		std::cout << "min[A] = " << min_A << "\n";
 		std::cout << "Biasing free energies:\n";
 		for ( int i=0; i<num_simulations; ++i ) {
-			std::cout << i << ":  " << f_bias_opt[i] << "  (initial: " << f_bias_guess[i] << ")\n"; 
+			std::cout << i << ":  " << f_bias_opt_[i] << "  (initial: " << f_bias_guess[i] << ")\n"; 
 		}
 	}
-
-	f_bias_opt_ = f_bias_opt;
+	
+	// Precompute weights corresponding to simulation data
+	w_.set_size( num_samples_total_, num_simulations );
+	#pragma omp parallel for
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		for ( int i=0; i<num_simulations; ++i ) {
+			// TODO: precision issues avoided this way?
+			double arg = f_bias_opt_[i] - u_bias_as_other_[i][n] - log_dhat_[n];
+			if ( arg > MIN_DBL_FOR_EXP ) {
+				w_(n,i) = exp( arg );
+			}
+			else {
+				w_(n,i) = 0.0;  // vanishingly small
+			}
+		}
+	}
+	wT_w_ = dlib::trans(w_) * w_;  // commonly used submatrix
 
 
 
 	// TODO Move to separate function(s)/only compute if error is desired?
-	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );
-	w_.set_size( num_samples_total_, num_simulations );
-
-	#pragma omp parallel for
-	for ( int n=0; n<num_samples_total_; ++n ) {
-		for ( int i=0; i<num_simulations; ++i ) {
-			// TODO: precision issues?
-			w_(n,i) = exp( f_bias_opt_[i] - u_bias_as_other_[i][n] - log_dhat_[n] );
-		}
+	std::cout << "DEBUG: Estimating error in free energies\n" << std::flush;  // FIXME DEBUG
+	Matrix theta;
+	compute_cov_matrix( w_, wT_w_, num_samples_per_simulation_, theta );
+	error_f_bias_opt_.resize(num_simulations);
+	for ( int i=0; i<num_simulations; ++i ) {
+		error_f_bias_opt_[i] = sqrt( theta(i,i) );
+	}
+	// FIXME DEBUG
+	for ( int i=0; i<num_simulations; ++i ) {
+		std::cout << i << ":  " << f_bias_opt_[i] << " +/- " << error_f_bias_opt_[i] << ")\n";
 	}
 
-	wT_w_ = dlib::trans(w_) * w_;
-	// Note: dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
-	// eigenvalue_decomposition also checks for this
-
-	// TODO: when augmenting, ...
 
 
-	return f_bias_opt;
+	return f_bias_opt_;
 }
 
 
@@ -429,16 +451,12 @@ void Wham::compute_log_dhat(
 }
 
 
-// Returns the logarithm of a sum of exponentials (input: arguments of exponentials)
 double Wham::log_sum_exp(const std::vector<double>& args) const
 {
 	log_sum_exp_timer_.start();
 
-	// Check input
 	int num_args = static_cast<int>( args.size() );
-	if ( num_args < 1 ) {
-		throw std::runtime_error("Wham::log_sum_exp: No arguments supplied.\n");
-	}
+	FANCY_ASSERT( num_args > 0, "no arguments supplied" );
 
 	// Compute sum of exp(args[i] - max_arg)
 	double max_arg = *std::max_element( args.begin(), args.end() );
@@ -453,6 +471,34 @@ double Wham::log_sum_exp(const std::vector<double>& args) const
 	log_sum_exp_timer_.stop();
 
 	return log_sum_exp_out;
+}
+
+
+double Wham::weighted_sum_exp(
+	const std::vector<double>& args, const std::vector<double>& weights
+) const
+{
+	weighted_sum_exp_timer_.start();
+
+	// Check input
+	int num_args = args.size();
+	FANCY_ASSERT( num_args > 0, "no arguments supplied" );
+
+	// Compute sum of exp(args[i] - max_arg)
+	double max_arg = *std::max_element( args.begin(), args.end() );
+	double sum = 0.0;
+	#pragma omp simd reduction(+: sum)
+	for ( int i=0; i<num_args; ++i ) {
+		sum += weights[i]*exp(args[i] - max_arg);
+	}
+
+	// FIXME: How to handle huge values of x_max when sum < 0.0 and returning log(sum)
+	// is invalid? Maybe return another variable indicating the sign?
+	sum = exp(max_arg)*sum;
+
+	weighted_sum_exp_timer_.stop();
+
+	return sum;
 }
 
 
@@ -539,6 +585,22 @@ void Wham::manually_unbias_f_x(
 }
 
 
+double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
+{
+	FANCY_ASSERT( static_cast<int>(u_bias_as_k.size()) == num_samples_total_, "size mismatch" );
+
+	// TODO optional OpenMP switch?
+	std::vector<double> args(num_samples_total_);
+	#pragma omp parallel for schedule(static, 8)
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		args[n] = -u_bias_as_k[n] - log_dhat_[n];
+	}
+
+	double f_k = -log_sum_exp( args );
+	return f_k;
+}
+
+
 
 Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) const
 {
@@ -621,8 +683,8 @@ void Wham::compute_consensus_f_x(
 	for ( int b=0; b<num_bins_x; ++b ) {
 		sample_counts[b] = minus_log_sigma_k_binned_[b].size();
 		if ( sample_counts[b] > 0 ) {
-			double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_binned_[b] );
-			f_x_wham[b] = -log(inv_num_samples_total_/bin_size_x) - log_sum_exp_bin;
+			double log_sum = log_sum_exp( minus_log_sigma_k_binned_[b] );
+			f_x_wham[b] = -log(inv_num_samples_total_/bin_size_x) - log_sum;
 			p_x_wham[b] = exp( -f_x_wham[b] );
 		}
 		else {
@@ -730,8 +792,8 @@ void Wham::compute_consensus_f_x_y(
 
 			int num_samples_in_bin = minus_log_sigma_k_binned_[bin_index].size();
 			if ( num_samples_in_bin > 0 ) {
-				double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_binned_[bin_index] );
-				f_x_y_wham[a][b] = normalization_factor - log_sum_exp_bin;
+				double log_sum = log_sum_exp( minus_log_sigma_k_binned_[bin_index] );
+				f_x_y_wham[a][b] = normalization_factor - log_sum;
 				p_x_y_wham[a][b] = exp( -f_x_y_wham[a][b] );
 			}
 			else {
@@ -743,4 +805,151 @@ void Wham::compute_consensus_f_x_y(
 	}
 
 	f_x_y_timer_.stop();
+}
+
+
+// FIXME
+void Wham::compute_error_avg_x_k(
+	const std::vector<double>& x,
+	const std::vector<double>& u_bias_as_k,
+	// Output
+	Matrix& w,                      // W_aug, augmented matrix of weights
+	Matrix& wT_w,                   // W_aug^T * W_aug
+	std::vector<int>& num_samples,  // per state (augmented)
+	Matrix& theta
+) const
+{
+	int num_simulations = simulations_.size();
+	int num_states      = num_simulations + 2;
+
+	int num_samples_total = x.size();
+	FANCY_ASSERT( num_samples_total == num_samples_total_, "array length mismatch" );
+
+	double f_k = compute_consensus_f_k(u_bias_as_k);
+
+	// Compute the "effective" partition function for 'x' in ensemble 'k'
+	// - Looks similar, but is weighted by x-values
+	std::vector<double> args(num_samples_total);
+	for ( int n=0; n<num_samples_total; ++n ) {
+		args[n] = -u_bias_as_k[n] - log_dhat_[n];
+	}
+	double z_x     = weighted_sum_exp(args, x);
+	double inv_z_x = 1.0/z_x;
+
+	// Compute weights for related to <x>
+	// - TODO: pass in w_bot instead?
+	ColumnVector w_bot(num_samples_total), w_top(num_samples_total);
+	for ( int n=0; n<num_samples_total; ++n ) {
+		// FIXME roundoff error?
+		w_bot(n) = exp(f_k - args[n]);  // denominator
+		w_top(n) = x[n]*w_bot(n);       // numerator
+	}
+
+	// Note: better to copy unaugmented parts of matrices from member variables than to
+	// recompute them each time
+
+	// Augmented W
+	// - Unaugmented part
+	w.set_size(num_samples_total, num_states);
+	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(0, num_simulations) ) = w_;
+	// - Last two columns
+	int i_top = num_simulations;
+	int i_bot = i_top + 1;
+	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(i_top, i_bot     ) ) = w_top;
+	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(i_bot, num_states) ) = w_bot;
+
+	// Augmented W^T*W
+	//int n_top = num_samples_total;
+	//int n_bot = n_top + 1;
+	// - Unaugmented part
+	wT_w.set_size(num_states, num_states);
+	dlib::set_subm( wT_w, dlib::range(0, num_samples_total), dlib::range(0, num_simulations) ) = wT_w_;
+	// - Outer edges
+	RowVector r_top = dlib::trans(w_top) * w;
+	RowVector r_bot = dlib::trans(w_bot) * w;
+	dlib::set_subm( wT_w, dlib::range(i_top, i_bot),           dlib::range(0, num_simulations) ) = r_top;
+	dlib::set_subm( wT_w, dlib::range(i_bot, num_states),    dlib::range(0, num_simulations) ) = r_bot;
+	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_top, i_bot)           ) = dlib::trans(r_top);
+	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_bot, num_states)    ) = dlib::trans(r_bot);
+
+	/*
+	// TODO
+	
+	// Eigenvalue decomposition: W^T * W = V*D*V^T
+	// - D = diag(lambdas)
+	// - Note that W^T*W is symmetric
+	//   - dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
+	//     eigenvalue_decomposition also checks for this when given a general matrix
+	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
+	EigenvalueDecomposition eigen_decomp( wT_w );
+	const auto& V       = eigen_decomp.get_pseudo_v();
+	const auto& lambdas = eigen_decomp.get_real_eigenvalues();
+
+	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
+	// singular value decomposition (SVD) of W are trivial
+	// - W = U*Sigma*V^T, but U is not needed (a good thing, because it's large: N x N)
+	Matrix V_trans = dlib::trans(V);
+	Matrix sigma   = dlib::zeros_matrix<double>(num_states, num_states);
+	int num_lambdas = lambdas.size();
+	for ( int i=0; i<num_lambdas; ++i ) {
+		sigma(i,i) = sqrt( lambdas(i) );  // TODO check sign?
+	}
+
+	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
+	for ( int i=0; i<num_states; ++i ) {
+		N(i,i) = static_cast<double>( num_samples[i] );
+	}
+	Matrix ones   = dlib::ones_matrix<double>(num_states, num_states);
+	Matrix M      = ones - sigma*V_trans*N*V*sigma;
+	Matrix M_pinv = dlib::pinv(M);  // M is square, but is usually singular
+	theta  = V*sigma*M_pinv*sigma*V_trans;
+	*/
+
+	return;
+}
+
+
+void Wham::compute_cov_matrix(
+	const Matrix& w, const Matrix& wT_w, const std::vector<int> num_samples,
+	Matrix& theta
+) const
+{
+	int num_states = num_samples.size();
+	// TODO size checks
+
+	// Eigenvalue decomposition:
+	//     (W^T*W) * V = V * D
+	// - D = diag(lambdas)
+	// - V = matrix of eigenvectors
+	// - Note that W^T*W is symmetric
+	//   - All eigenvalues are real and positive
+	//   - Matrix of eigenvectors, V, is orthogonal
+	//   - dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
+	//     eigenvalue_decomposition also checks for this when given a general matrix
+	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
+	EigenvalueDecomposition eigen_decomp( wT_w );
+	const auto& V       = eigen_decomp.get_pseudo_v();
+	const auto& lambdas = eigen_decomp.get_real_eigenvalues();
+
+	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
+	// singular value decomposition (SVD) of W are trivial
+	// - W = U*Sigma*V^T, but U is not needed (a good thing, because it's large: N x N)
+	// - From above: W^T * W = V*D*V^T
+	Matrix V_trans = dlib::trans(V);
+	Matrix sigma   = dlib::zeros_matrix<double>(num_states, num_states);
+	int num_lambdas = lambdas.size();
+	for ( int i=0; i<num_lambdas; ++i ) {
+		sigma(i,i) = sqrt( lambdas(i) );  // TODO check sign to be on the safe side?
+	}
+
+	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
+	for ( int i=0; i<num_states; ++i ) {
+		N(i,i) = static_cast<double>( num_samples[i] );
+	}
+	Matrix I      = dlib::identity_matrix<double>(num_states);
+	Matrix M      = I - sigma*V_trans*N*V*sigma;
+	Matrix M_pinv = dlib::pinv(M);  // M is square, but usually singular
+	theta  = V*sigma*M_pinv*sigma*V_trans;
+
+	return;
 }
