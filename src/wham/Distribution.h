@@ -39,7 +39,12 @@ class Distribution {
 
 	//----- Analysis -----//
 
-	static double computeInformationEntropy(const Distribution& first, const Distribution& second);
+	// Kullback-Leibler divergence (information entropy difference) between a
+	// distribution and a reference distribution
+	static double computeInformationEntropy(
+		const Distribution& dist,
+		const Distribution& ref
+	);
 
 
 	//----- Output Helper Functions -----//

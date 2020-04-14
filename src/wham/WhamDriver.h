@@ -56,7 +56,9 @@
 #include "DataSummary.h"
 #include "Distribution.h"
 #include "FileSystem.h"
+#include "GptlWrappers.h"
 #include "InputParser.h"
+#include "OpenMP.h"
 #include "OrderParameter.h"
 #include "OrderParameterRegistry.h"
 #include "PointEstimator.h"
@@ -140,6 +142,20 @@ class WhamDriver
 		const std::vector<std::vector<double>>& f_x_y_wham,
 		const std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
+
+
+	//----- GPTL -----//
+
+	using Timer = GPTL::Timer;
+
+	mutable Timer setup_timer_      = Timer("setup");
+	mutable Timer driver_timer_     = Timer("driver");
+	mutable Timer solve_wham_timer_ = Timer("solve_wham");
+
+	mutable Timer bootstrap_timer_ = Timer("bootstrap");
+	mutable Timer subsample_timer_ = Timer("subsample");
+
+	mutable Timer print_output_timer_ = Timer("print_output");
 };
 
 #endif // ifndef WHAM_DRIVER_H

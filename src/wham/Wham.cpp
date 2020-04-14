@@ -25,6 +25,7 @@ Wham::Wham(
 
 void Wham::setup()
 {
+	setup_timer_.start();
 	int num_simulations = simulations_.size();
 
 	// Use the time series of the first OP registered to count the number of samples
@@ -32,7 +33,7 @@ void Wham::setup()
 	num_samples_per_simulation_.resize(num_simulations);
 	num_samples_total_ = 0;
 	for ( int j=0; j<num_simulations; ++j ) {
-		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples(); //ref_op.get_time_series(j).size();
+		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples();
 		num_samples_total_             += num_samples_per_simulation_[j];
 	}
 	inv_num_samples_total_ = 1.0/static_cast<double>(num_samples_total_);
@@ -64,11 +65,14 @@ void Wham::setup()
 	// For each sample, evaluate the resulting potential under each bias
 	// - Populates 'u_bias_as_other_'
 	evaluateBiases();
+	setup_timer_.stop();
 }
 
 
 void Wham::evaluateBiases()
 {
+	biases_timer_.start();
+
 	// First, figure out which order parameters are needed for each bias
 	int num_simulations = simulations_.size();
 	int num_biases      = biases_.size();
@@ -94,11 +98,11 @@ void Wham::evaluateBiases()
 
 	// Now, for each biasing potential, evaluate the value of the bias that *would*
 	// result if that sample were obtained from that biased simulation
-	std::vector<double> args;
+	#pragma omp parallel for
 	for ( int r=0; r<num_biases; ++r ) {
 		// Number of OPs involved in this bias
 		int num_ops_for_bias = op_indices[r].size();
-		args.resize( num_ops_for_bias );
+		std::vector<double> args(num_ops_for_bias);
 
 		// Evaluate bias for each sample
 		int sample_index = 0;
@@ -118,6 +122,7 @@ void Wham::evaluateBiases()
 			}
 		}
 	}
+	biases_timer_.stop();
 }
 
 
@@ -138,6 +143,7 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	WhamDlibDerivWrapper derivatives_wrapper(*this);
 
 	// Call dlib to perform the optimization
+	solve_timer_.start();
 	double min_A = dlib::find_min( 
 			dlib::bfgs_search_strategy(), 
 			dlib::objective_delta_stop_strategy(tol_),
@@ -147,21 +153,67 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 			df,
 			std::numeric_limits<double>::lowest() 
 	);
+	solve_timer_.stop();
 
 	// Compute optimal free energies of biasing from the differences between windows
-	std::vector<double> f_bias_opt(num_simulations);
-	convert_df_to_f(df, f_bias_opt);
+	convert_df_to_f(df, f_bias_opt_);
 
-	// Report results 
+	// Current, the free energy of the first biased ensemble is zero.
+	// Set the free energy for the *unbiased* ensemble as the zero point instead.
+	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );
+	/*
+	FIXME worth it?
+	double delta_f = compute_consensus_f_k( u_bias_as_other_unbiased_ ); 
+	for ( int i=0; i<num_simulations; ++i ) {
+		f_bias_opt_[i] -= delta_f;
+	}
+	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );  // update
+	*/
+
 	if ( be_verbose ) {
+		// Report results 
 		std::cout << "min[A] = " << min_A << "\n";
 		std::cout << "Biasing free energies:\n";
 		for ( int i=0; i<num_simulations; ++i ) {
-			std::cout << i << ":  " << f_bias_opt[i] << "  (initial: " << f_bias_guess[i] << ")\n"; 
+			std::cout << i << ":  " << f_bias_opt_[i] << "  (initial: " << f_bias_guess[i] << ")\n"; 
+		}
+	}
+	
+	// Precompute weights corresponding to simulation data
+	w_.set_size( num_samples_total_, num_simulations );
+	#pragma omp parallel for
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		for ( int i=0; i<num_simulations; ++i ) {
+			double arg = f_bias_opt_[i] - u_bias_as_other_[i][n] - log_dhat_[n];
+			if ( arg > MIN_DBL_FOR_EXP ) {
+				w_(n,i) = exp( arg );
+			}
+			else {
+				w_(n,i) = 0.0;  // vanishingly small
+			}
 		}
 	}
 
-	return f_bias_opt;
+	/*
+	// FIXME: Attempted to implement covariance matrix estimation, but the results
+	// always seem to come out garbage (even checked vs. NumPy)
+	wT_w_ = dlib::trans(w_) * w_;  // commonly used submatrix
+
+	// Move to separate function(s)/only compute if error is desired?
+	Matrix theta;
+	compute_cov_matrix( w_, wT_w_, num_samples_per_simulation_, theta );
+	error_f_bias_opt_.resize(num_simulations);
+	for ( int i=0; i<num_simulations; ++i ) {
+		error_f_bias_opt_[i] = sqrt( theta(i,i) );
+	}
+	// DEBUG
+	for ( int i=0; i<num_simulations; ++i ) {
+		std::cout << i << ":  " << f_bias_opt_[i] << " +/- " << error_f_bias_opt_[i] 
+		          << "  (theta = cov = " << theta(i,i) << ")\n";
+	}
+	*/
+
+	return f_bias_opt_;
 }
 
 
@@ -188,23 +240,24 @@ void Wham::convert_df_to_f(const Wham::ColumnVector& df, std::vector<double>& f)
 
 double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 {
+	objective_timer_.start();
+
 	// Compute free energies of biasing from the differences between windows
 	int num_simulations = simulations_.size();
 	std::vector<double> f(num_simulations);
 	convert_df_to_f(df, f);
 
-	// Compute log(sigma)
+	// Compute log(dhat)
 	// - These values are used here, and are stored for use when computing
 	//   the derivatives later
-	//   - TODO: Move buffer check elsewhere?
-	compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
-	                   log_sigma_unbiased_ );
+	compute_log_dhat( u_bias_as_other_, f, log_dhat_tmp_ );
 	f_bias_last_ = f;
 
 	// Compute the objective function's value
 	double val = 0.0;
+	#pragma omp parallel for reduction(+:val)
 	for ( int n=0; n<num_samples_total_; ++n ) {
-		val += log_sigma_unbiased_[n];
+		val += log_dhat_tmp_[n];
 	}
 	val *= inv_num_samples_total_;
 	for ( int r=0; r<num_simulations; ++r ) {
@@ -215,44 +268,65 @@ double Wham::evalObjectiveFunction(const Wham::ColumnVector& df) const
 	std::cout << "EVALUATED: A = " << val << "\n";
 #endif
 
+	objective_timer_.stop();
+
 	return val;
 }
 
 
 const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector& df) const
 {
+	gradient_timer_.start();
+
 	// Compute free energies of biasing from differences between windows
 	int num_simulations = simulations_.size();
 	std::vector<double> f(num_simulations);
 	convert_df_to_f(df, f);
 
-	// Recompute log(sigma) as necessary
-	// TODO: move buffer check to 'compute_log_sigma' instead?
+	// Recompute log(dhat) as necessary
+	// TODO: move buffer check to 'compute_log_dhat' instead?
 	//   - Probably not safe, since the function is used on different
 	//     subsets of data in compute_consensus_f_* functions
-	//   - Maybe use a wrapper: "compute_log_sigma_all_data" ?
+	//   - Maybe use a wrapper: "compute_log_dhat_all_data" ?
 	if ( f != f_bias_last_ ) {  
+		/*
 		compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
 		                   log_sigma_unbiased_ );
+		*/
+		compute_log_dhat( u_bias_as_other_, f, log_dhat_tmp_ );
 		f_bias_last_ = f;
 	}
 
-	// First, compute derivatives of the objective fxn (A) wrt. the biasing free
-	// energies themselves (f)
-	Wham::ColumnVector dA_df(num_simulations);
-	dA_df(0) = 0.0;
-	args_buffer_.resize(num_samples_total_); 
-	double log_sum_exp_args;
-	for ( int k=1; k<num_simulations; ++k ) {
-		double fac = log_c_[k] + f[k];
-		// TODO OMP
-		//#pragma omp simd
-		for ( int n=0; n<num_samples_total_; ++n ) {
-			args_buffer_[n] = fac - u_bias_as_other_[k][n] - log_sigma_unbiased_[n];
-		}
-		log_sum_exp_args = log_sum_exp(args_buffer_);
+	int num_threads = OpenMP::get_max_threads();
+	args_buffers_.resize(num_threads); 
 
-		dA_df(k) = inv_num_samples_total_*exp(log_sum_exp_args) - c_[k];
+	Wham::ColumnVector dA_df(num_simulations);
+	dA_df(0) = 0.0;  // fix \hat{f}_1 = 0 (first ensemble's free energy)
+
+	#pragma omp parallel
+	{
+		// Prepare buffer
+		const int thread_id = OpenMP::get_thread_num();
+		auto& args_buffer   = args_buffers_[thread_id];
+
+		// First, compute derivatives of the objective fxn (A) wrt. the biased free
+		// energies themselves (f)
+		args_buffer.resize(num_samples_total_); 
+		#pragma omp for
+		for ( int k=1; k<num_simulations; ++k ) {
+			gradient_omp_timer_.start();
+
+			double fac = log(num_samples_per_simulation_[k]) + f[k];
+			#pragma omp simd
+			for ( int n=0; n<num_samples_total_; ++n ) {
+				args_buffer[n] = fac - log_dhat_tmp_[n] - u_bias_as_other_[k][n];
+			}
+			double log_sum = log_sum_exp(args_buffer);
+
+			dA_df(k) = inv_num_samples_total_*exp(log_sum) - c_[k];
+
+			gradient_omp_timer_.stop();
+		}
 	}
 
 	// Now compute the gradient of the objective function with respect to the 
@@ -281,6 +355,8 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	std::cout << "\n\n";
 #endif
 
+	gradient_timer_.stop();
+
 	return grad;
 }
 
@@ -291,7 +367,15 @@ void Wham::compute_log_sigma(
 	std::vector<double>& log_sigma
 ) const
 {
+	log_sigma_timer_.start();
+
 	int num_samples_total = u_bias_as_k.size();
+	if ( num_samples_total == 0 ) {
+		// Nothing to do
+		log_sigma.resize(0);
+		log_sigma_timer_.stop();
+		return;
+	}
 //#ifdef WHAM_DEBUG
 // TODO check consistency of # samples btw. u_bias_as_k and each 'u_bias_as_other[r]'
 //#endif
@@ -311,40 +395,110 @@ void Wham::compute_log_sigma(
 
 		#pragma omp for schedule(static,8)
 		for ( int n=0; n<num_samples_total; ++n ) {
+			log_sigma_omp_timer_.start();
+
 			for ( int r=0; r<num_biases; ++r ) {
 				args[r] = common_terms[r] + (u_bias_as_k[n] - u_bias_as_other[r][n]);
 			}
 			log_sigma[n] = log_sum_exp( args );
+
+			log_sigma_omp_timer_.stop();
 		}
 	}
+
+	log_sigma_timer_.stop();
 }
 
 
-// Returns the logarithm of a sum of exponentials (input: arguments of exponentials)
+void Wham::compute_log_dhat(
+	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& fhat,
+	std::vector<double>& log_dhat
+) const
+{
+	// TODO input checks
+
+	log_dhat_timer_.start();
+
+	// Precompute some terms
+	int num_biases = u_bias_as_other.size(); 
+	std::vector<double> common_terms(num_biases);
+	for ( int r=0; r<num_biases; ++r ) {
+		common_terms[r] = log(num_samples_per_simulation_[r]) + fhat[r];
+	}
+
+	// Compute log(dhat(x_n)) for each sample 'n'
+	int num_samples_total = u_bias_as_other[0].size();
+	//int num_samples_total = num_samples_total_;
+	log_dhat.resize(num_samples_total);
+	#pragma omp parallel
+	{
+		std::vector<double> args(num_biases);
+
+		#pragma omp for schedule(static,8)
+		for ( int n=0; n<num_samples_total; ++n ) {
+			log_dhat_omp_timer_.start();
+
+			for ( int r=0; r<num_biases; ++r ) {
+				args[r] = common_terms[r] - u_bias_as_other[r][n];
+			}
+			log_dhat[n] = log_sum_exp( args );
+
+			log_dhat_omp_timer_.stop();
+		}
+	}
+
+	log_dhat_timer_.stop();
+}
+
+
 double Wham::log_sum_exp(const std::vector<double>& args) const
 {
-	// Check input
-	int num_args = static_cast<int>( args.size() );
-	if ( num_args < 1 ) {
-		throw std::runtime_error("Wham::log_sum_exp: No arguments supplied.\n");
-	}
+	log_sum_exp_timer_.start();
 
-	// Find the largest argument
-	double max_arg = args[0];
-	for ( int i=1; i<num_args; ++i ) {
-		if ( args[i] > max_arg ) { max_arg = args[i]; }
-	}
+	int num_args = static_cast<int>( args.size() );
+	FANCY_ASSERT( num_args > 0, "no arguments supplied" );
 
 	// Compute sum of exp(args[i] - max_arg)
+	double max_arg = *std::max_element( args.begin(), args.end() );
 	double sum = 0.0;
-	// TODO OMP
-	//#pragma omp simd reduction(+: sum)
+	#pragma omp simd reduction(+: sum)
 	for ( int i=0; i<num_args; ++i ) {
 		sum += exp(args[i] - max_arg);
 	}
 
-	// Return log of desired summation
-	return max_arg + log(sum);
+	// Since exp(max_arg) might be huge, return log(sum_exp) instead of sum_exp
+	double log_sum_exp_out = max_arg + log(sum);
+	log_sum_exp_timer_.stop();
+
+	return log_sum_exp_out;
+}
+
+
+double Wham::weighted_sum_exp(
+	const std::vector<double>& args, const std::vector<double>& weights
+) const
+{
+	weighted_sum_exp_timer_.start();
+
+	// Check input
+	int num_args = args.size();
+	FANCY_ASSERT( num_args > 0, "no arguments supplied" );
+
+	// Compute sum of exp(args[i] - max_arg)
+	double max_arg = *std::max_element( args.begin(), args.end() );
+	double sum = 0.0;
+	#pragma omp simd reduction(+: sum)
+	for ( int i=0; i<num_args; ++i ) {
+		sum += weights[i]*exp(args[i] - max_arg);
+	}
+
+	// FIXME: How to handle huge values of x_max when sum < 0.0 and returning log(sum)
+	// is invalid? Maybe return another variable indicating the sign?
+	sum = exp(max_arg)*sum;
+
+	weighted_sum_exp_timer_.stop();
+
+	return sum;
 }
 
 
@@ -431,6 +585,22 @@ void Wham::manually_unbias_f_x(
 }
 
 
+double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
+{
+	FANCY_ASSERT( static_cast<int>(u_bias_as_k.size()) == num_samples_total_, "size mismatch" );
+
+	// TODO optional OpenMP switch?
+	std::vector<double> args(num_samples_total_);
+	#pragma omp parallel for schedule(static, 8)
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		args[n] = -u_bias_as_k[n] - log_dhat_[n];
+	}
+
+	double f_k = -log_sum_exp( args );
+	return f_k;
+}
+
+
 
 Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) const
 {
@@ -466,6 +636,8 @@ void Wham::compute_consensus_f_x(
 	Distribution& wham_distribution_x
 ) const
 {
+	f_x_timer_.start();
+
 	const auto& bins_x = x.get_bins();
 
 	// Compute log(sigma_k) using the buffer, since the array can be quite large
@@ -482,6 +654,7 @@ void Wham::compute_consensus_f_x(
 	// Sort log(sigma_k)-values by bin
 	int bin, sample_index, num_simulations = simulations_.size();
 	double bin_size_x = bins_x.get_bin_size();
+	f_x_sort_timer_.start();
 	for ( int j=0; j<num_simulations; ++j ) {
 		const auto& x_j = x.get_time_series(j);
 		int num_samples = x_j.size();
@@ -493,6 +666,7 @@ void Wham::compute_consensus_f_x(
 			}
 		}
 	}
+	f_x_sort_timer_.stop();
 
 	// Unpack for readability
 	std::vector<double>& p_x_wham      = wham_distribution_x.p_x;
@@ -505,12 +679,12 @@ void Wham::compute_consensus_f_x(
 	f_x_wham.resize(num_bins_x);
 	p_x_wham.resize(num_bins_x);
 	sample_counts.resize(num_bins_x);
-	double log_sum_exp_bin;
+	#pragma omp parallel for //schedule(static,8)
 	for ( int b=0; b<num_bins_x; ++b ) {
 		sample_counts[b] = minus_log_sigma_k_binned_[b].size();
 		if ( sample_counts[b] > 0 ) {
-			log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_binned_[b] );
-			f_x_wham[b] = -log(inv_num_samples_total_/bin_size_x) - log_sum_exp_bin;
+			double log_sum = log_sum_exp( minus_log_sigma_k_binned_[b] );
+			f_x_wham[b] = -log(inv_num_samples_total_/bin_size_x) - log_sum;
 			p_x_wham[b] = exp( -f_x_wham[b] );
 		}
 		else {
@@ -518,6 +692,8 @@ void Wham::compute_consensus_f_x(
 			p_x_wham[b] = 0.0;
 		}
 	}
+
+	f_x_timer_.stop();
 }
 
 
@@ -545,6 +721,7 @@ void Wham::compute_consensus_f_x_y(
 	std::vector<std::vector<int>>& sample_counts_x_y
 ) const
 {
+	f_x_y_timer_.start();
 	/*
 	// Input checks TODO
 	if ( y.size() != x.size() or f_bias_opt.size() != x.size() or u_bias_as_other.size() != x.size() ) {
@@ -552,9 +729,11 @@ void Wham::compute_consensus_f_x_y(
 	}
 	*/
 
+	// Compute weight factors
+	compute_log_sigma(u_bias_as_other, f_bias_opt, u_bias_as_k, f_bias_k, log_sigma_k_);
+
 	const auto& bins_x = x.get_bins();
 	const auto& bins_y = y.get_bins();
-
 	int num_bins_x = bins_x.get_num_bins();
 	int num_bins_y = bins_y.get_num_bins();
 	int num_bins_total = num_bins_x*num_bins_y;
@@ -571,18 +750,19 @@ void Wham::compute_consensus_f_x_y(
 		sample_counts_x_y[a].resize( num_bins_y );
 	}
 
-	// TODO: use mutable buffer variables?
-	int num_biases = u_bias_as_other_.size();
-	std::vector<DataForBin> binned_data(num_bins_total, DataForBin(num_biases));
+	minus_log_sigma_k_binned_.resize(num_bins_total);
+	for ( int b=0; b<num_bins_total; ++b ) {
+		minus_log_sigma_k_binned_[b].resize( 0 );
+		minus_log_sigma_k_binned_[b].reserve( x.get_time_series(0).size()/10 );
+	}
 
-	// TODO check vs. 'u_bias_as_other[r]'?
-	int num_samples_total = u_bias_as_k.size();
-
-	// Bin the data
-	sample_bins_.resize(num_samples_total);
-	int sample_index = 0, bin_x, bin_y;
+	// Sort log(sigma_k)-values by bin
+	//sample_bins_.resize(num_samples_total);
+	// TODO parallelize sorting?
+	int sample_index, bin_x, bin_y;
 	int num_simulations = simulations_.size();
 	int bin_index;
+	f_x_y_sort_timer_.start();
 	for ( int j=0; j<num_simulations; ++j ) {
 		const auto& x_j = x.get_time_series(j);
 		const auto& y_j = y.get_time_series(j);
@@ -592,47 +772,28 @@ void Wham::compute_consensus_f_x_y(
 			bin_y = bins_y.find_bin(y_j[i]);
 			if ( bin_x >= 0 and bin_y >= 0 ) {
 				// Sample is in the binned ranges
-				bin_index = bin_x*num_bins_y + bin_y;
-				sample_bins_[sample_index] = bin_index;
-
-				// Save corresponding values of the bias
-				for ( int r=0; r<num_biases; ++r ) {
-					binned_data[bin_index].u_bias_as_other[r].push_back( u_bias_as_other[r][sample_index] );
-				}
-				binned_data[bin_index].u_bias_as_k.push_back( u_bias_as_k[sample_index] );
+				bin_index    = bin_x*num_bins_y + bin_y;
+				sample_index = simulation_data_ranges_[j].first + i;  
+				minus_log_sigma_k_binned_[bin_index].push_back( -log_sigma_k_[sample_index] );
 			}
-			else {
-				sample_bins_[sample_index] = -1;
-			}
-			sample_index++;
 		}
 	}
+	f_x_y_sort_timer_.stop();
 
 	// Normalization
-	double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
-	double normalization_factor = log( num_samples_total_ * bin_area );
+	const double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
+	const double normalization_factor = log( num_samples_total_ * bin_area );
 
 	// Compute F_k(x_a, y_b) for each bin (a,b)
+	#pragma omp parallel for collapse(2) //schedule(static,8)
 	for ( int a=0; a<num_bins_x; ++a ) {
 		for ( int b=0; b<num_bins_y; ++b ) {
-			bin_index = a*num_bins_y + b;
-			const auto& data = binned_data[bin_index];
+			int bin_index = a*num_bins_y + b;
 
-			// Compute weights
-			compute_log_sigma( data.u_bias_as_other, f_bias_opt, data.u_bias_as_k, f_bias_k,
-			                   log_sigma_k_ );
-
-			// Compute free energy and probability
-			int num_samples_in_bin = log_sigma_k_.size();
+			int num_samples_in_bin = minus_log_sigma_k_binned_[bin_index].size();
 			if ( num_samples_in_bin > 0 ) {
-				// Perform the required log-sum-exp
-				minus_log_sigma_k_.resize(num_samples_in_bin);
-				for ( int s=0; s<num_samples_in_bin; ++s ) {
-					minus_log_sigma_k_[s] = -log_sigma_k_[s];
-				}
-				double log_sum_exp_bin = log_sum_exp( minus_log_sigma_k_ );
-
-				f_x_y_wham[a][b] = normalization_factor - log_sum_exp_bin;
+				double log_sum = log_sum_exp( minus_log_sigma_k_binned_[bin_index] );
+				f_x_y_wham[a][b] = normalization_factor - log_sum;
 				p_x_y_wham[a][b] = exp( -f_x_y_wham[a][b] );
 			}
 			else {
@@ -640,9 +801,173 @@ void Wham::compute_consensus_f_x_y(
 				p_x_y_wham[a][b] = 0.0;
 			}
 			sample_counts_x_y[a][b] = num_samples_in_bin;
-
-			// Go to next bin
-			bin_index++;
 		}
 	}
+
+	f_x_y_timer_.stop();
+}
+
+
+void Wham::compute_error_avg_x_k(
+	const std::vector<double>& x,
+	const std::vector<double>& u_bias_as_k,
+	// Output
+	Matrix& w,                      // W_aug, augmented matrix of weights
+	Matrix& wT_w,                   // W_aug^T * W_aug
+	std::vector<int>& num_samples,  // per state (augmented)
+	Matrix& theta
+) const
+{
+	int num_simulations = simulations_.size();
+	int num_states      = num_simulations + 2;
+
+	int num_samples_total = x.size();
+	FANCY_ASSERT( num_samples_total == num_samples_total_, "array length mismatch" );
+
+	double f_k = compute_consensus_f_k(u_bias_as_k);
+
+	// Compute weights for related to <x>
+	ColumnVector w_bot(num_samples_total), w_top(num_samples_total);
+	double sum = 0.0;
+	#pragma omp parallel for schedule(static,8) reduction(+:sum)
+	for ( int n=0; n<num_samples_total; ++n ) {
+		w_bot(n) = exp(f_k - u_bias_as_k[n] - log_dhat_[n]);  // denominator
+		w_top(n) = x[n]*w_bot(n);  // numerator
+		sum += w_top(n);
+	}
+	w_top /= sum;
+
+	// Note: better to copy unaugmented parts of matrices from member variables than to
+	// recompute them each time
+
+	// Augmented W
+	// - Unaugmented part
+	w.set_size(num_samples_total, num_states);
+	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(0, num_simulations) ) = w_;
+	// - Last two columns
+	int i_top = num_simulations;
+	int i_bot = i_top + 1;
+	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(i_top, i_bot     ) ) = w_top;
+	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(i_bot, num_states) ) = w_bot;
+
+	// Augmented W^T*W
+	//int n_top = num_samples_total;
+	//int n_bot = n_top + 1;
+	// - Unaugmented part
+	wT_w.set_size(num_states, num_states);
+	dlib::set_subm( wT_w, dlib::range(0, num_samples_total), dlib::range(0, num_simulations) ) = wT_w_;
+	// - Outer edges
+	RowVector r_top = dlib::trans(w_top) * w;
+	RowVector r_bot = dlib::trans(w_bot) * w;
+	dlib::set_subm( wT_w, dlib::range(i_top, i_bot),       dlib::range(0, num_simulations) ) = r_top;
+	dlib::set_subm( wT_w, dlib::range(i_bot, num_states),  dlib::range(0, num_simulations) ) = r_bot;
+	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_top, i_bot)           ) = dlib::trans(r_top);
+	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_bot, num_states)    ) = dlib::trans(r_bot);
+
+	// The fictitious states "top" and "bot" do not (formally) contribute any samples
+	num_samples.assign(num_states, 0);
+	for ( int i=0; i<num_simulations; ++i ) {
+		num_samples[i] = num_samples_per_simulation_[i];
+	}
+
+	// Augmented covariance matrix
+	compute_cov_matrix(w, wT_w, num_samples, theta);
+
+	// TODO Propagate errors from Theta to errors in <x> using the Delta Method
+
+	return;
+}
+
+
+void Wham::compute_cov_matrix(
+	const Matrix& w, const Matrix& wT_w, const std::vector<int>& num_samples,
+	Matrix& theta
+) const
+{
+	int num_states = w.nc();
+	// TODO size checks
+
+	// Eigenvalue decomposition:
+	//     (W^T*W) * V = V * D
+	// - D = diag(lambdas)
+	// - V = matrix of eigenvectors
+	// - Note that W^T*W is symmetric
+	//   - All eigenvalues are real and positive
+	//   - Matrix of eigenvectors, V, is orthogonal
+	//   - dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
+	//     eigenvalue_decomposition also checks for this when given a general matrix
+	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
+	EigenvalueDecomposition eigen_decomp( wT_w );
+	const Matrix&       V       = eigen_decomp.get_pseudo_v();
+	const ColumnVector& lambdas = eigen_decomp.get_real_eigenvalues();
+
+	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
+	// singular value decomposition (SVD) of W are trivial
+	// - W = U*Sigma*V^T, but U is not needed (a good thing, because it's large: N x N)
+	// - From above: W^T * W = V*D*V^T
+	Matrix sigma = dlib::zeros_matrix<double>(num_states, num_states);
+	int num_lambdas = lambdas.size();
+	for ( int i=0; i<num_lambdas; ++i ) {
+		if ( lambdas(i) >= 0.0 ) {
+			sigma(i,i) = sqrt( lambdas(i) );
+		}
+	}
+	Matrix V_sigma = V*sigma;
+
+	// Use the SVD of W to estimate Theta
+	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
+	for ( int i=0; i<num_states; ++i ) {
+		N(i,i) = static_cast<double>( num_samples[i] );
+	}
+	Matrix I      = dlib::identity_matrix<double>(num_states);
+	Matrix M      = I - dlib::trans(V_sigma)*N*V_sigma;
+	Matrix M_pinv = dlib::pinv(M);  // M is square, but usually singular
+	theta = V_sigma * M_pinv * dlib::trans(V_sigma);
+
+	/*
+	// DEBUG
+	RowVector sum_row_w = dlib::sum_rows(w);  // sum of each column should be 1
+	std::cout << "num_samples = " << w.nr() << ", num_states = " << w.nc() << std::endl;
+	std::cout << "w(sum_row)=\n"
+	          << "  shape = (" << sum_row_w.nr() << ", " << sum_row_w.nc() << ")\n"
+	          << sum_row_w    << std::endl;
+
+	std::cout << "V=\n"        << V            << std::endl;
+	std::cout << "lambdas=\n"  << lambdas      << std::endl;
+	std::cout << "sigma=\n"    << sigma        << std::endl;
+	std::cout << "N=\n"        << N            << std::endl;
+	std::cout << "I=\n"        << I            << std::endl;
+	std::cout << "M=\n"        << M            << std::endl;
+	std::cout << "det(M)="     << dlib::det(M) << std::endl;  // likely (nearly) singular
+	std::cout << "pinv(M)=\n"  << M_pinv       << std::endl;
+	std::cout << "theta=\n"    << theta        << std::endl;
+
+	// DEBUG: Check major results
+	Matrix V_trans = dlib::trans(V);
+	Matrix D       = dlib::diagm(lambdas);
+	double error_eig  = norm_frob( wT_w - V*D*V_trans );
+	std::cout << "error(eig(wT_w)) = " << error_eig << std::endl;
+	double error_pinv = norm_frob( M*M_pinv - I );
+	std::cout << "error(pinv(M)) = " << error_pinv << std::endl;
+	std::cout << std::endl;
+
+	// DEBUG: Save key arrays
+	std::ofstream ofs;
+	ofs.open("DEBUG_w.out");
+	ofs << "# matrix of weights, W\n" << w;
+	ofs.close(); ofs.clear();
+	ofs.open("DEBUG_N.out");
+	ofs << "# Number of samples from each simulation, N_i\n" << dlib::diag(N);
+	ofs.close(); ofs.clear();
+
+	// DEBUG: full, nasty, expensive calculation using w directly
+	Matrix i_N       = dlib::identity_matrix<double>(w.nr());
+	Matrix m_big     = i_N - w*N*dlib::trans(w);
+	Matrix cov_f_alt = dlib::trans(w) * dlib::pinv(m_big) * w;
+	ofs.open("DEBUG_cov_f_alt.out");
+	ofs << "# Covariance matrix, Theta, using W directly\n" << w;
+	ofs.close(); ofs.clear();
+	*/
+
+	return;
 }

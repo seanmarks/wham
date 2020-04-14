@@ -52,21 +52,22 @@ void Distribution::print(const std::string& file, const std::string& header) con
 }
 
 
-double Distribution::computeInformationEntropy(const Distribution& first, const Distribution& second)
+double Distribution::computeInformationEntropy(const Distribution& dist, const Distribution& ref)
 {
 	// TODO consistency checks
 	double info_entropy = 0.0;
 
-	double bin_size_x = first.bins_x.get_bin_size();
-	int num_bins_x = first.bins_x.get_num_bins();
+	double bin_size_x = ref.bins_x.get_bin_size();
+	int num_bins_x = ref.bins_x.get_num_bins();
 
 	for ( int b=0; b<num_bins_x; ++b ) {
-		const double& p_first  = first.p_x[b];
-		const double& f_first  = first.f_x[b];
-		const double& f_second = second.f_x[b];
+		const auto p_ref  = ref.p_x[b];
+		const auto f_ref  = ref.f_x[b];
+		const auto p_dist = dist.p_x[b];
+		const auto f_dist = dist.f_x[b];
 
-		if ( p_first > 0.0 and std::isfinite(f_second) ) {
-			info_entropy += p_first*(f_second - f_first)*bin_size_x;
+		if ( p_ref > 0.0 and p_dist > 0.0 ) {
+			info_entropy += p_ref*(f_dist - f_ref)*bin_size_x;
 		}
 	}
 

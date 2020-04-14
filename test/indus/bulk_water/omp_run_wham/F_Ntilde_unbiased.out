@@ -1,0 +1,47 @@
+# Unbiased free energy distributions:  F_{0,i}(Ntilde) [k_B*T]
+# Data sets (by column)
+# 2: nstar_30.0
+# 3: nstar_25.0
+# 4: nstar_20.0
+# 5: nstar_15.0
+# 6: nstar_10.0
+# 7: nstar_5.0
+# 8: nstar_0.0
+# 9: nstar_-5.0
+#
+# Ntilde | F(Ntilde) [kBT]
+0	     nan	     nan	     nan	     nan	     nan	     nan	  21.315	  11.942
+1	     nan	     nan	     nan	     nan	     nan	     nan	  17.725	  8.8634
+2	     nan	     nan	     nan	     nan	     nan	     nan	  15.304	   6.409
+3	     nan	     nan	     nan	     nan	     nan	     nan	  13.182	  4.4011
+4	     nan	     nan	     nan	     nan	     nan	    19.8	  11.103	  2.1619
+5	     nan	     nan	     nan	     nan	     nan	  18.057	  9.3153	       0
+6	     nan	     nan	     nan	     nan	     nan	  16.186	  7.5316	     nan
+7	     nan	     nan	     nan	     nan	     nan	  14.493	   5.483	     nan
+8	     nan	     nan	     nan	     nan	     nan	  12.663	  4.2104	     nan
+9	     nan	     nan	     nan	     nan	     nan	  10.701	  1.8798	     nan
+10	     nan	     nan	     nan	     nan	  21.329	  8.9115	       0	     nan
+11	     nan	     nan	     nan	     nan	  19.731	  6.9083	     nan	     nan
+12	     nan	     nan	     nan	     nan	      18	  5.1728	     nan	     nan
+13	     nan	     nan	     nan	     nan	  15.992	  3.2669	     nan	     nan
+14	     nan	     nan	     nan	     nan	    14.2	  1.5231	     nan	     nan
+15	     nan	     nan	     nan	    15.6	  12.195	       0	     nan	     nan
+16	     nan	     nan	     nan	  13.377	  10.022	     nan	     nan	     nan
+17	     nan	     nan	     nan	  11.269	   7.816	     nan	     nan	     nan
+18	     nan	     nan	   13.07	  9.1584	  6.1606	     nan	     nan	     nan
+19	     nan	     nan	  11.506	  7.0311	  3.4347	     nan	     nan	     nan
+20	     nan	     nan	  9.6527	  4.9823	  0.7162	     nan	     nan	     nan
+21	     nan	  6.5855	  7.7483	   3.136	       0	     nan	     nan	     nan
+22	     nan	  5.9956	  6.1812	  1.5234	     nan	     nan	     nan	     nan
+23	  4.2732	  4.9097	  4.7459	       0	     nan	     nan	     nan	     nan
+24	  2.7691	   3.498	  3.3945	     nan	     nan	     nan	     nan	     nan
+25	  2.2583	  2.4565	  2.4991	     nan	     nan	     nan	     nan	     nan
+26	  1.6341	  1.6659	  1.4685	     nan	     nan	     nan	     nan	     nan
+27	 0.70366	 0.87877	 0.38924	     nan	     nan	     nan	     nan	     nan
+28	 0.19142	 0.53796	       0	     nan	     nan	     nan	     nan	     nan
+29	0.039081	 0.26726	     nan	     nan	     nan	     nan	     nan	     nan
+30	       0	       0	     nan	     nan	     nan	     nan	     nan	     nan
+31	 0.40721	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+32	 0.71072	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+33	  1.3157	     nan	     nan	     nan	     nan	     nan	     nan	     nan
+34	  2.1331	     nan	     nan	     nan	     nan	     nan	     nan	     nan

@@ -40,5 +40,8 @@ bin/*
 build*
 scrap*
 
+# GPTL log files
+gptl*.log*
+
 # Ignore image files in test directory
 test/**/*.png
