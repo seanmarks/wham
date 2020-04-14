@@ -184,7 +184,6 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	#pragma omp parallel for
 	for ( int n=0; n<num_samples_total_; ++n ) {
 		for ( int i=0; i<num_simulations; ++i ) {
-			// TODO: precision issues avoided this way?
 			double arg = f_bias_opt_[i] - u_bias_as_other_[i][n] - log_dhat_[n];
 			if ( arg > MIN_DBL_FOR_EXP ) {
 				w_(n,i) = exp( arg );
@@ -194,27 +193,25 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 			}
 		}
 	}
+
+	/*
+	// FIXME: Attempted to implement covariance matrix estimation, but the results
+	// always seem to come out garbage (even checked vs. NumPy)
 	wT_w_ = dlib::trans(w_) * w_;  // commonly used submatrix
 
-	// FIXME DEBUG
-	std::cout << "MIN_DBL_FOR_EXP = " << MIN_DBL_FOR_EXP << "\n";
-
-
-	// TODO Move to separate function(s)/only compute if error is desired?
-	std::cout << "DEBUG: Estimating error in free energies\n" << std::flush;  // FIXME DEBUG
+	// Move to separate function(s)/only compute if error is desired?
 	Matrix theta;
 	compute_cov_matrix( w_, wT_w_, num_samples_per_simulation_, theta );
 	error_f_bias_opt_.resize(num_simulations);
 	for ( int i=0; i<num_simulations; ++i ) {
 		error_f_bias_opt_[i] = sqrt( theta(i,i) );
 	}
-	// FIXME DEBUG
+	// DEBUG
 	for ( int i=0; i<num_simulations; ++i ) {
 		std::cout << i << ":  " << f_bias_opt_[i] << " +/- " << error_f_bias_opt_[i] 
 		          << "  (theta = cov = " << theta(i,i) << ")\n";
 	}
-
-
+	*/
 
 	return f_bias_opt_;
 }
@@ -761,7 +758,7 @@ void Wham::compute_consensus_f_x_y(
 
 	// Sort log(sigma_k)-values by bin
 	//sample_bins_.resize(num_samples_total);
-	// TODO parallelize sorting
+	// TODO parallelize sorting?
 	int sample_index, bin_x, bin_y;
 	int num_simulations = simulations_.size();
 	int bin_index;
@@ -811,7 +808,6 @@ void Wham::compute_consensus_f_x_y(
 }
 
 
-// FIXME
 void Wham::compute_error_avg_x_k(
 	const std::vector<double>& x,
 	const std::vector<double>& u_bias_as_k,
@@ -830,23 +826,16 @@ void Wham::compute_error_avg_x_k(
 
 	double f_k = compute_consensus_f_k(u_bias_as_k);
 
-	// Compute the "effective" partition function for 'x' in ensemble 'k'
-	// - Looks similar, but is weighted by x-values
-	std::vector<double> args(num_samples_total);
-	for ( int n=0; n<num_samples_total; ++n ) {
-		args[n] = -u_bias_as_k[n] - log_dhat_[n];
-	}
-	double z_x     = weighted_sum_exp(args, x);
-	double inv_z_x = 1.0/z_x;
-
 	// Compute weights for related to <x>
-	// - TODO: pass in w_bot instead?
 	ColumnVector w_bot(num_samples_total), w_top(num_samples_total);
+	double sum = 0.0;
+	#pragma omp parallel for schedule(static,8) reduction(+:sum)
 	for ( int n=0; n<num_samples_total; ++n ) {
-		// FIXME roundoff error?
-		w_bot(n) = exp(f_k - args[n]);  // denominator
-		w_top(n) = x[n]*w_bot(n);       // numerator
+		w_bot(n) = exp(f_k - u_bias_as_k[n] - log_dhat_[n]);  // denominator
+		w_top(n) = x[n]*w_bot(n);  // numerator
+		sum += w_top(n);
 	}
+	w_top /= sum;
 
 	// Note: better to copy unaugmented parts of matrices from member variables than to
 	// recompute them each time
@@ -870,43 +859,21 @@ void Wham::compute_error_avg_x_k(
 	// - Outer edges
 	RowVector r_top = dlib::trans(w_top) * w;
 	RowVector r_bot = dlib::trans(w_bot) * w;
-	dlib::set_subm( wT_w, dlib::range(i_top, i_bot),           dlib::range(0, num_simulations) ) = r_top;
-	dlib::set_subm( wT_w, dlib::range(i_bot, num_states),    dlib::range(0, num_simulations) ) = r_bot;
+	dlib::set_subm( wT_w, dlib::range(i_top, i_bot),       dlib::range(0, num_simulations) ) = r_top;
+	dlib::set_subm( wT_w, dlib::range(i_bot, num_states),  dlib::range(0, num_simulations) ) = r_bot;
 	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_top, i_bot)           ) = dlib::trans(r_top);
 	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_bot, num_states)    ) = dlib::trans(r_bot);
 
-	/*
-	// TODO
-	
-	// Eigenvalue decomposition: W^T * W = V*D*V^T
-	// - D = diag(lambdas)
-	// - Note that W^T*W is symmetric
-	//   - dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
-	//     eigenvalue_decomposition also checks for this when given a general matrix
-	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
-	EigenvalueDecomposition eigen_decomp( wT_w );
-	const auto& V       = eigen_decomp.get_pseudo_v();
-	const auto& lambdas = eigen_decomp.get_real_eigenvalues();
-
-	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
-	// singular value decomposition (SVD) of W are trivial
-	// - W = U*Sigma*V^T, but U is not needed (a good thing, because it's large: N x N)
-	Matrix V_trans = dlib::trans(V);
-	Matrix sigma   = dlib::zeros_matrix<double>(num_states, num_states);
-	int num_lambdas = lambdas.size();
-	for ( int i=0; i<num_lambdas; ++i ) {
-		sigma(i,i) = sqrt( lambdas(i) );  // TODO check sign?
+	// The fictitious states "top" and "bot" do not (formally) contribute any samples
+	num_samples.assign(num_states, 0);
+	for ( int i=0; i<num_simulations; ++i ) {
+		num_samples[i] = num_samples_per_simulation_[i];
 	}
 
-	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
-	for ( int i=0; i<num_states; ++i ) {
-		N(i,i) = static_cast<double>( num_samples[i] );
-	}
-	Matrix ones   = dlib::ones_matrix<double>(num_states, num_states);
-	Matrix M      = ones - sigma*V_trans*N*V*sigma;
-	Matrix M_pinv = dlib::pinv(M);  // M is square, but is usually singular
-	theta  = V*sigma*M_pinv*sigma*V_trans;
-	*/
+	// Augmented covariance matrix
+	compute_cov_matrix(w, wT_w, num_samples, theta);
+
+	// TODO Propagate errors from Theta to errors in <x> using the Delta Method
 
 	return;
 }
@@ -947,6 +914,7 @@ void Wham::compute_cov_matrix(
 	}
 	Matrix V_sigma = V*sigma;
 
+	// Use the SVD of W to estimate Theta
 	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
 	for ( int i=0; i<num_states; ++i ) {
 		N(i,i) = static_cast<double>( num_samples[i] );
@@ -955,12 +923,9 @@ void Wham::compute_cov_matrix(
 	Matrix M      = I - dlib::trans(V_sigma)*N*V_sigma;
 	Matrix M_pinv = dlib::pinv(M);  // M is square, but usually singular
 	theta = V_sigma * M_pinv * dlib::trans(V_sigma);
-	//Matrix M = I - sigma*V_trans*N*V*sigma;
-	//theta  = V*sigma*M_pinv*sigma*V_trans;
 
-
-
-	// FIXME DEBUG
+	/*
+	// DEBUG
 	RowVector sum_row_w = dlib::sum_rows(w);  // sum of each column should be 1
 	std::cout << "num_samples = " << w.nr() << ", num_states = " << w.nc() << std::endl;
 	std::cout << "w(sum_row)=\n"
@@ -977,7 +942,7 @@ void Wham::compute_cov_matrix(
 	std::cout << "pinv(M)=\n"  << M_pinv       << std::endl;
 	std::cout << "theta=\n"    << theta        << std::endl;
 
-	// FIXME DEBUG: Check major results
+	// DEBUG: Check major results
 	Matrix V_trans = dlib::trans(V);
 	Matrix D       = dlib::diagm(lambdas);
 	double error_eig  = norm_frob( wT_w - V*D*V_trans );
@@ -985,6 +950,24 @@ void Wham::compute_cov_matrix(
 	double error_pinv = norm_frob( M*M_pinv - I );
 	std::cout << "error(pinv(M)) = " << error_pinv << std::endl;
 	std::cout << std::endl;
+
+	// DEBUG: Save key arrays
+	std::ofstream ofs;
+	ofs.open("DEBUG_w.out");
+	ofs << "# matrix of weights, W\n" << w;
+	ofs.close(); ofs.clear();
+	ofs.open("DEBUG_N.out");
+	ofs << "# Number of samples from each simulation, N_i\n" << dlib::diag(N);
+	ofs.close(); ofs.clear();
+
+	// DEBUG: full, nasty, expensive calculation using w directly
+	Matrix i_N       = dlib::identity_matrix<double>(w.nr());
+	Matrix m_big     = i_N - w*N*dlib::trans(w);
+	Matrix cov_f_alt = dlib::trans(w) * dlib::pinv(m_big) * w;
+	ofs.open("DEBUG_cov_f_alt.out");
+	ofs << "# Covariance matrix, Theta, using W directly\n" << w;
+	ofs.close(); ofs.clear();
+	*/
 
 	return;
 }

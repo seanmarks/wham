@@ -2,6 +2,13 @@
 // - Solves binless WHAM equations via log-likelihood maximization
 //   - Minimization uses BFGS implementation from dlib library
 // - Computes consensus estimates using optimal biasing free energies
+// - References
+//   - Chodera, ..., Dill (JCTC 2007)
+//   - Kong, ..., Tan (J. R. Statist. Soc. B 2003)
+//   - Shirts & Chodera (JCP 2008)
+//   - Souaille & Roux (Comp. Phys. Comm. 2001)
+//   - Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
+//   - Zhu & Hummer (J. Comp. Chem. 2011)
 
 #pragma once
 #ifndef WHAM_H
@@ -151,11 +158,12 @@ class Wham
 
 	//----- Working Variables -----//
 
+
+	// TODO document
 	std::vector<double> log_dhat_;
 
 	Matrix w_;
 	Matrix wT_w_;
-
 
 	mutable std::vector<double> log_dhat_tmp_;
 
