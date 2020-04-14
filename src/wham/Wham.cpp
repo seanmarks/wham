@@ -196,6 +196,8 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	}
 	wT_w_ = dlib::trans(w_) * w_;  // commonly used submatrix
 
+	// FIXME DEBUG
+	std::cout << "MIN_DBL_FOR_EXP = " << MIN_DBL_FOR_EXP << "\n";
 
 
 	// TODO Move to separate function(s)/only compute if error is desired?
@@ -911,11 +913,11 @@ void Wham::compute_error_avg_x_k(
 
 
 void Wham::compute_cov_matrix(
-	const Matrix& w, const Matrix& wT_w, const std::vector<int> num_samples,
+	const Matrix& w, const Matrix& wT_w, const std::vector<int>& num_samples,
 	Matrix& theta
 ) const
 {
-	int num_states = num_samples.size();
+	int num_states = w.nc();
 	// TODO size checks
 
 	// Eigenvalue decomposition:
@@ -929,28 +931,60 @@ void Wham::compute_cov_matrix(
 	//     eigenvalue_decomposition also checks for this when given a general matrix
 	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
 	EigenvalueDecomposition eigen_decomp( wT_w );
-	Matrix       V       = eigen_decomp.get_pseudo_v();
-	ColumnVector lambdas = eigen_decomp.get_real_eigenvalues();
+	const Matrix&       V       = eigen_decomp.get_pseudo_v();
+	const ColumnVector& lambdas = eigen_decomp.get_real_eigenvalues();
 
 	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
 	// singular value decomposition (SVD) of W are trivial
 	// - W = U*Sigma*V^T, but U is not needed (a good thing, because it's large: N x N)
 	// - From above: W^T * W = V*D*V^T
-	Matrix V_trans = dlib::trans(V);
-	Matrix sigma   = dlib::zeros_matrix<double>(num_states, num_states);
+	Matrix sigma = dlib::zeros_matrix<double>(num_states, num_states);
 	int num_lambdas = lambdas.size();
 	for ( int i=0; i<num_lambdas; ++i ) {
-		sigma(i,i) = sqrt( lambdas(i) );  // TODO check sign to be on the safe side?
+		if ( lambdas(i) >= 0.0 ) {
+			sigma(i,i) = sqrt( lambdas(i) );
+		}
 	}
+	Matrix V_sigma = V*sigma;
 
 	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
 	for ( int i=0; i<num_states; ++i ) {
 		N(i,i) = static_cast<double>( num_samples[i] );
 	}
 	Matrix I      = dlib::identity_matrix<double>(num_states);
-	Matrix M      = I - sigma*V_trans*N*V*sigma;
+	Matrix M      = I - dlib::trans(V_sigma)*N*V_sigma;
 	Matrix M_pinv = dlib::pinv(M);  // M is square, but usually singular
-	theta  = V*sigma*M_pinv*sigma*V_trans;
+	theta = V_sigma * M_pinv * dlib::trans(V_sigma);
+	//Matrix M = I - sigma*V_trans*N*V*sigma;
+	//theta  = V*sigma*M_pinv*sigma*V_trans;
+
+
+
+	// FIXME DEBUG
+	RowVector sum_row_w = dlib::sum_rows(w);  // sum of each column should be 1
+	std::cout << "num_samples = " << w.nr() << ", num_states = " << w.nc() << std::endl;
+	std::cout << "w(sum_row)=\n"
+	          << "  shape = (" << sum_row_w.nr() << ", " << sum_row_w.nc() << ")\n"
+	          << sum_row_w    << std::endl;
+
+	std::cout << "V=\n"        << V            << std::endl;
+	std::cout << "lambdas=\n"  << lambdas      << std::endl;
+	std::cout << "sigma=\n"    << sigma        << std::endl;
+	std::cout << "N=\n"        << N            << std::endl;
+	std::cout << "I=\n"        << I            << std::endl;
+	std::cout << "M=\n"        << M            << std::endl;
+	std::cout << "det(M)="     << dlib::det(M) << std::endl;  // likely (nearly) singular
+	std::cout << "pinv(M)=\n"  << M_pinv       << std::endl;
+	std::cout << "theta=\n"    << theta        << std::endl;
+
+	// FIXME DEBUG: Check major results
+	Matrix V_trans = dlib::trans(V);
+	Matrix D       = dlib::diagm(lambdas);
+	double error_eig  = norm_frob( wT_w - V*D*V_trans );
+	std::cout << "error(eig(wT_w)) = " << error_eig << std::endl;
+	double error_pinv = norm_frob( M*M_pinv - I );
+	std::cout << "error(pinv(M)) = " << error_pinv << std::endl;
+	std::cout << std::endl;
 
 	return;
 }

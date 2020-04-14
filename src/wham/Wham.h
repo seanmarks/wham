@@ -288,7 +288,7 @@ class Wham
 	void compute_cov_matrix(
 		const Matrix& w,                     // W, matrix of weights
 		const Matrix& wT_w,                  // W^T * W
-		const std::vector<int> num_samples,  // per state
+		const std::vector<int>& num_samples,  // per state
 		Matrix& theta
 	) const;
 
@@ -304,6 +304,7 @@ class Wham
 		Matrix& theta
 	) const;
 
+	// Smallest value to for which exp(x) will not underflow (about -36)
 	static constexpr double MIN_DBL_FOR_EXP = log( std::numeric_limits<double>::epsilon() );
 
 
@@ -333,6 +334,15 @@ class Wham
 
 	mutable Timer log_dhat_timer_     = Timer("Wham::compute_log_dhat");
 	mutable Timer log_dhat_omp_timer_ = Timer("Wham::compute_log_dhat_omp");
+
+
+	//----- Helper Functions -----//
+
+	// FIXME DEBUG
+	// Frobenius norm of a real-valued matrix: sqrt[ sum_{i,j}^N m(i,j)^2 ]
+	static double norm_frob(const Matrix& m) {
+		return sqrt( dlib::sum(dlib::pointwise_multiply(m, m)) );
+	}
 };
 
 #endif // ifndef WHAM_H
