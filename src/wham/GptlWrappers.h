@@ -1,3 +1,5 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
+
 // Wrappers around GPTL library calls
 // TODO
 // - Initialize/

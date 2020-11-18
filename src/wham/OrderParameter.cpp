@@ -1,4 +1,6 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "OrderParameter.h"
+
 
 OrderParameter::OrderParameter(
 	const std::string& name,
@@ -15,11 +17,11 @@ OrderParameter::OrderParameter(
 	const ParameterPack* bins_pack_ptr = input_pack.findParameterPack("Bins", KeyType::Required);
 	bins_.set_bins( *bins_pack_ptr );
 
-	set_simulations(simulations);
+	setSimulations(simulations);
 }
 
 
-void OrderParameter::set_simulations(std::vector<Simulation>& simulations)
+void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
 {
 	int num_simulations = simulations.size();
 	simulation_ptrs_.assign(num_simulations, nullptr);
@@ -32,7 +34,7 @@ void OrderParameter::set_simulations(std::vector<Simulation>& simulations)
 		simulation_ptrs_[i] = &simulations[i];
 
 		// Share time series read by Simulation objects
-		time_series_ptrs_[i] = simulations[i].copy_time_series_ptr(name_);
+		time_series_ptrs_[i] = simulations[i].copyTimeSeriesPtr(name_);
 		
 		// Make raw biased distributions
 		// - TODO: Make optional?
@@ -59,7 +61,7 @@ void OrderParameter::printRawDistributions() const
 	std::stringstream table_header_stream;
 	table_header_stream << "# Data sets (by column)\n";
 	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "# " << i+2 << ": " << simulation_ptrs_[i]->get_data_set_label() << "\n";
+		table_header_stream << "# " << i+2 << ": " << simulation_ptrs_[i]->getDataSetLabel() << "\n";
 	}
 	table_header_stream << "#\n"
 	                    << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
@@ -104,7 +106,7 @@ void OrderParameter::printRebiasedDistributions(std::string file_name) const
 	header_stream << "# Data sets (by column)\n";
 	const int num_simulations = simulation_ptrs_.size();
 	for ( int j=0; j<num_simulations; ++j ) {
-		header_stream << "# " << j+2 << ": " << simulation_ptrs_[j]->get_data_set_label() << "\n";
+		header_stream << "# " << j+2 << ": " << simulation_ptrs_[j]->getDataSetLabel() << "\n";
 	}
 	header_stream << "#\n"
 	              << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
@@ -134,7 +136,7 @@ void OrderParameter::printWhamResults(std::string file_name) const
 
 	// Header
 	ofs << "# Consensus free energy distributions from WHAM: \n"
-      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulation_ptrs_[0]->get_temperature() << " K\n";  // FIXME temperature
+      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulation_ptrs_[0]->getTemperature() << " K\n";  // FIXME temperature
 	ofs << "# " << name_ << "\tF[kBT]  NumSamples";
 	if ( have_error ) {
 		ofs << "\tstderr(F)[kBT]";
@@ -185,7 +187,7 @@ void OrderParameter::printStats(std::string file_name) const
 
 	// Body
 	for ( int j=0; j<num_simulations; ++j ) {
-		ofs << simulation_ptrs_[j]->get_data_set_label() << "\t"
+		ofs << simulation_ptrs_[j]->getDataSetLabel() << "\t"
 		    << time_series_ptrs_[j]->average() << "\t"
 		    << time_series_ptrs_[j]->variance();
 		if ( have_info_entropy ) {

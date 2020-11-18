@@ -1,14 +1,4 @@
-// Wham
-// - Solves binless WHAM equations via log-likelihood maximization
-//   - Minimization uses BFGS implementation from dlib library
-// - Computes consensus estimates using optimal biasing free energies
-// - References
-//   - Chodera, ..., Dill (JCTC 2007)
-//   - Kong, ..., Tan (J. R. Statist. Soc. B 2003)
-//   - Shirts & Chodera (JCP 2008)
-//   - Souaille & Roux (Comp. Phys. Comm. 2001)
-//   - Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
-//   - Zhu & Hummer (J. Comp. Chem. 2011)
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #pragma once
 #ifndef WHAM_H
@@ -25,7 +15,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
-#include <memory>    // unique_ptr
+#include <memory>
 #include <numeric>
 #include <sstream>
 #include <string>
@@ -35,7 +25,6 @@
 #include "dlib/matrix.h"
 #include "dlib/optimization.h"
 
-// Project headers
 #include "Bias.h"
 #include "Bins.h"
 #include "DataSummary.h"
@@ -49,6 +38,18 @@
 #include "Simulation.h"
 #include "WhamDlibWrappers.h"
 
+
+// Solves binless WHAM equations via log-likelihood maximization
+// - Minimization uses BFGS implementation from dlib library
+// - Computes consensus estimates using optimal biasing free energies
+//   - TODO: move to new objects
+// - References
+//   - Chodera, ..., Dill (JCTC 2007)
+//   - Kong, ..., Tan (J. R. Statist. Soc. B 2003)
+//   - Shirts & Chodera (JCP 2008)
+//   - Souaille & Roux (Comp. Phys. Comm. 2001)
+//   - Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
+//   - Zhu & Hummer (J. Comp. Chem. 2011)
 class Wham
 {
  public:
@@ -68,7 +69,7 @@ class Wham
 		const double tol
 	);
 
-	// TODO Make private and run as part of constructor?
+	// TODO: Make private and run as part of constructor?
 
 
 	//----- Objective Function -----//
@@ -91,10 +92,11 @@ class Wham
 	// each individual simulation's data, not the consensus estimates)
 	std::vector<Distribution> manuallyUnbiasDistributions(const std::string& op_name) const;
 
-	// TODO descriptions
+	// TODO: descriptions
 	Distribution compute_consensus_f_x_unbiased(
 		const std::string& op_name
 	) const;
+
 	Distribution compute_consensus_f_x_rebiased(
 		const std::string& op_name,
 		const std::string& data_set_label
@@ -128,10 +130,11 @@ class Wham
 	//                                                     |
 	//                                                N_j samples
 	//   - Overall length of u_bias_as_other_[r]:  N = sum_{j=0}^{m} N_j
+
 	std::vector<std::vector<double>> u_bias_as_other_;
-	// - For each simulation j = 0, ..., m-1:
-	//     simulation_data_ranges_[j] = indices (first, end) for the 'j'th simulation's data
-	//                                  in u_bias_as_other_ (for each 'r')
+	// For each simulation j = 0, ..., m-1:
+	//  simulation_data_ranges_[j] = indices (first, end) for the 'j'th simulation's data
+	//                               in u_bias_as_other_ (for each 'r')
 	std::vector<std::pair<int,int>> simulation_data_ranges_;
 
 	// Solver tolerance
@@ -145,7 +148,7 @@ class Wham
 	// c[r] = fraction of samples from simulation 'r'
 	//      = (num. samples from simulation r)/(num. total)
 	std::vector<double> c_;
-	std::vector<double> log_c_;
+	std::vector<double> log_c_;  // ln(c) = ln(N_tot/N_r)
 
 	// u_bias_as_other for the unbiased ensemble (all zeros)
 	std::vector<double> u_bias_as_other_unbiased_;
@@ -156,13 +159,15 @@ class Wham
 	std::vector<double> f_bias_opt_;    // optimal
 	std::vector<double> error_f_bias_opt_;
 
+
 	//----- Working Variables -----//
 
-
-	// TODO document
+	// TODO: document
 	std::vector<double> log_dhat_;
 
+	// Matrix of weights
 	Matrix w_;
+
 	Matrix wT_w_;
 
 	mutable std::vector<double> log_dhat_tmp_;
@@ -243,7 +248,7 @@ class Wham
 
 	//----- Individual-Simulation Estimates -----//
 
-	// TODO way to merge with compute_consensus_f_x?
+	// TODO: way to merge with compute_consensus_f_x?
 	void manually_unbias_f_x(
 		const TimeSeries&          x,
 		const std::vector<double>& u_bias,
@@ -313,7 +318,7 @@ class Wham
 	) const;
 
 	// Smallest value to for which exp(x) will not underflow (about -36)
-	static constexpr double MIN_DBL_FOR_EXP = log( std::numeric_limits<double>::epsilon() );
+	static constexpr double MIN_DBL_FOR_EXP = std::log( std::numeric_limits<double>::epsilon() );
 
 
 	//----- GPTL -----//

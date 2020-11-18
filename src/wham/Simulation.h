@@ -1,4 +1,4 @@
-// Simulation
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #pragma once
 #ifndef SIMULATION_H
@@ -13,14 +13,11 @@
 #include "TimeSeries.h"
 #include "utils.h"
 
+// Stores time series data and settings corresponding to a single simulation (ensemble)
 class Simulation 
 {
  public:
-	using TimeSeriesPtr = std::shared_ptr<TimeSeries>;
-
-	Simulation():
-		time_series_ptrs_(0)
-	{}
+	Simulation() = default;
 
 	Simulation(
 		const std::string&            data_set_label,
@@ -31,24 +28,36 @@ class Simulation
 		const OrderParameterRegistry& op_registry
 	);
 
-	const std::string& get_data_set_label() const { return data_set_label_; }
-	double get_t_min()       const { return t_min_; }
-	double get_t_max()       const { return t_max_; }
-	double get_temperature() const { return temperature_; }
+	const std::string& getDataSetLabel() const {
+		return data_set_label_; 
+	}
 
-	int get_num_samples() const {
-		if ( time_series_ptrs_.size() > 0 ) {
-			return time_series_ptrs_[0]->size();
+	double get_t_min() const {
+		return t_min_;
+	}
+
+	double get_t_max() const {
+		return t_max_;
+	}
+
+	double getTemperature() const {
+		return temperature_;
+	}
+
+	int getNumSamples() const {
+		if ( time_series_.size() > 0 ) {
+			return time_series_.front().size();
 		}
 		else {
 			return 0;
 		}
 	}
 
-	TimeSeriesPtr copy_time_series_ptr(const std::string& op_name) {
+	// Returns a raw (non-owning) handle to the time series
+	const TimeSeries* copyTimeSeriesPtr(const std::string& op_name) const {
 		FANCY_ASSERT(op_registry_ptr_ != nullptr, "order parameter registry is missing");
-		int op_index = op_registry_ptr_->get_index(op_name);
-		return time_series_ptrs_[op_index];
+		int op_index = op_registry_ptr_->nameToIndex(op_name);
+		return &(time_series_[op_index]);
 	}
 
 	void setShuffledFromOther(const Simulation& other, const std::vector<int>& indices);
@@ -63,7 +72,7 @@ class Simulation
 
 	const OrderParameterRegistry* op_registry_ptr_ = nullptr;
 
-	std::vector<TimeSeriesPtr> time_series_ptrs_ = {};
+	std::vector<TimeSeries> time_series_;
 
 	// Check time series for consistency
 	void checkTimeSeries() const;

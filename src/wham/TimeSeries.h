@@ -1,11 +1,9 @@
-// TimeSeries
-//
-// ABOUT: Reads in and stores a single time series
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
+#pragma once
 #ifndef TIME_SERIES_H
 #define TIME_SERIES_H
 
-// Standard headers
 #include <cmath>
 #include <cstdlib>
 #include <exception>
@@ -18,6 +16,7 @@
 
 #include "utils.h"
 
+// Reads in and stores a single time series
 class TimeSeries
 {
  public:
@@ -47,7 +46,7 @@ class TimeSeries
 	// Returns the number of samples in the time series
 	unsigned size() const { return data_.size(); }
 
-	const std::string& get_file() const { return file_; }
+	const std::string& getFile() const { return file_; }
 
 	// Access underlying data
 	const double& operator[](const int i) const;
@@ -77,6 +76,7 @@ class TimeSeries
 	std::vector<double> times_;
 	std::vector<double> data_;
 };
+
 
 inline
 const double& TimeSeries::operator[](const int i) const {

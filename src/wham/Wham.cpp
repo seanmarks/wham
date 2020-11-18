@@ -1,3 +1,4 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "Wham.h"
 
 
@@ -33,7 +34,7 @@ void Wham::setup()
 	num_samples_per_simulation_.resize(num_simulations);
 	num_samples_total_ = 0;
 	for ( int j=0; j<num_simulations; ++j ) {
-		num_samples_per_simulation_[j] =  simulations_[j].get_num_samples();
+		num_samples_per_simulation_[j] =  simulations_[j].getNumSamples();
 		num_samples_total_             += num_samples_per_simulation_[j];
 	}
 	inv_num_samples_total_ = 1.0/static_cast<double>(num_samples_total_);
@@ -85,7 +86,7 @@ void Wham::evaluateBiases()
 		// Search order parameter registry for matches
 		op_indices[r].resize(num_ops);
 		for ( int p=0; p<num_ops; ++p ) {
-			op_indices[r][p] = op_registry_.get_index(op_names[p]);
+			op_indices[r][p] = op_registry_.nameToIndex(op_names[p]);
 		}
 	}
 
@@ -113,7 +114,7 @@ void Wham::evaluateBiases()
 				int p;
 				for ( int s=0; s<num_ops_for_bias; ++s ) {
 					p = op_indices[r][s];
-					args[s] = order_parameters_[p].get_time_series(j)[i];
+					args[s] = order_parameters_[p].getTimeSeries(j)[i];
 					// FIXME cludgy
 				}
 
@@ -504,7 +505,7 @@ double Wham::weighted_sum_exp(
 
 std::vector<Distribution> Wham::manuallyUnbiasDistributions(const std::string& op_name) const
 {
-	int p = op_registry_.get_index(op_name);
+	int p = op_registry_.nameToIndex(op_name);
 	const auto& x = order_parameters_[p];
 
 	int num_simulations = static_cast<int>( simulations_.size() );
@@ -512,7 +513,7 @@ std::vector<Distribution> Wham::manuallyUnbiasDistributions(const std::string& o
 
 	std::vector<double> u_bias_tmp;
 	for ( int i=0; i<num_simulations; ++i ) {
-		const TimeSeries& samples = x.get_time_series(i);
+		const TimeSeries& samples = x.getTimeSeries(i);
 		int num_samples = samples.size();
 
 		// Assemble the biasing potential values for this simulation's data under its own bias
@@ -604,7 +605,7 @@ double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
 
 Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) const
 {
-	int p = op_registry_.get_index(op_name);
+	int p = op_registry_.nameToIndex(op_name);
 
 	Distribution wham_distribution_x;
 	compute_consensus_f_x( order_parameters_[p], u_bias_as_other_, f_bias_opt_,
@@ -617,8 +618,8 @@ Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) co
 
 Distribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, const std::string& data_set_label) const
 {
-	int p = op_registry_.get_index(op_name);
-	int j = data_summary_.get_index(data_set_label);
+	int p = op_registry_.nameToIndex(op_name);
+	int j = data_summary_.dataSetLabelToIndex(data_set_label);
 
 	Distribution wham_distribution_x_rebiased;
 	compute_consensus_f_x( order_parameters_[p], u_bias_as_other_, f_bias_opt_,
@@ -648,7 +649,7 @@ void Wham::compute_consensus_f_x(
 	minus_log_sigma_k_binned_.resize(num_bins_x);
 	for ( int b=0; b<num_bins_x; ++b ) {
 		minus_log_sigma_k_binned_[b].resize( 0 );
-		minus_log_sigma_k_binned_[b].reserve( x.get_time_series(0).size() );
+		minus_log_sigma_k_binned_[b].reserve( x.getTimeSeries(0).size() );
 	}
 
 	// Sort log(sigma_k)-values by bin
@@ -656,7 +657,7 @@ void Wham::compute_consensus_f_x(
 	double bin_size_x = bins_x.get_bin_size();
 	f_x_sort_timer_.start();
 	for ( int j=0; j<num_simulations; ++j ) {
-		const auto& x_j = x.get_time_series(j);
+		const auto& x_j = x.getTimeSeries(j);
 		int num_samples = x_j.size();
 		for ( int i=0; i<num_samples; ++i ) {
 			bin = bins_x.find_bin( x_j[i] );
@@ -703,8 +704,8 @@ void Wham::compute_consensus_f_x_y_unbiased(
 	std::vector<std::vector<int>>& sample_counts_x_y
 ) const
 {
-	int p = op_registry_.get_index(x_name);
-	int q = op_registry_.get_index(y_name);
+	int p = op_registry_.nameToIndex(x_name);
+	int q = op_registry_.nameToIndex(y_name);
 
 	compute_consensus_f_x_y( order_parameters_[p], order_parameters_[q], u_bias_as_other_, f_bias_opt_,
 	                         u_bias_as_other_unbiased_, f_unbiased_, 
@@ -753,7 +754,7 @@ void Wham::compute_consensus_f_x_y(
 	minus_log_sigma_k_binned_.resize(num_bins_total);
 	for ( int b=0; b<num_bins_total; ++b ) {
 		minus_log_sigma_k_binned_[b].resize( 0 );
-		minus_log_sigma_k_binned_[b].reserve( x.get_time_series(0).size()/10 );
+		minus_log_sigma_k_binned_[b].reserve( x.getTimeSeries(0).size()/10 );
 	}
 
 	// Sort log(sigma_k)-values by bin
@@ -764,8 +765,8 @@ void Wham::compute_consensus_f_x_y(
 	int bin_index;
 	f_x_y_sort_timer_.start();
 	for ( int j=0; j<num_simulations; ++j ) {
-		const auto& x_j = x.get_time_series(j);
-		const auto& y_j = y.get_time_series(j);
+		const auto& x_j = x.getTimeSeries(j);
+		const auto& y_j = y.getTimeSeries(j);
 		int num_samples = x_j.size();
 		for ( int i=0; i<num_samples; ++i ) {
 			bin_x = bins_x.find_bin(x_j[i]);
@@ -796,6 +797,7 @@ void Wham::compute_consensus_f_x_y(
 				f_x_y_wham[a][b] = normalization_factor - log_sum;
 				p_x_y_wham[a][b] = exp( -f_x_y_wham[a][b] );
 			}
+			
 			else {
 				f_x_y_wham[a][b] = 0.0;
 				p_x_y_wham[a][b] = 0.0;

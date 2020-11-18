@@ -1,11 +1,9 @@
-// OrderParameterRegistry
-// - Tracks the order parameters (OPs) present, and the origin of their time series data
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #pragma once
 #ifndef ORDER_PARAMETER_REGISTRY_H
 #define ORDER_PARAMETER_REGISTRY_H
 
-// Standard headers
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -14,11 +12,13 @@
 #include <string>
 #include <vector>
 
-// Project headers
 #include "DataSummary.h"
 #include "FileSystem.h"
 #include "InputParser.h"
 
+
+// OrderParameterRegistry
+// - Tracks the order parameters (OPs) present, and the origin of their time series data
 class OrderParameterRegistry
 {
  public:
@@ -26,7 +26,7 @@ class OrderParameterRegistry
 
 	OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary);
 
-	int get_index(const std::string& name) const {
+	int nameToIndex(const std::string& name) const {
 		auto pair_it = map_op_names_to_indices_.find( name );
 		if ( pair_it != map_op_names_to_indices_.end() ) {
 			return pair_it->second ;
@@ -39,42 +39,48 @@ class OrderParameterRegistry
 	std::size_t getNumberOfOrderParameters() const {
 		return names_.size();
 	}
-	const std::vector<std::string>& get_names() const { 
+	const std::vector<std::string>& getNames() const { 
 		return names_; 
 	}
 
 	// Access registry info by OP index
-	const std::string& get_name(const int p) const { 
+	const std::string& indexToName(const int p) const { 
 		return names_[p]; 
 	}
+
 	const std::vector<std::string>& get_time_series_files(const int p) const {
 		return time_series_files_[p];
 	}
-	int get_time_series_data_col(const int p) const {
+
+	int getTimeSeriesDataCol(const int p) const {
 		return data_columns_[p];
 	}
-	int get_time_series_file_col(const int p) const {
+
+	int getTimeSeriesFileCol(const int p) const {
 		return file_columns_[p];
 	}
 
 	// Access registry info by OP name
-	const std::vector<std::string>& get_time_series_files(const std::string& name) const {
-		return get_time_series_files( get_index(name) );
+	const std::vector<std::string>& getTimeSeriesFiles(const std::string& name) const {
+		return get_time_series_files( nameToIndex(name) );
 	}
-	int get_time_series_data_col(const std::string& name) const {
-		return get_time_series_data_col( get_index(name) );
+
+	int getTimeSeriesDataCol(const std::string& name) const {
+		return getTimeSeriesDataCol( nameToIndex(name) );
 	}
-	int get_time_series_file_col(const std::string& name) const {
-		return get_time_series_file_col( get_index(name) );
+
+	int getTimeSeriesFileCol(const std::string& name) const {
+		return getTimeSeriesFileCol( nameToIndex(name) );
 	}
 
 	// Get list of files by simulation index/data set label
-	const std::vector<std::string>& get_simulation_files(const int i) const {
+	const std::vector<std::string>& getSimulationFiles(const int i) const {
 		return simulation_files_[i];
 	}
-	const std::vector<std::string>& get_simulation_files(const std::string& data_set_label) const {
+
+	const std::vector<std::string>& getSimulationFiles(const std::string& data_set_label) const {
 		if ( data_summary_ptr_ != nullptr ) {
-			return get_simulation_files( data_summary_ptr_->get_index(data_set_label) );
+			return getSimulationFiles( data_summary_ptr_->dataSetLabelToIndex(data_set_label) );
 		}
 		else {
 			throw std::runtime_error("Error: OrderParameterRegistry does not have access to a DataSummary.");

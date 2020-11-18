@@ -1,7 +1,4 @@
-// OrderParameter.h
-// 
-// ABOUT: Organizes data and variables for a single order parameter 
-//        across multiple simulations
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks) 
 
 #ifndef ORDER_PARAMETER_H
 #define ORDER_PARAMETER_H
@@ -28,37 +25,47 @@
 #include "TimeSeries.h"
 #include "utils.h"
 
+// Organizes data and variables for a single order parameter 
+// across multiple simulations
 class OrderParameter
 {
  public:
-	using TimeSeriesPtr = Simulation::TimeSeriesPtr;
-	
 	OrderParameter(
 		const std::string& name,
 		const ParameterPack& input_pack,
 		std::vector<Simulation>& simulations
 	);
 
-	// Get functions
-	const std::string& get_name() const { return name_; }
-	const TimeSeries& get_time_series(const int j) const {
+
+	const std::string& getName() const {
+		return name_;
+	}
+
+	const TimeSeries& getTimeSeries(const int j) const {
 #ifdef DEBUG
 		assert( time_series_ptrs_[j] != nullptr );
 #endif // ifdef DEBUG
 		return *(time_series_ptrs_[j]);
 	}
-	const Bins& get_bins() const { return bins_; }
 
-	// Set functions
-	// - TODO: Check for consistency with #simulations
-	void set_simulations(std::vector<Simulation>& simulations);
-	void set_unbiased_distributions(const std::vector<Distribution>& unbiased_distributions) {
+	const Bins& get_bins() const {
+		return bins_;
+	}
+
+	// Sets the handle to the simulations to use
+	void setSimulations(std::vector<Simulation>& simulations);
+
+	// FIXME: cludgy to set this way
+
+	void setUnbiasedDistributions(const std::vector<Distribution>& unbiased_distributions) {
 		unbiased_distributions_ = unbiased_distributions;
 	}
-	void set_shifted_distributions(const std::vector<Distribution>& shifted_distributions) {
+
+	void setShiftedDistributions(const std::vector<Distribution>& shifted_distributions) {
 		shifted_distributions_ = shifted_distributions;
 	}
-	void set_rebiased_distributions(const std::vector<Distribution>& rebiased_distributions) {
+
+	void setRebiasedDistributions(const std::vector<Distribution>& rebiased_distributions) {
 		rebiased_distributions_ = rebiased_distributions;
 
 		// Entropy between biased and rebiased distributions
@@ -70,14 +77,15 @@ class OrderParameter
 			);
 		}
 	}
-	void set_wham_distribution(const Distribution& wham_distribution) {
+
+	void setWhamDistribution(const Distribution& wham_distribution) {
 		wham_distribution_ = wham_distribution;
 	}
 
 
 	//----- Printing Output -----//
 
-	// TODO rename
+	// TODO: rename
 	void printRawDistributions() const;
 
 	void printRebiasedDistributions(std::string file_name = "") const;
@@ -98,11 +106,11 @@ class OrderParameter
 	std::string name_;
 
 	std::vector<Simulation*> simulation_ptrs_;
-	//std::vector<Simulation>& simulations_;
+
 	Bins bins_;
 
 	// Time series data from each simulation
-	std::vector<TimeSeriesPtr> time_series_ptrs_;
+	std::vector<const TimeSeries*> time_series_ptrs_;
 
 	std::vector<Distribution> biased_distributions_;
 	std::vector<Distribution> unbiased_distributions_;

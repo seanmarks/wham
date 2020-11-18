@@ -45,3 +45,7 @@ gptl*.log*
 
 # Ignore image files in test directory
 test/**/*.png
+
+# VS code files
+.vscode
+*.code-workspace

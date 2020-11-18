@@ -1,4 +1,4 @@
-// DataSummary
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #pragma once
 #ifndef DATA_SUMMARY_H
@@ -24,31 +24,31 @@ class DataSummary
 		const ParameterPack& input_pack
 	);
 
-	std::size_t get_num_simulations() const { return data_set_labels_.size(); }
+	std::size_t getNumSimulations() const { return data_set_labels_.size(); }
 
 	// Data for all simulations
 	const std::vector<double>& get_t_min() const { return t_min_; }
 	const std::vector<double>& get_t_max() const { return t_max_; }
-	const std::vector<std::string>& get_data_set_labels() const { return data_set_labels_; }
+	const std::vector<std::string>& getDataSetLabels() const { return data_set_labels_; }
 
 	// Data for an individual simulation (by index)
 	double get_t_min(const int i) const { return t_min_[i]; }
 	double get_t_max(const int i) const { return t_max_[i]; }
-	const std::string& get_data_set_label(const int i) const { return data_set_labels_[i]; }
+	const std::string& indexToDataSetLabel(const int i) const { return data_set_labels_[i]; }
 
 	// Data for an individual simulation (by data_set_label)
 	double get_t_min(const std::string& data_set_label) const {
-		return get_t_min( get_index(data_set_label) );
+		return get_t_min( dataSetLabelToIndex(data_set_label) );
 	}
 	double get_t_max(const std::string& data_set_label) const {
-		return get_t_max( get_index(data_set_label) );
+		return get_t_max( dataSetLabelToIndex(data_set_label) );
 	}
 	const std::string& get_data_set_label(const std::string& data_set_label) const {
-		return get_data_set_label( get_index(data_set_label) );
+		return indexToDataSetLabel( dataSetLabelToIndex(data_set_label) );
 	}
 
 	// Given a data set label, return the corresponding index in the data summary
-	int get_index(const std::string& data_set_label) const {
+	int dataSetLabelToIndex(const std::string& data_set_label) const {
 		auto pair_it = map_data_set_labels_to_indices_.find( data_set_label );
 		if ( pair_it != map_data_set_labels_to_indices_.end() ) {
 			return pair_it->second ;

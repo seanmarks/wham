@@ -1,3 +1,4 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "OrderParameterRegistry.h"
 
 
@@ -23,7 +24,7 @@ OrderParameterRegistry::OrderParameterRegistry(const ParameterPack& input_pack, 
 	data_columns_.resize(num_ops);
 	file_columns_.resize(num_ops);
 
-	const int num_simulations = data_summary.get_num_simulations();
+	const int num_simulations = data_summary.getNumSimulations();
 
 	std::string name;
 	int file_col, data_col;

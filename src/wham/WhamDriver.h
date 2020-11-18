@@ -1,35 +1,9 @@
-/* WhamDriver.h
- *
- * ABOUT: Implements the Unbinned Weighted Histogram Analysis Method (UWHAM) in N dimensions
- *   - Equations are solved using log-likelihood maximation approach
- *     - See Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
- *   - See also:
- *     - Zhu & Hummer (J. Comp. Chem. 2011)
- *     - Souaille & Roux (Comp. Phys. Comm. 2001)
- * NOTES:
- *   - "x" and "y" are generic names for the order parameters in question
- *   - All energies are in units of k_B*T unless otherwise noted
- * TODO
- *   - Allow u_bias-values as input
- *   - Check for internal consistency: 
- *     - all time series for all order parameters
- *     - biasing parameters
- *
- * INPUT: (TODO update)
- *   1. wham_options.input
- *      - Key-value pairs
- *
- *   2. data_summary.input
- *      - Each line corresponds to a data set, and usually takes the following form:
- *          <data_set_label>  <time_series_file(relpath)>  <xtc_file(relpath)>  <t0>  <tf>
- *      - Each time series file contains the following columns:
- */
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #pragma once
 #ifndef WHAM_DRIVER_H
 #define WHAM_DRIVER_H
 
-// Standard headers
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -39,7 +13,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
-#include <memory>    // unique_ptr
+#include <memory>
 #include <numeric>
 #include <sstream>
 #include <string>
@@ -65,6 +39,23 @@
 #include "Random.h"
 #include "Simulation.h"
 #include "Wham.h"
+
+// Implements the Unbinned Weighted Histogram Analysis Method (UWHAM)
+// - Equations are solved using log-likelihood maximation approach
+//   - See Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
+// - See also:
+//   - Zhu & Hummer (J. Comp. Chem. 2011)
+//   - Souaille & Roux (Comp. Phys. Comm. 2001)
+//
+// NOTES:
+// - "x" and "y" are generic names for the order parameters in question
+// - All energies are in units of k_B*T unless otherwise noted
+//
+// TODO:
+// - Allow u_bias-values as input
+// - Check for internal consistency: 
+//   - all time series for all order parameters
+//   - biasing parameters
 
 class WhamDriver
 {
@@ -130,6 +121,10 @@ class WhamDriver
 
 	// OP indices for F(x,y) to print
 	std::vector<std::array<int,2>> output_f_x_y_;
+
+	// Determine which outputs to compute and print
+	// - ex. F(x) and F(x,y) for different OPs x and/or y
+	void parseOutputs(const ParameterPack& input_pack);
 
 
 	//----- Output Files -----//
