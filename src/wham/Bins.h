@@ -38,8 +38,8 @@ class Bins
 
 	int    get_num_bins() const { return num_bins_; };
 	double get_bin_size() const { return bin_size_; };
-	//std::vector<double> get_bins() const { return bins_; };
-	const std::vector<double>& get_bins() const { return bins_; };
+	//std::vector<double> getBins() const { return bins_; };
+	const std::vector<double>& getBins() const { return bins_; };
 
 	void set_bins(
 		const double min, 

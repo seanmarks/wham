@@ -17,7 +17,7 @@
 #include <random>
 
 #include "Random.h"
-#include "utils.h"
+#include "Assert.hpp"
 
 class BootstrapSubsampler
 {

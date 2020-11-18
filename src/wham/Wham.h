@@ -64,7 +64,6 @@ class Wham
 		const std::vector<Simulation>& simulations,
 		const std::vector<OrderParameter>& order_parameters,
 		const std::vector<Bias>& biases,
-		//const std::vector<std::vector<double>>& u_bias_as_other,
 		const std::vector<double>& f_bias_guess,
 		const double tol
 	);
@@ -88,21 +87,43 @@ class Wham
 	const std::vector<double>& get_f_bias_opt()       const { return f_bias_opt_;       }
 	const std::vector<double>& get_error_f_bias_opt() const { return error_f_bias_opt_; }
 
+	// Total number of samples, across all simulations
+	int getNumSamplesTotal() const noexcept {
+		return num_samples_total_;
+	}
+
+	const std::vector<Simulation>& getSimulationData() const noexcept {
+		return simulations_;
+	}
+	const std::vector<std::pair<int,int>>& getSimulationDataRanges() const noexcept {
+		return simulation_data_ranges_;
+	}
+
+	// Returns the log of the simulation-independent factors, \hat{D}(x_n)
+	//   \hat{D}(x_n) = \sum{k=1}^{K} N_k * exp[f_k - u_k(x_n)]
+	const std::vector<double>& get_log_dhat_opt() const {
+		return log_dhat_;
+	}
+
 	// "Manually" unbias the distributions for the given OrderParameter (i.e. using only
 	// each individual simulation's data, not the consensus estimates)
 	std::vector<Distribution> manuallyUnbiasDistributions(const std::string& op_name) const;
+	
+	// TODO: move to separate class
 
-	// TODO: descriptions
+	// Compute the unbiased consensus distribution, F_0^{WHAM}(x)
 	Distribution compute_consensus_f_x_unbiased(
 		const std::string& op_name
 	) const;
 
+	// Compute the consensus distribution, F_k^{WHAM}(x), where 'k' is the ensemble
+	// with the given data set label
 	Distribution compute_consensus_f_x_rebiased(
 		const std::string& op_name,
 		const std::string& data_set_label
 	) const;
 
-	// TODO descriptions
+	// TODO: descriptions
 	void compute_consensus_f_x_y_unbiased(
 		const std::string& x_name,
 		const std::string& y_name,
@@ -162,14 +183,14 @@ class Wham
 
 	//----- Working Variables -----//
 
-	// TODO: document
+	// Ensemble-independent weights
 	std::vector<double> log_dhat_;
 
 	// Matrix of weights
+	// - Size: (N, K) = (num_samples_total, num_simulations)
 	Matrix w_;
 
-	Matrix wT_w_;
-
+	mutable Matrix wT_w_;
 	mutable std::vector<double> log_dhat_tmp_;
 
 
@@ -265,18 +286,6 @@ class Wham
 	// of each sample evaluated in that ensemble
 	double compute_consensus_f_k(
 		const std::vector<double>& u_bias_as_k
-	) const;
-
-	// Compute the consensus distribution F_k^{WHAM}(x), where k is the index
-	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
-	void compute_consensus_f_x(
-		const OrderParameter& x,
-		const std::vector<std::vector<double>>& u_bias_as_other,
-		const std::vector<double>&              f_opt,  // consensus free energies to use
-		const std::vector<double>&              u_bias_as_k,
-		const double                            f_k,
-		// Consensus distribution for x in ensemble k
-		Distribution& wham_distribution_x
 	) const;
 
 	// Compute the consensus distribution F_k^{WHAM}(x,y), where k is the index

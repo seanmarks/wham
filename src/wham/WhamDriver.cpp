@@ -224,7 +224,7 @@ void WhamDriver::run_driver()
 		for ( int i=0; i<num_output_f_x; ++i ) {
 			OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 
-			int num_bins_x = x.get_bins().get_num_bins();
+			int num_bins_x = x.getBins().get_num_bins();
 			bootstrap_samples_f_x[i].resize(num_bins_x);
 
 			for ( int b=0; b<num_bins_x; ++b ) {
@@ -283,7 +283,7 @@ void WhamDriver::run_driver()
 				OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 				auto bootstrap_f_x = bootstrap_wham.compute_consensus_f_x_unbiased( x.getName() );
 
-				int num_bins_x = x.get_bins().get_num_bins();
+				int num_bins_x = x.getBins().get_num_bins();
 				for ( int b=0; b<num_bins_x; ++b ) {
 					// Only save this sample for if F(x) if its value is finite (i.e. bin has samples in it)
 					// - Otherwise, statistics over the samples will be corrupted
@@ -357,7 +357,7 @@ void WhamDriver::run_driver()
 		// F_WHAM(x)
 		auto wham_distribution = wham.compute_consensus_f_x_unbiased( x.getName() );
 		if ( calc_error and error_method_ == ErrorMethod::Bootstrap ) {
-			int num_bins_x = x.get_bins().get_num_bins();
+			int num_bins_x = x.getBins().get_num_bins();
 			std::vector<double> err_f_x(num_bins_x);
 			for ( int b=0; b<num_bins_x; ++b ) {
 				if ( bootstrap_samples_f_x[i][b].get_num_samples() >= 2 ) {
@@ -421,8 +421,8 @@ void WhamDriver::print_f_x_y(
 ) const
 {
 	// Working variables
-	const Bins& bins_x = x.get_bins();
-	const Bins& bins_y = y.get_bins();
+	const Bins& bins_x = x.getBins();
+	const Bins& bins_y = y.getBins();
 	int num_bins_x = bins_x.get_num_bins();
 	int num_bins_y = bins_y.get_num_bins();
 	std::string file_name, sep;
@@ -435,7 +435,7 @@ void WhamDriver::print_f_x_y(
 		ofs.open(file_name);
 		ofs << "# Bins for " << op_ptrs[i]->getName() << " for F_WHAM(" << x.getName() << "," << y.getName() << ")\n"
 				<< "# " << op_ptrs[i]->getName() << "\n";
-		const auto& bins = op_ptrs[i]->get_bins();
+		const auto& bins = op_ptrs[i]->getBins();
 		int num_bins = bins.get_num_bins();
 		for ( int j=0; j<num_bins; ++j ) {
 			ofs << bins[j]  << "\n";

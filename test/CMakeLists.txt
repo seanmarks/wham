@@ -68,6 +68,7 @@ foreach(TEST_NAME IN LISTS OPENMP_TESTS)
 	set(TEST_DIR ${TEST_DIR_ROOT}/${TEST_NAME})
 	add_test(NAME ${TEST_NAME}
 					 COMMAND ${BASH_PROGRAM} ${TEST_DRIVER_SCRIPT} -e ${PROGRAM_PATH} -d ${TEST_DIR} ${ECHO_FAILED_DIFFS}
-	                 -nt ${OMP_NUM_THREADS}
+									 -nt ${OMP_NUM_THREADS}
+									 #--valgrind
 					 )
 endforeach()

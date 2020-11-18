@@ -1,5 +1,6 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "Wham.h"
+#include "Estimator_F_x.hpp"
 
 
 Wham::Wham(
@@ -127,7 +128,7 @@ void Wham::evaluateBiases()
 }
 
 
-// TODO add toggle for be_verbose
+// TODO: add toggle for be_verbose
 std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_guess)
 {
 	bool be_verbose = false;
@@ -163,7 +164,7 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 	// Set the free energy for the *unbiased* ensemble as the zero point instead.
 	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );
 	/*
-	FIXME worth it?
+	FIXME: worth it?
 	double delta_f = compute_consensus_f_k( u_bias_as_other_unbiased_ ); 
 	for ( int i=0; i<num_simulations; ++i ) {
 		f_bias_opt_[i] -= delta_f;
@@ -290,10 +291,6 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 	//     subsets of data in compute_consensus_f_* functions
 	//   - Maybe use a wrapper: "compute_log_dhat_all_data" ?
 	if ( f != f_bias_last_ ) {  
-		/*
-		compute_log_sigma( u_bias_as_other_, f, u_bias_as_other_unbiased_, f_unbiased_,
-		                   log_sigma_unbiased_ );
-		*/
 		compute_log_dhat( u_bias_as_other_, f, log_dhat_tmp_ );
 		f_bias_last_ = f;
 	}
@@ -416,7 +413,7 @@ void Wham::compute_log_dhat(
 	std::vector<double>& log_dhat
 ) const
 {
-	// TODO input checks
+	// TODO: input checks
 
 	log_dhat_timer_.start();
 
@@ -429,23 +426,20 @@ void Wham::compute_log_dhat(
 
 	// Compute log(dhat(x_n)) for each sample 'n'
 	int num_samples_total = u_bias_as_other[0].size();
-	//int num_samples_total = num_samples_total_;
 	log_dhat.resize(num_samples_total);
 	#pragma omp parallel
 	{
 		std::vector<double> args(num_biases);
 
+		log_dhat_omp_timer_.start();
 		#pragma omp for schedule(static,8)
 		for ( int n=0; n<num_samples_total; ++n ) {
-			log_dhat_omp_timer_.start();
-
 			for ( int r=0; r<num_biases; ++r ) {
 				args[r] = common_terms[r] - u_bias_as_other[r][n];
 			}
 			log_dhat[n] = log_sum_exp( args );
-
-			log_dhat_omp_timer_.stop();
 		}
+		log_dhat_omp_timer_.stop();
 	}
 
 	log_dhat_timer_.stop();
@@ -464,11 +458,11 @@ double Wham::log_sum_exp(const std::vector<double>& args) const
 	double sum = 0.0;
 	#pragma omp simd reduction(+: sum)
 	for ( int i=0; i<num_args; ++i ) {
-		sum += exp(args[i] - max_arg);
+		sum += std::exp(args[i] - max_arg);
 	}
 
 	// Since exp(max_arg) might be huge, return log(sum_exp) instead of sum_exp
-	double log_sum_exp_out = max_arg + log(sum);
+	double log_sum_exp_out = max_arg + std::log(sum);
 	log_sum_exp_timer_.stop();
 
 	return log_sum_exp_out;
@@ -525,7 +519,7 @@ std::vector<Distribution> Wham::manuallyUnbiasDistributions(const std::string& o
 		}
 
 		// Unbiased results, using only data from this simulation
-		manually_unbias_f_x( samples, u_bias_tmp, 0.0, x.get_bins(),
+		manually_unbias_f_x( samples, u_bias_tmp, 0.0, x.getBins(),
 				                 unbiased_distributions[i] );
 	}
 
@@ -533,7 +527,7 @@ std::vector<Distribution> Wham::manuallyUnbiasDistributions(const std::string& o
 }
 
 
-// TODO way to merge with compute_consensus_f_x?
+// TODO: way to merge with compute_consensus_f_x?
 void Wham::manually_unbias_f_x(
 	const TimeSeries& x, const std::vector<double>& u_bias, const double f,
 	const Bins& bins_x,
@@ -586,11 +580,12 @@ void Wham::manually_unbias_f_x(
 }
 
 
+
 double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
 {
 	FANCY_ASSERT( static_cast<int>(u_bias_as_k.size()) == num_samples_total_, "size mismatch" );
 
-	// TODO optional OpenMP switch?
+	// TODO: optional OpenMP switch?
 	std::vector<double> args(num_samples_total_);
 	#pragma omp parallel for schedule(static, 8)
 	for ( int n=0; n<num_samples_total_; ++n ) {
@@ -607,11 +602,9 @@ Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) co
 {
 	int p = op_registry_.nameToIndex(op_name);
 
-	Distribution wham_distribution_x;
-	compute_consensus_f_x( order_parameters_[p], u_bias_as_other_, f_bias_opt_,
-	                       u_bias_as_other_unbiased_, f_unbiased_, wham_distribution_x );
-
-	return wham_distribution_x;
+	Estimator_F_x est_f_x(order_parameters_[p]);
+	est_f_x.calculate(*this, u_bias_as_other_unbiased_, f_unbiased_);
+	return est_f_x.get_f_x();
 }
 
 
@@ -621,81 +614,11 @@ Distribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, co
 	int p = op_registry_.nameToIndex(op_name);
 	int j = data_summary_.dataSetLabelToIndex(data_set_label);
 
-	Distribution wham_distribution_x_rebiased;
-	compute_consensus_f_x( order_parameters_[p], u_bias_as_other_, f_bias_opt_,
-	                       u_bias_as_other_[j], f_bias_opt_[j], wham_distribution_x_rebiased );
-
-	return wham_distribution_x_rebiased;
+	Estimator_F_x est_f_x(order_parameters_[p]);
+	est_f_x.calculate(*this, u_bias_as_other_[j], f_bias_opt_[j]);
+	return est_f_x.get_f_x();
 }
 
-
-void Wham::compute_consensus_f_x(
-	const OrderParameter& x,
-	const std::vector<std::vector<double>>& u_bias_as_other,	const std::vector<double>& f_bias_opt,
-	const std::vector<double>& u_bias_as_k, const double f_bias_k,
-	// Output
-	Distribution& wham_distribution_x
-) const
-{
-	f_x_timer_.start();
-
-	const auto& bins_x = x.get_bins();
-
-	// Compute log(sigma_k) using the buffer, since the array can be quite large
-	compute_log_sigma(u_bias_as_other, f_bias_opt, u_bias_as_k, f_bias_k, log_sigma_k_);
-
-	// Reserve some memory for binning samples
-	int num_bins_x = bins_x.get_num_bins();
-	minus_log_sigma_k_binned_.resize(num_bins_x);
-	for ( int b=0; b<num_bins_x; ++b ) {
-		minus_log_sigma_k_binned_[b].resize( 0 );
-		minus_log_sigma_k_binned_[b].reserve( x.getTimeSeries(0).size() );
-	}
-
-	// Sort log(sigma_k)-values by bin
-	int bin, sample_index, num_simulations = simulations_.size();
-	double bin_size_x = bins_x.get_bin_size();
-	f_x_sort_timer_.start();
-	for ( int j=0; j<num_simulations; ++j ) {
-		const auto& x_j = x.getTimeSeries(j);
-		int num_samples = x_j.size();
-		for ( int i=0; i<num_samples; ++i ) {
-			bin = bins_x.find_bin( x_j[i] );
-			if ( bin >= 0 ) {
-				sample_index = simulation_data_ranges_[j].first + i;  
-				minus_log_sigma_k_binned_[bin].push_back( -log_sigma_k_[sample_index] );
-			}
-		}
-	}
-	f_x_sort_timer_.stop();
-
-	// Unpack for readability
-	std::vector<double>& p_x_wham      = wham_distribution_x.p_x;
-	std::vector<double>& f_x_wham      = wham_distribution_x.f_x;
-	std::vector<int>&    sample_counts = wham_distribution_x.sample_counts;
-
-	wham_distribution_x.bins_x = bins_x;
-
-	// Compute
-	f_x_wham.resize(num_bins_x);
-	p_x_wham.resize(num_bins_x);
-	sample_counts.resize(num_bins_x);
-	#pragma omp parallel for //schedule(static,8)
-	for ( int b=0; b<num_bins_x; ++b ) {
-		sample_counts[b] = minus_log_sigma_k_binned_[b].size();
-		if ( sample_counts[b] > 0 ) {
-			double log_sum = log_sum_exp( minus_log_sigma_k_binned_[b] );
-			f_x_wham[b] = -log(inv_num_samples_total_/bin_size_x) - log_sum;
-			p_x_wham[b] = exp( -f_x_wham[b] );
-		}
-		else {
-			f_x_wham[b] = 0.0;
-			p_x_wham[b] = 0.0;
-		}
-	}
-
-	f_x_timer_.stop();
-}
 
 
 void Wham::compute_consensus_f_x_y_unbiased(
@@ -733,8 +656,8 @@ void Wham::compute_consensus_f_x_y(
 	// Compute weight factors
 	compute_log_sigma(u_bias_as_other, f_bias_opt, u_bias_as_k, f_bias_k, log_sigma_k_);
 
-	const auto& bins_x = x.get_bins();
-	const auto& bins_y = y.get_bins();
+	const auto& bins_x = x.getBins();
+	const auto& bins_y = y.getBins();
 	int num_bins_x = bins_x.get_num_bins();
 	int num_bins_y = bins_y.get_num_bins();
 	int num_bins_total = num_bins_x*num_bins_y;
@@ -759,7 +682,7 @@ void Wham::compute_consensus_f_x_y(
 
 	// Sort log(sigma_k)-values by bin
 	//sample_bins_.resize(num_samples_total);
-	// TODO parallelize sorting?
+	// TODO: parallelize sorting?
 	int sample_index, bin_x, bin_y;
 	int num_simulations = simulations_.size();
 	int bin_index;

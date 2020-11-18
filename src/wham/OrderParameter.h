@@ -23,10 +23,11 @@
 #include "InputParser.h"
 #include "Simulation.h"
 #include "TimeSeries.h"
-#include "utils.h"
+#include "Assert.hpp"
 
 // Organizes data and variables for a single order parameter 
 // across multiple simulations
+// - TODO: remove storage of time series data?
 class OrderParameter
 {
  public:
@@ -48,7 +49,7 @@ class OrderParameter
 		return *(time_series_ptrs_[j]);
 	}
 
-	const Bins& get_bins() const {
+	const Bins& getBins() const {
 		return bins_;
 	}
 

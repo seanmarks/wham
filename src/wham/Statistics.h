@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "utils.h"
+#include "Assert.hpp"
 
 #ifndef STATISTICS_H
 #define STATISTICS_H

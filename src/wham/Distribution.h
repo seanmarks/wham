@@ -13,9 +13,14 @@
 #include "Bins.h"
 #include "TimeSeries.h"
 
+// 1-D free energy distribution, F(x)
+// TODO:
+// - Better interface
 class Distribution {
  public:
 	//----- Data -----//
+
+	using VectorReal = std::vector<double>;
 
 	Bins                bins_x;
 	std::vector<double> f_x, error_f_x;
@@ -27,9 +32,21 @@ class Distribution {
 
 	Distribution();
 
+
+
 	Distribution(const Bins& bins_x_in);
 
 	Distribution(const Bins& bins_x_in, const TimeSeries& time_series_x);
+	
+	
+	Distribution(
+		const Bins& bins_x_in,  
+		const VectorReal& f_x_in, const VectorReal& p_x_in, const std::vector<int>& samples
+	):
+		bins_x(bins_x_in), f_x(f_x_in), p_x(p_x_in), sample_counts(samples)
+	{
+		// TODO: check for consistency of lengths
+	}
 
 	void print(
 		const std::string& file, 

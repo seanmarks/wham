@@ -11,7 +11,7 @@
 #include "DataSummary.h"
 #include "OrderParameterRegistry.h"
 #include "TimeSeries.h"
-#include "utils.h"
+#include "Assert.hpp"
 
 // Stores time series data and settings corresponding to a single simulation (ensemble)
 class Simulation 
@@ -53,11 +53,18 @@ class Simulation
 		}
 	}
 
-	// Returns a raw (non-owning) handle to the time series
-	const TimeSeries* copyTimeSeriesPtr(const std::string& op_name) const {
+	// Access the time series for the given OP
+	// - Throws if the OP does is not registered
+	const TimeSeries& getTimeSeriesForOrderParameter(const std::string& op_name) const {
 		FANCY_ASSERT(op_registry_ptr_ != nullptr, "order parameter registry is missing");
-		int op_index = op_registry_ptr_->nameToIndex(op_name);
-		return &(time_series_[op_index]);
+		const int op_index = op_registry_ptr_->nameToIndex(op_name);
+		return time_series_[op_index];
+	}
+
+	// Returns a raw (non-owning) handle to the time series of the given OP
+	const TimeSeries* copyTimeSeriesPtr(const std::string& op_name) const {
+		const auto& time_series = getTimeSeriesForOrderParameter(op_name);
+		return &time_series;
 	}
 
 	void setShuffledFromOther(const Simulation& other, const std::vector<int>& indices);

@@ -1,12 +1,34 @@
-# Locate source files
-file(GLOB_RECURSE LIB_WHAM_SRC "${CMAKE_CURRENT_LIST_DIR}/*.cpp" "${CMAKE_CURRENT_LIST_DIR}/*.h")
 
 # Declare library
-add_library(${LIB_WHAM} ${LIB_WHAM_SRC})
+add_library(${LIB_WHAM} "")
+
+target_sources(${LIB_WHAM}
+	PRIVATE
+		Bias.cpp
+		Bins.cpp
+		BootstrapSubsampler.cpp
+		DataSummary.cpp
+		Distribution.cpp
+		Estimator_F_x.cpp
+		FileSystem.cpp
+		GptlWrappers.cpp
+		InputParser.cpp
+		OpenMP.cpp
+		OrderParameter.cpp
+		OrderParameterRegistry.cpp
+		Random.cpp
+		Simulation.cpp
+		Stacktrace.cpp
+		Statistics.cpp
+		StringTools.cpp
+		System.cpp
+		TimeSeries.cpp
+		Wham.cpp
+		WhamDlibWrappers.cpp
+		WhamDriver.cpp
+	)
 
 # dlib
-#target_include_directories(${LIB_WHAM} PUBLIC ${dlib_INCLUDE_DIRS})
-#target_link_libraries(${LIB_WHAM} PUBLIC ${dlib_LIBRARIES})
 target_include_directories(${LIB_WHAM} PUBLIC dlib::dlib)
 target_link_libraries(${LIB_WHAM} PUBLIC dlib::dlib)
 

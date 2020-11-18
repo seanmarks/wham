@@ -23,6 +23,10 @@ num_threads=1
 input_file="wham_options.input"
 output_files_log="output_files_to_check.input"
 
+# Debugging
+use_valgrind=0
+
+
 ### Parse Input ###
 
 # Save positional args
@@ -53,6 +57,10 @@ while [[ $# -gt 0 ]]; do
 		echo_failed_diffs=1
 		shift;
 		;;
+	--valgrind)
+		use_valgrind=1
+		shift;
+		;;
 	### Other ###
 	*)
 		# Save positional args
@@ -76,6 +84,11 @@ elif [[ ! $( command -v $program ) ]]; then
 	echo "(input: $program)"
 	exit 1
 fi
+
+if [[ $use_valgrind -eq 1 ]]; then
+	program="valgrind $program"
+fi
+
 
 if [[ ! -d $test_dir ]]; then
 	echo "FAILED: couldn't find test directory"
