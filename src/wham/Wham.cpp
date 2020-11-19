@@ -1,7 +1,9 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "Wham.h"
+
 #include "Estimator_F_x.hpp"
 #include "Estimator_F_x_y.hpp"
+#include "LogSumExp.hpp"
 
 
 Wham::Wham(
@@ -366,23 +368,10 @@ void Wham::compute_log_dhat(
 double Wham::logSumExp(const std::vector<double>& args) const
 {
 	log_sum_exp_timer_.start();
-
-	int num_args = static_cast<int>( args.size() );
-	FANCY_ASSERT( num_args > 0, "no arguments supplied" );
-
-	// Compute sum of exp(args[i] - max_arg)
-	double max_arg = *std::max_element( args.begin(), args.end() );
-	double sum = 0.0;
-	#pragma omp simd reduction(+: sum)
-	for ( int i=0; i<num_args; ++i ) {
-		sum += std::exp(args[i] - max_arg);
-	}
-
-	// Since exp(max_arg) might be huge, return log(sum_exp) instead of sum_exp
-	double log_sum_exp_out = max_arg + std::log(sum);
+	double sum = numeric::logSumExp(args);
 	log_sum_exp_timer_.stop();
 
-	return log_sum_exp_out;
+	return sum;
 }
 
 
@@ -444,6 +433,35 @@ std::vector<FreeEnergyDistribution> Wham::manuallyUnbiasDistributions(const std:
 }
 
 
+Wham::Vector<Wham::Vector<double>> Wham::computeUnbiasedNonConsensusLogWeights() const
+{
+	const int num_simulations = simulations_.size();
+	Vector<Vector<double>> log_w(num_simulations);
+	for ( int i=0; i<num_simulations; ++i ) {
+		const int num_samples = simulations_[i].getNumSamples();
+		log_w[i].resize(num_samples);
+	}
+
+	#pragma omp parallel
+	{
+		for ( int i=0; i<num_simulations; ++i ) {			
+			const int num_samples = simulations_[i].getNumSamples();
+			const double log_N_i = std::log(num_samples);
+
+			const auto& u_bias_ens_i = u_bias_as_other_[i];
+			const int offset = simulation_data_ranges_[i].first;
+			#pragma omp for simd schedule(simd:static)
+			for ( int n=0; n<num_samples; ++n ) {
+				log_w[i][n] = u_bias_ens_i[offset + n] - log_N_i;
+			}
+		}
+	}
+
+	return log_w;
+}
+
+
+
 // TODO: way to merge with compute_consensus_f_x?
 void Wham::manually_unbias_f_x(
 	const TimeSeries& x, const std::vector<double>& u_bias, const double f,
@@ -471,7 +489,7 @@ void Wham::manually_unbias_f_x(
 	// Compute and sort log(sigma_k)-values by bin
 	int bin;
 	for ( int i=0; i<num_samples; ++i ) {
-		bin = bins_x.find_bin( x[i] );
+		bin = bins_x.findBin( x[i] );
 		if ( bin >= 0 ) {
 			minus_log_sigma_k_binned_[bin].push_back( u_bias[i] - f );
 		}

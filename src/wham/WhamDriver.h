@@ -40,6 +40,10 @@
 #include "Simulation.h"
 #include "Wham.h"
 
+#include "Estimator_F_x.hpp"
+#include "Estimator_F_x_y.hpp"
+
+
 // Implements the Unbinned Weighted Histogram Analysis Method (UWHAM)
 // - Equations are solved using log-likelihood maximation approach
 //   - See Tan, Gallicchio, Lapelosa, & Levy (J. Chem. Phys. 2012)
@@ -56,7 +60,6 @@
 // - Check for internal consistency: 
 //   - all time series for all order parameters
 //   - biasing parameters
-
 class WhamDriver
 {
  public:
@@ -119,11 +122,11 @@ class WhamDriver
 	bool be_verbose_ = false;  // extra feedback
 	bool be_quiet_   = false;  // minimal/no feedback
 
-	// OP indices for F(x) to print
-	std::vector<int> output_f_x_;
+	// F(x) to compute
+	std::vector<Estimator_F_x> output_f_x_;
 
-	// OP indices for F(x,y) to print
-	std::vector<std::array<int,2>> output_f_x_y_;
+	// F(x,y) to compute
+	std::vector<Estimator_F_x_y> output_f_x_y_;
 
 	// Determine which outputs to compute and print
 	// - ex. F(x) and F(x,y) for different OPs x and/or y

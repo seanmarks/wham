@@ -22,7 +22,7 @@ FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in, const Time
 	int bin;
 	int num_samples = time_series_x.size();
 	for ( int i=0; i<num_samples; ++i ) {
-		bin = bins_x.find_bin( time_series_x[i] );
+		bin = bins_x.findBin( time_series_x[i] );
 		if ( bin >= 0 ) {
 			++( sample_counts[bin] );
 		}

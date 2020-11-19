@@ -10,12 +10,15 @@
 #include "OrderParameterRegistry.h"
 #include "WhamEstimator.hpp"
 
+
 // Estimate a consensus 2D free energy distribution, F(x,y), using WHAM results
 class Estimator_F_x_y : public WhamEstimator
 {
  public:
   template<typename T>
   using Matrix = FreeEnergyDistribution2D::Matrix<T>;
+
+  Estimator_F_x_y() = delete;
 
   Estimator_F_x_y(
     const OrderParameter& x,
@@ -27,8 +30,22 @@ class Estimator_F_x_y : public WhamEstimator
     return f_x_y_;
   }
 
-  // TODO: modifier to decide where files go?
+  // Saves the estimate to files with standard names
+  // - TODO:
+  //   - modifier to decide where files go?
+  //   - separate functions for each file?
   void saveResults() const;
+
+  // Returns a handle to the first order parameter, 'x'
+  const OrderParameter& get_x() const {
+    return x_;
+  }
+
+  // Returns a handle to the second order parameter, 'y'
+  const OrderParameter& get_y() const {
+    return y_;
+  }
+  
 
  protected:
   virtual

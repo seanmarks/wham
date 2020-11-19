@@ -15,6 +15,7 @@ target_sources(${LIB_WHAM}
 		FreeEnergyDistribution2D.cpp
 		GptlWrappers.cpp
 		InputParser.cpp
+		ManuallyUnbiasedDistributions.cpp
 		OpenMP.cpp
 		OrderParameter.cpp
 		OrderParameterRegistry.cpp

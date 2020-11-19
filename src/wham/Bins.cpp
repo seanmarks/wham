@@ -4,26 +4,26 @@ Bins::Bins():
 	min_(0.0), max_(0.0), num_bins_(0), 
 	bin_style_(BinStyle::Left) 
 {
-	set_bins(min_, max_, num_bins_, bin_style_);
+	setBins(min_, max_, num_bins_, bin_style_);
 }
 
 
 Bins::Bins(
 	const double min, const double max, const int num_bins, const BinStyle& bin_style)
 {
-	set_bins(min, max, num_bins, bin_style);
+	setBins(min, max, num_bins, bin_style);
 }
 
 
 Bins::Bins(const ParameterPack& input_pack)
  : bin_style_(BinStyle::Left)
 {
-	set_bins(input_pack);
+	setBins(input_pack);
 }
 
 
 
-void Bins::set_bins(
+void Bins::setBins(
 	const double min, const double max, const int num_bins, const BinStyle& bin_style)
 {
 	// Check input
@@ -64,7 +64,7 @@ void Bins::set_bins(
 	}
 }
 
-void Bins::set_bins(const ParameterPack& input_pack)
+void Bins::setBins(const ParameterPack& input_pack)
 {
 	using KeyType = ParameterPack::KeyType;
 
@@ -83,11 +83,11 @@ void Bins::set_bins(const ParameterPack& input_pack)
 		bin_style = parseBinStyle(token);
 	}
 
-	set_bins(x_range[0], x_range[1], num_bins, bin_style);
+	setBins(x_range[0], x_range[1], num_bins, bin_style);
 }
 
 
-int Bins::find_bin(const double x) const 
+int Bins::findBin(const double x) const 
 {
 	int bin = static_cast<int>(floor( (x - min_)/bin_size_ ));
 	if ( (bin >= 0) and (bin <= num_bins_) and (x <= max_) ) {

@@ -41,18 +41,19 @@ class Bins
 	//std::vector<double> getBins() const { return bins_; };
 	const std::vector<double>& getBins() const { return bins_; };
 
-	void set_bins(
+	void setBins(
 		const double min, 
 		const double max, 
 		const int num_bins,
 		const BinStyle& bin_style
 	);
 
-	void set_bins(const ParameterPack& input_pack);
+	void setBins(const ParameterPack& input_pack);
 
 	// Returns the index of the appropriate bin for x (>=0),
 	// else returns -1
-	int find_bin(const double x) const;
+	int findBin(const double x) const;
+
 
 	//----- Operators ----//
 

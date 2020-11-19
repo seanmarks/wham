@@ -139,6 +139,12 @@ class Wham
 	// - TODO: move to separate class
   std::vector<FreeEnergyDistribution> manuallyUnbiasDistributions(const std::string& op_name) const;
 
+	// Size: (K, N_j) = (num_simulations x num_samples)
+	//Matrix<double>
+	template<typename T>
+	using Vector = std::vector<T>;
+	Vector<Vector<double>> computeUnbiasedNonConsensusLogWeights() const;
+
  private:
   // Objects owned by the driver
   const OrderParameterRegistry&      op_registry_;

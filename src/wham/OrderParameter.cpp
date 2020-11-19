@@ -15,7 +15,7 @@ OrderParameter::OrderParameter(
 
 	// Histogram settings
 	const ParameterPack* bins_pack_ptr = input_pack.findParameterPack("Bins", KeyType::Required);
-	bins_.set_bins( *bins_pack_ptr );
+	bins_.setBins( *bins_pack_ptr );
 
 	setSimulations(simulations);
 }

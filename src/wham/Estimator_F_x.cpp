@@ -31,7 +31,7 @@ void Estimator_F_x::calculateUsingStoredWeights(
 		const auto& x_j = simulations[j].getTimeSeriesForOrderParameter(x_.getName());
 		const int num_samples = x_j.size();
 		for ( int i=0; i<num_samples; ++i ) {
-			int b = bins_x.find_bin( x_j[i] );
+			int b = bins_x.findBin( x_j[i] );
 			if ( b >= 0 ) {
 				int n = data_ranges[j].first + i;
         binned_weights_[b].push_back( weights[n] );

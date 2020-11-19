@@ -37,8 +37,8 @@ void Estimator_F_x_y::calculateUsingStoredWeights(
 
 		const int num_samples = x_j.size();
 		for ( int i=0; i<num_samples; ++i ) {
-			int bx = bins_x.find_bin( x_j[i] );
-      int by = bins_y.find_bin( y_j[i] );
+			int bx = bins_x.findBin( x_j[i] );
+      int by = bins_y.findBin( y_j[i] );
       if ( bx >= 0 && by >= 0 ) {
 				int n = data_ranges[j].first + i;
         binned_weights_(bx,by).push_back( weights[n] );
