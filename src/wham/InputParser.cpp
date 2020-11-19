@@ -245,7 +245,7 @@ void InputParser::parseFile(
 
 	// Open a TokenStream for the file
 	std::fstream ifs(file);
-	if ( not ifs.is_open() ) {
+	if ( ! ifs.is_open() ) {
 		throw std::runtime_error("unable to open input file \"" + file + "\"");
 	}
 	TokenStream token_stream(ifs);
@@ -263,13 +263,6 @@ void InputParser::parseFile(
 			break;
 		}
 	}
-
-	/*
-	// DEBUG Print raw tokenization
-	while ( token_stream.getNextToken(token) != Status::EndOfStream ) {
-		std::cout << "\"" << token << "\"\n";
-	}
-	*/
 
 	ifs.close();
 

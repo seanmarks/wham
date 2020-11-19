@@ -48,14 +48,14 @@ FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in, const Time
 
 void FreeEnergyDistribution::print(const std::string& file, const std::string& header) const
 {
-	// TODO
+	// TODO:
 	throw std::runtime_error("Distribution::print is not yet implemented");
 }
 
 
 double FreeEnergyDistribution::computeInformationEntropy(const FreeEnergyDistribution& dist, const FreeEnergyDistribution& ref)
 {
-	// TODO consistency checks
+	// TODO: consistency checks
 	double info_entropy = 0.0;
 
 	double bin_size_x = ref.bins_x.getBinSize();

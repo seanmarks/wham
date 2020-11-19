@@ -8,24 +8,10 @@ Estimator_F_x::Estimator_F_x(const OrderParameter& x):
 }
 
 
-void Estimator_F_x::calculate(
-  const Wham& wham,
-	const std::vector<double>& u_bias_as_r, const double f_bias_r
+void Estimator_F_x::calculateUsingStoredWeights(
+  const Wham& wham
 )
 {
-  const int num_samples_total = u_bias_as_r.size();
-  const int num_expected      = wham.getNumSamplesTotal();
-  FANCY_ASSERT( num_samples_total == num_expected,
-                "got " << num_samples_total << ", expected " << num_expected );
-
-  // Compute weights
-  // - TODO: Move to WHAM class?
-  const auto& log_dhat = wham.get_log_dhat_opt();
-  weights_.resize(num_samples_total);
-  for ( int n=0; n<num_samples_total; ++n ) {
-    weights_[n] = std::exp( f_bias_r - u_bias_as_r[n] - log_dhat[n] );
-  }
-
   const auto& simulations = wham.getSimulationData();
   const auto& data_ranges = wham.getSimulationDataRanges();
   const int num_simulations = simulations.size();
@@ -33,12 +19,14 @@ void Estimator_F_x::calculate(
 	// Sort samples by bin
   const auto& bins_x = x_.getBins();
   const int   num_bins_x = bins_x.getNumBins();
+  const int   num_samples_total = wham.getNumSamplesTotal(); 
   const int   num_to_reserve = 2*(num_samples_total/num_bins_x);
   binned_weights_.resize(num_bins_x);
   for ( int b=0; b<num_bins_x; ++b ) {
     binned_weights_[b].resize(0);
     binned_weights_[b].reserve(num_to_reserve);
   }
+  const auto& weights = this->getWeights();
 	for ( int j=0; j<num_simulations; ++j ) {
 		const auto& x_j = simulations[j].getTimeSeriesForOrderParameter(x_.getName());
 		const int num_samples = x_j.size();
@@ -46,11 +34,12 @@ void Estimator_F_x::calculate(
 			int b = bins_x.find_bin( x_j[i] );
 			if ( b >= 0 ) {
 				int n = data_ranges[j].first + i;
-        binned_weights_[b].push_back( weights_[n] );
+        binned_weights_[b].push_back( weights[n] );
 			}
 		}
 	}
 
+  // Calculate distributions using binned weights
   std::vector<double> p_x_tmp(num_bins_x);
   std::vector<double> f_x_tmp(num_bins_x);
   std::vector<int>    samples(num_bins_x);

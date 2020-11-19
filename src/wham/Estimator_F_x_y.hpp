@@ -22,32 +22,28 @@ class Estimator_F_x_y : public WhamEstimator
     const OrderParameter& y
   );
 
-  // Perform calculations and store F(x,y)
-  void calculate(
-    const Wham& wham,
-    const std::vector<double>& u_bias_as_r,
-    const double f_bias_r
-  );
-
-  const FreeEnergyDistribution2D& get_f_x_y() const {
+ // Returns the consensus distribution, F^{WHAM}(x,y) [kBT]
+  const FreeEnergyDistribution2D& getFxy() const {
     return f_x_y_;
   }
 
   // TODO: modifier to decide where files go?
   void saveResults() const;
 
+ protected:
+  virtual
+  void calculateUsingStoredWeights(const Wham& wham) override;
+
 
  private:
   const OrderParameter& x_;
   const OrderParameter& y_;
 
-  // Working variable type
-  using Buffer = std::vector<double>;
-
-  Matrix<Buffer> binned_weights_;
-  Buffer weights_;
-
+  // Results
   FreeEnergyDistribution2D f_x_y_;
+  
+  // Buffers
+  Matrix<Buffer> binned_weights_;
 };
 
 #endif // ifndef ESTIMATOR_F_X_Y_HPP

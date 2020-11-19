@@ -5,12 +5,11 @@
 
 
 Wham::Wham(
-	const DataSummary& data_summary, const OrderParameterRegistry& op_registry,
+	const OrderParameterRegistry& op_registry,
 	const std::vector<Simulation>& simulations, const std::vector<OrderParameter>& order_parameters,
 	const std::vector<Bias>& biases, const std::vector<double>& f_bias_guess, const double tol
-	// TODO initial guess
+	// TODO: initial guess
 ):
-	data_summary_(data_summary),
 	op_registry_(op_registry),
 	simulations_(simulations),
 	order_parameters_(order_parameters),
@@ -43,10 +42,8 @@ void Wham::setup()
 
 	// Fraction of total number of samples contributed by each simulation
 	c_.resize(num_simulations);
-	log_c_.resize(num_simulations);
 	for ( int r=0; r<num_simulations; ++r ) {
 		c_[r] = static_cast<double>(num_samples_per_simulation_[r]) * inv_num_samples_total_;
-		log_c_[r] = log( c_[r] );
 	}
 
 	// For convenience, store the ranges corresponding to each simulation's data 
@@ -163,7 +160,7 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 
 	// Current, the free energy of the first biased ensemble is zero.
 	// Set the free energy for the *unbiased* ensemble as the zero point instead.
-	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_ );
+	compute_log_dhat( u_bias_as_other_, f_bias_opt_, log_dhat_opt_ );
 	/*
 	FIXME: worth it?
 	double delta_f = compute_consensus_f_k( u_bias_as_other_unbiased_ ); 
@@ -182,39 +179,7 @@ std::vector<double> Wham::solveWhamEquations(const std::vector<double>& f_bias_g
 		}
 	}
 	
-	// Precompute weights corresponding to simulation data
-	w_.set_size( num_samples_total_, num_simulations );
-	#pragma omp parallel for
-	for ( int n=0; n<num_samples_total_; ++n ) {
-		for ( int i=0; i<num_simulations; ++i ) {
-			double arg = f_bias_opt_[i] - u_bias_as_other_[i][n] - log_dhat_[n];
-			if ( arg > MIN_DBL_FOR_EXP ) {
-				w_(n,i) = exp( arg );
-			}
-			else {
-				w_(n,i) = 0.0;  // vanishingly small
-			}
-		}
-	}
-
-	/*
-	// FIXME: Attempted to implement covariance matrix estimation, but the results
-	// always seem to come out garbage (even checked vs. NumPy)
-	wT_w_ = dlib::trans(w_) * w_;  // commonly used submatrix
-
-	// Move to separate function(s)/only compute if error is desired?
-	Matrix theta;
-	compute_cov_matrix( w_, wT_w_, num_samples_per_simulation_, theta );
-	error_f_bias_opt_.resize(num_simulations);
-	for ( int i=0; i<num_simulations; ++i ) {
-		error_f_bias_opt_[i] = sqrt( theta(i,i) );
-	}
-	// DEBUG
-	for ( int i=0; i<num_simulations; ++i ) {
-		std::cout << i << ":  " << f_bias_opt_[i] << " +/- " << error_f_bias_opt_[i] 
-		          << "  (theta = cov = " << theta(i,i) << ")\n";
-	}
-	*/
+	// TODO: Precompute weights for stored simulations in 'w_opt_'?
 
 	return f_bias_opt_;
 }
@@ -320,7 +285,7 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 			for ( int n=0; n<num_samples_total_; ++n ) {
 				args_buffer[n] = fac - log_dhat_tmp_[n] - u_bias_as_other_[k][n];
 			}
-			double log_sum = log_sum_exp(args_buffer);
+			double log_sum = logSumExp(args_buffer);
 
 			dA_df(k) = inv_num_samples_total_*exp(log_sum) - c_[k];
 
@@ -360,55 +325,6 @@ const Wham::ColumnVector Wham::evalObjectiveDerivatives(const Wham::ColumnVector
 }
 
 
-void Wham::compute_log_sigma(
-	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& f,
-	const std::vector<double>& u_bias_as_k, const double f_bias_k,
-	std::vector<double>& log_sigma
-) const
-{
-	log_sigma_timer_.start();
-
-	int num_samples_total = u_bias_as_k.size();
-	if ( num_samples_total == 0 ) {
-		// Nothing to do
-		log_sigma.resize(0);
-		log_sigma_timer_.stop();
-		return;
-	}
-//#ifdef WHAM_DEBUG
-// TODO check consistency of # samples btw. u_bias_as_k and each 'u_bias_as_other[r]'
-//#endif
-
-	// Precompute some terms
-	int num_biases = u_bias_as_other.size(); 
-	std::vector<double> common_terms(num_biases);
-	for ( int r=0; r<num_biases; ++r ) {
-		common_terms[r] = log_c_[r] - (f_bias_k - f[r]);
-	}
-
-	// Compute log(sigma_k(x_{j,i})) for each sample
-	log_sigma.resize(num_samples_total);
-	#pragma omp parallel
-	{
-		std::vector<double> args(num_biases);
-
-		#pragma omp for schedule(static,8)
-		for ( int n=0; n<num_samples_total; ++n ) {
-			log_sigma_omp_timer_.start();
-
-			for ( int r=0; r<num_biases; ++r ) {
-				args[r] = common_terms[r] + (u_bias_as_k[n] - u_bias_as_other[r][n]);
-			}
-			log_sigma[n] = log_sum_exp( args );
-
-			log_sigma_omp_timer_.stop();
-		}
-	}
-
-	log_sigma_timer_.stop();
-}
-
-
 void Wham::compute_log_dhat(
 	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& fhat,
 	std::vector<double>& log_dhat
@@ -438,7 +354,7 @@ void Wham::compute_log_dhat(
 			for ( int r=0; r<num_biases; ++r ) {
 				args[r] = common_terms[r] - u_bias_as_other[r][n];
 			}
-			log_dhat[n] = log_sum_exp( args );
+			log_dhat[n] = logSumExp( args );
 		}
 		log_dhat_omp_timer_.stop();
 	}
@@ -447,7 +363,7 @@ void Wham::compute_log_dhat(
 }
 
 
-double Wham::log_sum_exp(const std::vector<double>& args) const
+double Wham::logSumExp(const std::vector<double>& args) const
 {
 	log_sum_exp_timer_.start();
 
@@ -470,7 +386,7 @@ double Wham::log_sum_exp(const std::vector<double>& args) const
 }
 
 
-double Wham::weighted_sum_exp(
+double Wham::weightedSumExp(
 	const std::vector<double>& args, const std::vector<double>& weights
 ) const
 {
@@ -570,7 +486,7 @@ void Wham::manually_unbias_f_x(
 	 for ( int b=0; b<num_bins_x; ++b ) {
 		sample_counts[b] = minus_log_sigma_k_binned_[b].size();
 		if ( sample_counts[b] > 0 ) {
-			f_x[b] = normalization - log_sum_exp( minus_log_sigma_k_binned_[b] );
+			f_x[b] = normalization - logSumExp( minus_log_sigma_k_binned_[b] );
 			p_x[b] = exp( -f_x[b] );
 		}
 		else {
@@ -581,8 +497,43 @@ void Wham::manually_unbias_f_x(
 }
 
 
+std::vector<double> Wham::calculateWeightsForUnbiasedEnsemble() const
+{
+	return calculateWeights(u_bias_as_other_unbiased_, f_unbiased_);
+}
 
-double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
+
+std::vector<double> Wham::calculateWeightsForSimulation(const std::string& data_set_label) const
+{
+	// Find the index of the simulation (i.e. ensemble)
+	auto it = std::find_if( simulations_.begin(), simulations_.end(),
+		[=](const Simulation& s) -> bool {
+			return s.getDataSetLabel() == data_set_label;
+		}
+	);
+	const int ens = std::distance(simulations_.begin(), it);
+
+	return calculateWeights( u_bias_as_other_[ens], f_bias_opt_[ens] );
+}
+
+
+std::vector<double> Wham::calculateWeights(
+	const std::vector<double>& u_bias, const double f_bias) const
+{
+	int num_in = u_bias.size();
+	FANCY_ASSERT(num_in == num_samples_total_, "unexpected number of samples in input");
+
+	std::vector<double> weights(num_samples_total_);
+	for ( int n=0; n<num_samples_total_; ++n ) {
+		weights[n] = std::exp( f_bias - u_bias[n] - log_dhat_opt_[n] );
+	}
+
+	return weights;
+}
+
+
+
+double Wham::computeBiasingFreeEnergy(const std::vector<double>& u_bias_as_k) const
 {
 	FANCY_ASSERT( static_cast<int>(u_bias_as_k.size()) == num_samples_total_, "size mismatch" );
 
@@ -590,222 +541,9 @@ double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
 	std::vector<double> args(num_samples_total_);
 	#pragma omp parallel for schedule(static, 8)
 	for ( int n=0; n<num_samples_total_; ++n ) {
-		args[n] = -u_bias_as_k[n] - log_dhat_[n];
+		args[n] = -u_bias_as_k[n] - log_dhat_opt_[n];
 	}
 
-	double f_k = -log_sum_exp( args );
+	double f_k = -logSumExp( args );
 	return f_k;
-}
-
-
-
-FreeEnergyDistribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) const
-{
-	int p = op_registry_.nameToIndex(op_name);
-
-	Estimator_F_x est_f_x(order_parameters_[p]);
-	est_f_x.calculate(*this, u_bias_as_other_unbiased_, f_unbiased_);
-	return est_f_x.get_f_x();
-}
-
-
-
-FreeEnergyDistribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, const std::string& data_set_label) const
-{
-	int p = op_registry_.nameToIndex(op_name);
-	int j = data_summary_.dataSetLabelToIndex(data_set_label);
-
-	Estimator_F_x est_f_x(order_parameters_[p]);
-	est_f_x.calculate(*this, u_bias_as_other_[j], f_bias_opt_[j]);
-	return est_f_x.get_f_x();
-}
-
-
-
-FreeEnergyDistribution2D Wham::compute_consensus_f_x_y_unbiased(
-	const std::string& x_name, const std::string& y_name
-	/*
-	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
-	std::vector<std::vector<int>>& sample_counts_x_y
-	*/
-) const
-{
-	int p = op_registry_.nameToIndex(x_name);
-	int q = op_registry_.nameToIndex(y_name);
-
-	Estimator_F_x_y est_f_x_y( order_parameters_[p], order_parameters_[q] );
-	est_f_x_y.calculate(*this, u_bias_as_other_unbiased_, f_unbiased_);
-	return est_f_x_y.get_f_x_y();
-
-	/*
-	compute_consensus_f_x_y( order_parameters_[p], order_parameters_[q], u_bias_as_other_, f_bias_opt_,
-	                         u_bias_as_other_unbiased_, f_unbiased_, 
-	                         p_x_y_wham, f_x_y_wham, sample_counts_x_y );
-													 */
-}
-
-
-
-void Wham::compute_error_avg_x_k(
-	const std::vector<double>& x,
-	const std::vector<double>& u_bias_as_k,
-	// Output
-	Matrix& w,                      // W_aug, augmented matrix of weights
-	Matrix& wT_w,                   // W_aug^T * W_aug
-	std::vector<int>& num_samples,  // per state (augmented)
-	Matrix& theta
-) const
-{
-	int num_simulations = simulations_.size();
-	int num_states      = num_simulations + 2;
-
-	int num_samples_total = x.size();
-	FANCY_ASSERT( num_samples_total == num_samples_total_, "array length mismatch" );
-
-	double f_k = compute_consensus_f_k(u_bias_as_k);
-
-	// Compute weights for related to <x>
-	ColumnVector w_bot(num_samples_total), w_top(num_samples_total);
-	double sum = 0.0;
-	#pragma omp parallel for schedule(static,8) reduction(+:sum)
-	for ( int n=0; n<num_samples_total; ++n ) {
-		w_bot(n) = exp(f_k - u_bias_as_k[n] - log_dhat_[n]);  // denominator
-		w_top(n) = x[n]*w_bot(n);  // numerator
-		sum += w_top(n);
-	}
-	w_top /= sum;
-
-	// Note: better to copy unaugmented parts of matrices from member variables than to
-	// recompute them each time
-
-	// Augmented W
-	// - Unaugmented part
-	w.set_size(num_samples_total, num_states);
-	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(0, num_simulations) ) = w_;
-	// - Last two columns
-	int i_top = num_simulations;
-	int i_bot = i_top + 1;
-	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(i_top, i_bot     ) ) = w_top;
-	dlib::set_subm( w, dlib::range(0, num_samples_total), dlib::range(i_bot, num_states) ) = w_bot;
-
-	// Augmented W^T*W
-	//int n_top = num_samples_total;
-	//int n_bot = n_top + 1;
-	// - Unaugmented part
-	wT_w.set_size(num_states, num_states);
-	dlib::set_subm( wT_w, dlib::range(0, num_samples_total), dlib::range(0, num_simulations) ) = wT_w_;
-	// - Outer edges
-	RowVector r_top = dlib::trans(w_top) * w;
-	RowVector r_bot = dlib::trans(w_bot) * w;
-	dlib::set_subm( wT_w, dlib::range(i_top, i_bot),       dlib::range(0, num_simulations) ) = r_top;
-	dlib::set_subm( wT_w, dlib::range(i_bot, num_states),  dlib::range(0, num_simulations) ) = r_bot;
-	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_top, i_bot)           ) = dlib::trans(r_top);
-	dlib::set_subm( wT_w, dlib::range(0, num_simulations), dlib::range(i_bot, num_states)    ) = dlib::trans(r_bot);
-
-	// The fictitious states "top" and "bot" do not (formally) contribute any samples
-	num_samples.assign(num_states, 0);
-	for ( int i=0; i<num_simulations; ++i ) {
-		num_samples[i] = num_samples_per_simulation_[i];
-	}
-
-	// Augmented covariance matrix
-	compute_cov_matrix(w, wT_w, num_samples, theta);
-
-	// TODO Propagate errors from Theta to errors in <x> using the Delta Method
-
-	return;
-}
-
-
-void Wham::compute_cov_matrix(
-	const Matrix& w, const Matrix& wT_w, const std::vector<int>& num_samples,
-	Matrix& theta
-) const
-{
-	int num_states = w.nc();
-	// TODO size checks
-
-	// Eigenvalue decomposition:
-	//     (W^T*W) * V = V * D
-	// - D = diag(lambdas)
-	// - V = matrix of eigenvectors
-	// - Note that W^T*W is symmetric
-	//   - All eigenvalues are real and positive
-	//   - Matrix of eigenvectors, V, is orthogonal
-	//   - dlib::make_symmetric() returns a matrix_exp flagged as symmetric, but
-	//     eigenvalue_decomposition also checks for this when given a general matrix
-	using EigenvalueDecomposition = dlib::eigenvalue_decomposition<Matrix>;
-	EigenvalueDecomposition eigen_decomp( wT_w );
-	const Matrix&       V       = eigen_decomp.get_pseudo_v();
-	const ColumnVector& lambdas = eigen_decomp.get_real_eigenvalues();
-
-	// With the eigenvalue decomposition of W^T*W known, the necessary parts of the
-	// singular value decomposition (SVD) of W are trivial
-	// - W = U*Sigma*V^T, but U is not needed (a good thing, because it's large: N x N)
-	// - From above: W^T * W = V*D*V^T
-	Matrix sigma = dlib::zeros_matrix<double>(num_states, num_states);
-	int num_lambdas = lambdas.size();
-	for ( int i=0; i<num_lambdas; ++i ) {
-		if ( lambdas(i) >= 0.0 ) {
-			sigma(i,i) = sqrt( lambdas(i) );
-		}
-	}
-	Matrix V_sigma = V*sigma;
-
-	// Use the SVD of W to estimate Theta
-	Matrix N = dlib::zeros_matrix<double>(num_states, num_states);
-	for ( int i=0; i<num_states; ++i ) {
-		N(i,i) = static_cast<double>( num_samples[i] );
-	}
-	Matrix I      = dlib::identity_matrix<double>(num_states);
-	Matrix M      = I - dlib::trans(V_sigma)*N*V_sigma;
-	Matrix M_pinv = dlib::pinv(M);  // M is square, but usually singular
-	theta = V_sigma * M_pinv * dlib::trans(V_sigma);
-
-	/*
-	// DEBUG
-	RowVector sum_row_w = dlib::sum_rows(w);  // sum of each column should be 1
-	std::cout << "num_samples = " << w.nr() << ", num_states = " << w.nc() << std::endl;
-	std::cout << "w(sum_row)=\n"
-	          << "  shape = (" << sum_row_w.nr() << ", " << sum_row_w.nc() << ")\n"
-	          << sum_row_w    << std::endl;
-
-	std::cout << "V=\n"        << V            << std::endl;
-	std::cout << "lambdas=\n"  << lambdas      << std::endl;
-	std::cout << "sigma=\n"    << sigma        << std::endl;
-	std::cout << "N=\n"        << N            << std::endl;
-	std::cout << "I=\n"        << I            << std::endl;
-	std::cout << "M=\n"        << M            << std::endl;
-	std::cout << "det(M)="     << dlib::det(M) << std::endl;  // likely (nearly) singular
-	std::cout << "pinv(M)=\n"  << M_pinv       << std::endl;
-	std::cout << "theta=\n"    << theta        << std::endl;
-
-	// DEBUG: Check major results
-	Matrix V_trans = dlib::trans(V);
-	Matrix D       = dlib::diagm(lambdas);
-	double error_eig  = norm_frob( wT_w - V*D*V_trans );
-	std::cout << "error(eig(wT_w)) = " << error_eig << std::endl;
-	double error_pinv = norm_frob( M*M_pinv - I );
-	std::cout << "error(pinv(M)) = " << error_pinv << std::endl;
-	std::cout << std::endl;
-
-	// DEBUG: Save key arrays
-	std::ofstream ofs;
-	ofs.open("DEBUG_w.out");
-	ofs << "# matrix of weights, W\n" << w;
-	ofs.close(); ofs.clear();
-	ofs.open("DEBUG_N.out");
-	ofs << "# Number of samples from each simulation, N_i\n" << dlib::diag(N);
-	ofs.close(); ofs.clear();
-
-	// DEBUG: full, nasty, expensive calculation using w directly
-	Matrix i_N       = dlib::identity_matrix<double>(w.nr());
-	Matrix m_big     = i_N - w*N*dlib::trans(w);
-	Matrix cov_f_alt = dlib::trans(w) * dlib::pinv(m_big) * w;
-	ofs.open("DEBUG_cov_f_alt.out");
-	ofs << "# Covariance matrix, Theta, using W directly\n" << w;
-	ofs.close(); ofs.clear();
-	*/
-
-	return;
 }

@@ -26,6 +26,7 @@ target_sources(${LIB_WHAM}
 		System.cpp
 		TimeSeries.cpp
 		Wham.cpp
+		WhamEstimator.cpp
 		WhamDlibWrappers.cpp
 		WhamDriver.cpp
 	)

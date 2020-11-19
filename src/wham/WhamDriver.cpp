@@ -68,32 +68,24 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	//----- Biasing Potentials -----//
 
 	// Read the biasing parameters file 
-	input_parameter_pack_.readString("BiasesLogFile", KeyType::Required, 
-	                                 biases_log_file_);
+	input_parameter_pack_.readString("BiasesLogFile", KeyType::Required, biases_log_file_);
 
 	// Find the bias input packs
 	ParameterPack bias_file_pack;
 	input_parser.parseFile(biases_log_file_, bias_file_pack);
-	std::vector<const ParameterPack*> bias_input_pack_ptrs = 
-			bias_file_pack.findParameterPacks("Bias", KeyType::Required);
+	auto bias_input_pack_ptrs = bias_file_pack.findParameterPacks("Bias", KeyType::Required);
 	int num_biases = bias_input_pack_ptrs.size();
-	if ( num_biases != num_simulations ) {
-		std::stringstream err_ss;
-		err_ss << "Mismatch between number of biases (" << num_biases << ") and number of simulations ("
-		       << num_simulations << ")\n";
-		throw std::runtime_error( err_ss.str() );
-	}
+	FANCY_ASSERT( num_biases == num_simulations, "got " << num_biases << " biases, expected " << num_simulations );
 
 	for ( int i=0; i<num_biases; ++i ) {
-		// TODO allow bias log and data summary to report simulations in different orders,
+		// TODO: allow bias log and data summary to report simulations in different orders,
 		//      or allow one to be a subset of the others
 		// - Use data set labels to match everything
 		// TODO: variable T between simulations
 		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), wham_options_.kBT) );
-
-		if ( data_set_labels[i] != biases_.back().get_data_set_label() ) {
-			throw std::runtime_error("Mismatch between data set labels in biasing parameters file and data summary file");
-		}
+		const auto& label = biases_.back().get_data_set_label();
+		FANCY_ASSERT(label == data_set_labels[i],
+			"encountered bias with data label " << label << ", expected " << data_set_labels[i]);
 	}
 
 #ifdef DEBUG
@@ -124,11 +116,11 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 	//---- Initial guess -----//
 
-	// TODO: Option to read from input
 	f_bias_guess_.assign(num_simulations, 0.0);
 	std::string f_bias_guess_file;
 	found = input_parameter_pack_.readString("InitialGuess", KeyType::Optional, f_bias_guess_file);
 	if ( found ) {
+		// TODO: option to read initial guess
 	}
 
 
@@ -171,7 +163,7 @@ void WhamDriver::run_driver()
 {
 	driver_timer_.start();
 
-	if ( not be_quiet_ ) {
+	if ( ! be_quiet_ ) {
 		std::cout << "  Solving ...\n" << std::flush;
 	}
 
@@ -189,7 +181,7 @@ void WhamDriver::run_driver()
 
 	// Solve for optimal free energies of biasing
 	solve_wham_timer_.start();
-	Wham wham(data_summary_, op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
+	Wham wham(op_registry_, simulations_, order_parameters_, biases_, f_bias_init, wham_options_.tol);
 	solve_wham_timer_.stop();
 	f_bias_opt_ = wham.get_f_bias_opt();
 
@@ -209,6 +201,7 @@ void WhamDriver::run_driver()
 
 	bool calc_error = ( error_method_ != ErrorMethod::None );
 
+	// TODO: MATRIX
 	std::vector<PointEstimator<double>> bootstrap_samples_f_bias;
 	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x;
 
@@ -250,7 +243,8 @@ void WhamDriver::run_driver()
 		std::vector<OrderParameter> bootstrap_ops = order_parameters_;
 		for ( int s=0; s<num_bootstrap_samples_; ++s ) {
 			// User feedback
-			if ( (not be_quiet_) and ((s == 0) or (((s+1) % 25) == 0)) ) {
+			const int stride = 25;
+			if ( (! be_quiet_) && ((s == 0) || (((s+1) % stride) == 0)) ) {
 				std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n" << std::flush;
 			}
 
@@ -269,9 +263,8 @@ void WhamDriver::run_driver()
 			}
 
 			// Re-solve WHAM equations
-			// - TODO: option to re-solve with new data rather than reallocating for each loop?
 			solve_wham_timer_.start();
-			Wham bootstrap_wham( data_summary_, op_registry_, bootstrap_simulations, bootstrap_ops, 
+			Wham bootstrap_wham( op_registry_, bootstrap_simulations, bootstrap_ops, 
 													 biases_, f_bias_opt_, wham_options_.tol );
 			solve_wham_timer_.stop();
 
@@ -282,9 +275,12 @@ void WhamDriver::run_driver()
 			}
 
 			// Compute boostrap estimates of each F(x)
+			// - TODO: generic interface
 			for ( int i=0; i<num_output_f_x; ++i ) {
 				OrderParameter& x = order_parameters_[ output_f_x_[i] ];
-				auto bootstrap_f_x = bootstrap_wham.compute_consensus_f_x_unbiased( x.getName() );
+				Estimator_F_x est_f_x(x);
+				est_f_x.calculate(bootstrap_wham);
+				const auto& bootstrap_f_x = est_f_x.get_f_x();
 
 				int num_bins_x = x.getBins().getNumBins();
 				for ( int b=0; b<num_bins_x; ++b ) {
@@ -345,7 +341,7 @@ void WhamDriver::run_driver()
 	// 1-variable outputs
 	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
 		OrderParameter& x = order_parameters_[ output_f_x_[i] ];
-		if ( not be_quiet_ ) {
+		if ( ! be_quiet_ ) {
 			std::cout << "Computing F_WHAM(" << x.getName() << ")\n" << std::flush;
 		}
 
@@ -358,8 +354,10 @@ void WhamDriver::run_driver()
 		// TODO: "shifted" distributions
 
 		// F_WHAM(x)
-		auto wham_distribution = wham.compute_consensus_f_x_unbiased( x.getName() );
-		if ( calc_error and error_method_ == ErrorMethod::Bootstrap ) {
+		Estimator_F_x est_f_x(x);
+		est_f_x.calculate(wham);
+		auto wham_distribution = est_f_x.get_f_x();
+		if ( calc_error && error_method_ == ErrorMethod::Bootstrap ) {
 			int num_bins_x = x.getBins().getNumBins();
 			std::vector<double> err_f_x(num_bins_x);
 			for ( int b=0; b<num_bins_x; ++b ) {
@@ -378,9 +376,9 @@ void WhamDriver::run_driver()
 		// "Rebias" consensus histograms (for validation)
 		std::vector<FreeEnergyDistribution> f_x_rebiased;
 		for ( int j=0; j<num_simulations; ++j ) {
-			f_x_rebiased.push_back(
-				wham.compute_consensus_f_x_rebiased( x.getName(), data_summary_.indexToDataSetLabel(j) )
-			);
+			const auto& label = data_summary_.indexToDataSetLabel(j);
+			est_f_x.calculate(wham, label);
+			f_x_rebiased.push_back( est_f_x.get_f_x() );
 		}
 		x.setRebiasedDistributions( f_x_rebiased );
 		x.printRebiasedDistributions();
@@ -393,86 +391,20 @@ void WhamDriver::run_driver()
 		// F_WHAM(x,y)
 		OrderParameter& x = order_parameters_[ output_f_x_y_[i][0] ];
 		OrderParameter& y = order_parameters_[ output_f_x_y_[i][1] ];
-		if ( not be_quiet_ ) {
+		if ( ! be_quiet_ ) {
 			std::cout << "Computing F_WHAM(" << x.getName() << ", " << y.getName() << ")\n" << std::flush;
 		}
 
-		//std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
-		//std::vector<std::vector<int>> sample_counts_x_y;
+		Estimator_F_x_y est_f_x_y(x, y);
+		est_f_x_y.calculate(wham);
 
-		auto f_x_y_wham = wham.compute_consensus_f_x_y_unbiased(x.getName(), y.getName());
-		/*
-		wham.compute_consensus_f_x_y_unbiased(
-			x.getName(), y.getName(),
-			p_x_y_wham, f_x_y_wham, sample_counts_x_y
-		);
-		*/
-
-		// Print results
-		//print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
+		// Print output files
+		est_f_x_y.saveResults();
 	}
 
 	print_output_timer_.stop();
 
 	driver_timer_.stop();
-}
-
-
-void WhamDriver::print_f_x_y(
-	const OrderParameter& x, const OrderParameter& y,
-	// Consensus distributions for F_k(x,y)
-	const std::vector<std::vector<double>>& p_x_y_wham,
-	const std::vector<std::vector<double>>& f_x_y_wham,
-	const std::vector<std::vector<int>>&    sample_counts_x_y
-) const
-{
-	// Working variables
-	const Bins& bins_x = x.getBins();
-	const Bins& bins_y = y.getBins();
-	int num_bins_x = bins_x.getNumBins();
-	int num_bins_y = bins_y.getNumBins();
-	std::string file_name, sep;
-	std::ofstream ofs;
-
-	// Print bins
-	std::vector<const OrderParameter*> op_ptrs = {{ &x, &y }};
-	for ( unsigned i=0; i<op_ptrs.size(); ++i ) {
-		file_name = "bins_" + op_ptrs[i]->getName() + ".out";
-		ofs.open(file_name);
-		ofs << "# Bins for " << op_ptrs[i]->getName() << " for F_WHAM(" << x.getName() << "," << y.getName() << ")\n"
-				<< "# " << op_ptrs[i]->getName() << "\n";
-		const auto& bins = op_ptrs[i]->getBins();
-		int num_bins = bins.getNumBins();
-		for ( int j=0; j<num_bins; ++j ) {
-			ofs << bins[j]  << "\n";
-		}
-		ofs.close(); ofs.clear();
-	}
-
-	// Print F(x,y)  (TODO: shift so that F=0 at the minimum)
-	file_name = "F_" + x.getName() + "_" + y.getName() + "_WHAM.out";
-	ofs.open(file_name);
-	sep = " ";
-	for ( int i=0; i<num_bins_x; ++i ) {
-		for ( int j=0; j<num_bins_y; ++j ) {
-			FreeEnergyDistribution::printFreeEnergyValue(ofs, f_x_y_wham[i][j], sample_counts_x_y[i][j]);
-			ofs << sep;
-		}
-		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
-
-	// Print sample distribution
-	file_name = "samples_" + x.getName() + "_" + y.getName() + ".out";
-	ofs.open(file_name);
-	sep = " ";
-	for ( int i=0; i<num_bins_x; ++i ) {
-		for ( int j=0; j<num_bins_y; ++j ) {
-			ofs << sample_counts_x_y[i][j] << sep;
-		}
-		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
 }
 
 

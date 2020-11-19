@@ -11,39 +11,37 @@
 #include "WhamEstimator.hpp"
 
 
+// Calculates a consensus free energy distribution, F^{WHAM}(x)
 class Estimator_F_x : public WhamEstimator
 {
  public:
   Estimator_F_x(
     const OrderParameter& x
-    //const std::string& x_name
-    //const OrderParameterRegistry& registry
   );
 
-  // TODO:
-  void calculate(
-    const Wham& wham,
-    const std::vector<double>& u_bias_as_k,
-    const double f_bias_k
-    //const std::vector<Simulation>& data
-  );
-
+  // Returns the calculated distribution, F^{WHAM}(x) [kBT]
   const FreeEnergyDistribution& get_f_x() const {
     return f_x_;
   }
 
+  const OrderParameter& getOrderParameter() const noexcept {
+    return x_;
+  }
+
+
+ protected:
+  virtual
+  void calculateUsingStoredWeights(const Wham& wham) override;
+
 
  private:
   const OrderParameter& x_;
-  //std::string x_name_;
-  Bins bins_;
 
-  using Buffer = std::vector<double>;
-  std::vector<Buffer> binned_weights_;
-
-  std::vector<double> weights_;
-
+  // Output
   FreeEnergyDistribution f_x_;
+
+  // Working variables
+  std::vector<WhamEstimator::Buffer> binned_weights_;
 };
 
 #endif // ifndef ESTIMATOR_F_X_HPP

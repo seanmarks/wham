@@ -37,11 +37,12 @@ class OrderParameter
 		std::vector<Simulation>& simulations
 	);
 
-
+	// Returns a string representing the name of the OP
 	const std::string& getName() const {
 		return name_;
 	}
 
+	// FIXME: REMOVE
 	const TimeSeries& getTimeSeries(const int j) const {
 #ifdef DEBUG
 		assert( time_series_ptrs_[j] != nullptr );

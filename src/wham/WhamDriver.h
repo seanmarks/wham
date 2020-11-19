@@ -67,7 +67,7 @@ class WhamDriver
 		const std::string& options_file
 	);
 
-	// TODO Move to standalone member variables?
+	// TODO: Move to standalone member variables?
 	struct WhamOptions
 	{
 		WhamOptions(): floor_t(true), tol(1.0e-7) {};
@@ -89,11 +89,14 @@ class WhamDriver
 	std::string data_summary_file_;
 	DataSummary data_summary_;
 
+	// TODO:
 	OrderParameterRegistry op_registry_;
 
 	std::string biases_log_file_;
 
+	// Organizes data by simulaton (i.e. by ensemble) 
 	std::vector<Simulation> simulations_;
+
 	WhamDriver::WhamOptions wham_options_;
 
 	std::vector<double> f_bias_guess_;
@@ -125,18 +128,6 @@ class WhamDriver
 	// Determine which outputs to compute and print
 	// - ex. F(x) and F(x,y) for different OPs x and/or y
 	void parseOutputs(const ParameterPack& input_pack);
-
-
-	//----- Output Files -----//
-
-	// TODO: Separate class for 2D distributions?
-	void print_f_x_y(
-		const OrderParameter& x, const OrderParameter& y,
-		// Consensus distributions for F(x,y)
-		const std::vector<std::vector<double>>& p_x_y_wham,
-		const std::vector<std::vector<double>>& f_x_y_wham,
-		const std::vector<std::vector<int>>&    sample_counts_x_y
-	) const;
 
 
 	//----- GPTL -----//
