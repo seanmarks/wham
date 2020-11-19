@@ -1,9 +1,7 @@
-// Distribution
-// - Simple class
 
 #pragma once
-#ifndef DISTRIBUTION_H
-#define DISTRIBUTION_H
+#ifndef FREE_ENERGY_DISTRIBUTION_HPP
+#define FREE_ENERGY_DISTRIBUTION_HPP
 
 #include <fstream>
 #include <iostream>
@@ -16,7 +14,7 @@
 // 1-D free energy distribution, F(x)
 // TODO:
 // - Better interface
-class Distribution {
+class FreeEnergyDistribution {
  public:
 	//----- Data -----//
 
@@ -30,16 +28,14 @@ class Distribution {
 
 	//----- Setup ----//
 
-	Distribution();
+	FreeEnergyDistribution();
 
+	FreeEnergyDistribution(const Bins& bins_x_in);
 
-
-	Distribution(const Bins& bins_x_in);
-
-	Distribution(const Bins& bins_x_in, const TimeSeries& time_series_x);
+	FreeEnergyDistribution(const Bins& bins_x_in, const TimeSeries& time_series_x);
 	
 	
-	Distribution(
+	FreeEnergyDistribution(
 		const Bins& bins_x_in,  
 		const VectorReal& f_x_in, const VectorReal& p_x_in, const std::vector<int>& samples
 	):
@@ -59,8 +55,8 @@ class Distribution {
 	// Kullback-Leibler divergence (information entropy difference) between a
 	// distribution and a reference distribution
 	static double computeInformationEntropy(
-		const Distribution& dist,
-		const Distribution& ref
+		const FreeEnergyDistribution& dist,
+		const FreeEnergyDistribution& ref
 	);
 
 
@@ -101,10 +97,10 @@ class Distribution {
 	//   across different systems (otherwise, regtests with NaNs fail)
 	// TODO Make an object and overload operator<< to make usage less clunky
 	template<typename T, typename I>
-	static void print_free_energy(std::ofstream& ofs, const T f_x, const I num_samples) {
+	static void printFreeEnergyValue(std::ofstream& ofs, const T f_x, const I num_samples) {
 		if ( is_f_x_finite(f_x, num_samples) ) { ofs << f_x;   }
 		else                                   { ofs << "nan"; }    
 	};
 };
 
-#endif /* ifndef DISTRIBUTION_H */
+#endif // ifndef FREE_ENERGY_DISTRIBUTION_HPP

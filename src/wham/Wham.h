@@ -28,7 +28,7 @@
 #include "Bias.h"
 #include "Bins.h"
 #include "DataSummary.h"
-#include "Distribution.h"
+#include "FreeEnergyDistribution.hpp"
 #include "FileSystem.h"
 #include "GptlWrappers.h"
 #include "InputParser.h"
@@ -107,18 +107,18 @@ class Wham
 
 	// "Manually" unbias the distributions for the given OrderParameter (i.e. using only
 	// each individual simulation's data, not the consensus estimates)
-	std::vector<Distribution> manuallyUnbiasDistributions(const std::string& op_name) const;
+	std::vector<FreeEnergyDistribution> manuallyUnbiasDistributions(const std::string& op_name) const;
 	
 	// TODO: move to separate class
 
 	// Compute the unbiased consensus distribution, F_0^{WHAM}(x)
-	Distribution compute_consensus_f_x_unbiased(
+	FreeEnergyDistribution compute_consensus_f_x_unbiased(
 		const std::string& op_name
 	) const;
 
 	// Compute the consensus distribution, F_k^{WHAM}(x), where 'k' is the ensemble
 	// with the given data set label
-	Distribution compute_consensus_f_x_rebiased(
+	FreeEnergyDistribution compute_consensus_f_x_rebiased(
 		const std::string& op_name,
 		const std::string& data_set_label
 	) const;
@@ -276,7 +276,7 @@ class Wham
 		const double               f,
 		const Bins&                bins_x,
 		// Output
-		Distribution&              unbiased_distribution_x
+		FreeEnergyDistribution&    unbiased_distribution_x
 	) const;
 
 

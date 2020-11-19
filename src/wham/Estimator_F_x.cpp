@@ -63,5 +63,5 @@ void Estimator_F_x::calculate(
     samples[b] = binned_weights_[b].size();
   }
 
-  f_x_ = Distribution(bins_x, f_x_tmp, p_x_tmp, samples);
+  f_x_ = FreeEnergyDistribution(bins_x, f_x_tmp, p_x_tmp, samples);
 }

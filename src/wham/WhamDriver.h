@@ -28,7 +28,7 @@
 #include "BootstrapSubsampler.h"
 #include "Constants.h"
 #include "DataSummary.h"
-#include "Distribution.h"
+#include "FreeEnergyDistribution.hpp"
 #include "FileSystem.h"
 #include "GptlWrappers.h"
 #include "InputParser.h"

@@ -1,4 +1,0 @@
-class Distribution2D
-{
-  
-}

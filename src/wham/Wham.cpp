@@ -497,13 +497,13 @@ double Wham::weighted_sum_exp(
 }
 
 
-std::vector<Distribution> Wham::manuallyUnbiasDistributions(const std::string& op_name) const
+std::vector<FreeEnergyDistribution> Wham::manuallyUnbiasDistributions(const std::string& op_name) const
 {
 	int p = op_registry_.nameToIndex(op_name);
 	const auto& x = order_parameters_[p];
 
 	int num_simulations = static_cast<int>( simulations_.size() );
-	std::vector<Distribution> unbiased_distributions(num_simulations);
+	std::vector<FreeEnergyDistribution> unbiased_distributions(num_simulations);
 
 	std::vector<double> u_bias_tmp;
 	for ( int i=0; i<num_simulations; ++i ) {
@@ -532,7 +532,7 @@ void Wham::manually_unbias_f_x(
 	const TimeSeries& x, const std::vector<double>& u_bias, const double f,
 	const Bins& bins_x,
 	// Output
-	Distribution& unbiased_distribution_x
+	FreeEnergyDistribution& unbiased_distribution_x
 ) const
 {
 	// Unpack for readability below
@@ -598,7 +598,7 @@ double Wham::compute_consensus_f_k(const std::vector<double>& u_bias_as_k) const
 
 
 
-Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) const
+FreeEnergyDistribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) const
 {
 	int p = op_registry_.nameToIndex(op_name);
 
@@ -609,7 +609,7 @@ Distribution Wham::compute_consensus_f_x_unbiased(const std::string& op_name) co
 
 
 
-Distribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, const std::string& data_set_label) const
+FreeEnergyDistribution Wham::compute_consensus_f_x_rebiased(const std::string& op_name, const std::string& data_set_label) const
 {
 	int p = op_registry_.nameToIndex(op_name);
 	int j = data_summary_.dataSetLabelToIndex(data_set_label);

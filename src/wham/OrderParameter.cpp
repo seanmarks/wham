@@ -38,7 +38,7 @@ void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
 		
 		// Make raw biased distributions
 		// - TODO: Make optional?
-		biased_distributions_.emplace_back( Distribution(bins_, *(time_series_ptrs_[i])) );
+		biased_distributions_.emplace_back( FreeEnergyDistribution(bins_, *(time_series_ptrs_[i])) );
 	}
 
 	// Number of samples in each bin, across all data sets
@@ -129,7 +129,7 @@ void OrderParameter::printWhamResults(std::string file_name) const
 	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
 	const auto& f_x           = wham_distribution_.f_x;
 	const auto& sample_counts = wham_distribution_.sample_counts;
-	auto f_x_shifted = Distribution::shift_f_x_to_zero(f_x, sample_counts);
+	auto f_x_shifted = FreeEnergyDistribution::shift_f_x_to_zero(f_x, sample_counts);
 
 	// TODO: safer check?
 	bool have_error = ( wham_distribution_.error_f_x.size() == f_x.size() );
@@ -148,7 +148,7 @@ void OrderParameter::printWhamResults(std::string file_name) const
 	for ( int b=0; b<num_bins; ++b ) {
 		ofs << std::setw(8) << std::setprecision(5) << bins_[b];
 		ofs << "  " << std::setw(8) << std::setprecision(5);
-			Distribution::print_free_energy(ofs, f_x_shifted[b], sample_counts[b]);
+			FreeEnergyDistribution::printFreeEnergyValue(ofs, f_x_shifted[b], sample_counts[b]);
 		ofs << "  " << std::setw(8) << std::setprecision(5) << sample_counts[b];
 		if ( have_error ) {
 			ofs << "  " << std::setw(8) << std::setprecision(5) << wham_distribution_.error_f_x[b];
@@ -199,7 +199,7 @@ void OrderParameter::printStats(std::string file_name) const
 
 
 void OrderParameter::printDistributions(
-	const std::vector<Distribution>& distributions,
+	const std::vector<FreeEnergyDistribution>& distributions,
 	const std::string& file_name, const std::string& header, const bool shift_to_zero
 ) const
 {
@@ -211,7 +211,7 @@ void OrderParameter::printDistributions(
 	for ( int k=0; k<num_distributions; ++k ) {
 		if ( shift_to_zero ) {
 			// Shift distributions so that F=0 at the minimum
-			f_x_to_print[k] = Distribution::shift_f_x_to_zero(
+			f_x_to_print[k] = FreeEnergyDistribution::shift_f_x_to_zero(
 			                     distributions[k].f_x, distributions[k].sample_counts );
 		}
 		else {
@@ -225,7 +225,7 @@ void OrderParameter::printDistributions(
 		for ( int k=0; k<num_distributions; ++k ) {
 			ofs << "\t";
 			ofs << std::setw(8) << std::setprecision(5);
-			  Distribution::print_free_energy(ofs, f_x_to_print[k][b], distributions[k].sample_counts[b]);
+			  FreeEnergyDistribution::printFreeEnergyValue(ofs, f_x_to_print[k][b], distributions[k].sample_counts[b]);
 		}
 		ofs << "\n";
 	}

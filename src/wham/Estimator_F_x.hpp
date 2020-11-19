@@ -5,7 +5,7 @@
 
 #include <string>
 
-#include "Distribution.h"
+#include "FreeEnergyDistribution.hpp"
 #include "OrderParameter.h"
 #include "OrderParameterRegistry.h"
 #include "WhamEstimator.hpp"
@@ -28,7 +28,7 @@ class Estimator_F_x : public WhamEstimator
     //const std::vector<Simulation>& data
   );
 
-  const Distribution& get_f_x() const {
+  const FreeEnergyDistribution& get_f_x() const {
     return f_x_;
   }
 
@@ -43,7 +43,7 @@ class Estimator_F_x : public WhamEstimator
 
   std::vector<double> weights_;
 
-  Distribution f_x_;
+  FreeEnergyDistribution f_x_;
 };
 
 #endif // ifndef ESTIMATOR_F_X_HPP

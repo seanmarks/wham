@@ -8,9 +8,10 @@ target_sources(${LIB_WHAM}
 		Bins.cpp
 		BootstrapSubsampler.cpp
 		DataSummary.cpp
-		Distribution.cpp
 		Estimator_F_x.cpp
 		FileSystem.cpp
+		FreeEnergyDistribution.cpp
+		FreeEnergyDistribution2D.cpp
 		GptlWrappers.cpp
 		InputParser.cpp
 		OpenMP.cpp

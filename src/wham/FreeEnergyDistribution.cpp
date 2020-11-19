@@ -1,18 +1,19 @@
-#include "Distribution.h"
+#include "FreeEnergyDistribution.hpp"
 
-Distribution::Distribution():
+
+FreeEnergyDistribution::FreeEnergyDistribution():
 	bins_x()
 {
 }
 
 
-Distribution::Distribution(const Bins& bins_x_in):
+FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in):
 	bins_x(bins_x_in)
 {
 }
 
 
-Distribution::Distribution(const Bins& bins_x_in, const TimeSeries& time_series_x):
+FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in, const TimeSeries& time_series_x):
 	bins_x(bins_x_in)
 {
 	// Sort x-values by bin
@@ -45,14 +46,14 @@ Distribution::Distribution(const Bins& bins_x_in, const TimeSeries& time_series_
 }
 
 
-void Distribution::print(const std::string& file, const std::string& header) const
+void FreeEnergyDistribution::print(const std::string& file, const std::string& header) const
 {
 	// TODO
 	throw std::runtime_error("Distribution::print is not yet implemented");
 }
 
 
-double Distribution::computeInformationEntropy(const Distribution& dist, const Distribution& ref)
+double FreeEnergyDistribution::computeInformationEntropy(const FreeEnergyDistribution& dist, const FreeEnergyDistribution& ref)
 {
 	// TODO consistency checks
 	double info_entropy = 0.0;

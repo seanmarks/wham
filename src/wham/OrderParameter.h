@@ -18,8 +18,8 @@
 
 // Project headers
 #include "Bins.h"
-#include "Distribution.h"
 #include "FileSystem.h"
+#include "FreeEnergyDistribution.hpp"
 #include "InputParser.h"
 #include "Simulation.h"
 #include "TimeSeries.h"
@@ -58,28 +58,28 @@ class OrderParameter
 
 	// FIXME: cludgy to set this way
 
-	void setUnbiasedDistributions(const std::vector<Distribution>& unbiased_distributions) {
+	void setUnbiasedDistributions(const std::vector<FreeEnergyDistribution>& unbiased_distributions) {
 		unbiased_distributions_ = unbiased_distributions;
 	}
 
-	void setShiftedDistributions(const std::vector<Distribution>& shifted_distributions) {
+	void setShiftedDistributions(const std::vector<FreeEnergyDistribution>& shifted_distributions) {
 		shifted_distributions_ = shifted_distributions;
 	}
 
-	void setRebiasedDistributions(const std::vector<Distribution>& rebiased_distributions) {
+	void setRebiasedDistributions(const std::vector<FreeEnergyDistribution>& rebiased_distributions) {
 		rebiased_distributions_ = rebiased_distributions;
 
 		// Entropy between biased and rebiased distributions
 		int num_simulations = simulation_ptrs_.size();
 		info_entropy_.resize(num_simulations);
 		for ( int j=0; j<num_simulations; ++j ) {
-			info_entropy_[j] = Distribution::computeInformationEntropy(
+			info_entropy_[j] = FreeEnergyDistribution::computeInformationEntropy(
 				rebiased_distributions_[j], biased_distributions_[j]
 			);
 		}
 	}
 
-	void setWhamDistribution(const Distribution& wham_distribution) {
+	void setWhamDistribution(const FreeEnergyDistribution& wham_distribution) {
 		wham_distribution_ = wham_distribution;
 	}
 
@@ -97,7 +97,7 @@ class OrderParameter
 
 	// Prints a series of distributions, F_i(x), side-by-side
 	void printDistributions(
-		const std::vector<Distribution>& distributions,
+		const std::vector<FreeEnergyDistribution>& distributions,
 		const std::string& file_name, 
 		const std::string& header,
 		const bool shift_to_zero = true
@@ -113,13 +113,13 @@ class OrderParameter
 	// Time series data from each simulation
 	std::vector<const TimeSeries*> time_series_ptrs_;
 
-	std::vector<Distribution> biased_distributions_;
-	std::vector<Distribution> unbiased_distributions_;
-	std::vector<Distribution> shifted_distributions_;   // unbiased and shifted
-	std::vector<Distribution> rebiased_distributions_;  // rebias consensus distribution
+	std::vector<FreeEnergyDistribution> biased_distributions_;
+	std::vector<FreeEnergyDistribution> unbiased_distributions_;
+	std::vector<FreeEnergyDistribution> shifted_distributions_;   // unbiased and shifted
+	std::vector<FreeEnergyDistribution> rebiased_distributions_;  // rebias consensus distribution
 
 	// WHAM results
-	Distribution wham_distribution_;
+	FreeEnergyDistribution wham_distribution_;
 	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
 
 	// Number of samples in each bin, across all simulations

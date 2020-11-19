@@ -373,7 +373,7 @@ void WhamDriver::run_driver()
 		x.printWhamResults();
 
 		// "Rebias" consensus histograms (for validation)
-		std::vector<Distribution> f_x_rebiased;
+		std::vector<FreeEnergyDistribution> f_x_rebiased;
 		for ( int j=0; j<num_simulations; ++j ) {
 			f_x_rebiased.push_back(
 				wham.compute_consensus_f_x_rebiased( x.getName(), data_summary_.indexToDataSetLabel(j) )
@@ -449,7 +449,7 @@ void WhamDriver::print_f_x_y(
 	sep = " ";
 	for ( int i=0; i<num_bins_x; ++i ) {
 		for ( int j=0; j<num_bins_y; ++j ) {
-			Distribution::print_free_energy(ofs, f_x_y_wham[i][j], sample_counts_x_y[i][j]);
+			FreeEnergyDistribution::printFreeEnergyValue(ofs, f_x_y_wham[i][j], sample_counts_x_y[i][j]);
 			ofs << sep;
 		}
 		ofs << "\n";
