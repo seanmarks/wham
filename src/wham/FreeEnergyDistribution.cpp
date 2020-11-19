@@ -17,7 +17,7 @@ FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in, const Time
 	bins_x(bins_x_in)
 {
 	// Sort x-values by bin
-	int num_bins_x = bins_x.get_num_bins();
+	int num_bins_x = bins_x.getNumBins();
 	sample_counts.assign(num_bins_x, 0);
 	int bin;
 	int num_samples = time_series_x.size();
@@ -31,7 +31,7 @@ FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in, const Time
 	// Compute
 	f_x.resize(num_bins_x);
 	p_x.resize(num_bins_x);
-	double bin_size_x = bins_x.get_bin_size();
+	double bin_size_x = bins_x.getBinSize();
 	double normalization = 1.0/(num_samples*bin_size_x);
 	for ( int b=0; b<num_bins_x; ++b ) {
 		if ( sample_counts[b] > 0 ) {
@@ -58,8 +58,8 @@ double FreeEnergyDistribution::computeInformationEntropy(const FreeEnergyDistrib
 	// TODO consistency checks
 	double info_entropy = 0.0;
 
-	double bin_size_x = ref.bins_x.get_bin_size();
-	int num_bins_x = ref.bins_x.get_num_bins();
+	double bin_size_x = ref.bins_x.getBinSize();
+	int num_bins_x = ref.bins_x.getNumBins();
 
 	for ( int b=0; b<num_bins_x; ++b ) {
 		const auto p_ref  = ref.p_x[b];

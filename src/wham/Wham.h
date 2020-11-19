@@ -29,6 +29,7 @@
 #include "Bins.h"
 #include "DataSummary.h"
 #include "FreeEnergyDistribution.hpp"
+#include "FreeEnergyDistribution2D.hpp"
 #include "FileSystem.h"
 #include "GptlWrappers.h"
 #include "InputParser.h"
@@ -123,15 +124,12 @@ class Wham
 		const std::string& data_set_label
 	) const;
 
-	// TODO: descriptions
-	void compute_consensus_f_x_y_unbiased(
+	// Compute the unbiased consensus distribution, F_0^{WHAM}(x,y)
+	FreeEnergyDistribution2D compute_consensus_f_x_y_unbiased(
 		const std::string& x_name,
-		const std::string& y_name,
-		// Output
-		std::vector<std::vector<double>>& p_x_y_wham, 
-		std::vector<std::vector<double>>& f_x_y_wham,
-		std::vector<std::vector<int>>& sample_counts_x_y
+		const std::string& y_name
 	) const;
+
 
  private:
 	// Objects owned by the driver
@@ -151,8 +149,8 @@ class Wham
 	//                                                     |
 	//                                                N_j samples
 	//   - Overall length of u_bias_as_other_[r]:  N = sum_{j=0}^{m} N_j
-
 	std::vector<std::vector<double>> u_bias_as_other_;
+
 	// For each simulation j = 0, ..., m-1:
 	//  simulation_data_ranges_[j] = indices (first, end) for the 'j'th simulation's data
 	//                               in u_bias_as_other_ (for each 'r')
@@ -286,23 +284,6 @@ class Wham
 	// of each sample evaluated in that ensemble
 	double compute_consensus_f_k(
 		const std::vector<double>& u_bias_as_k
-	) const;
-
-	// Compute the consensus distribution F_k^{WHAM}(x,y), where k is the index
-	// of any simulation under consideraton (or use -1 to get unbiased ensemble results)
-	// - Grids use 'ij' organization, i.e. grid[i][j] corresponds to (x_bins[i], y_bins[j])
-	// TODO generalize to n dimensions and combine with compute_consensus_f_x
-	void compute_consensus_f_x_y(
-		const OrderParameter& x,
-		const OrderParameter& y,
-		const std::vector<std::vector<double>>& u_bias_as_other,
-		const std::vector<double>&              f_bias_opt,  // consensus free energies to use
-		const std::vector<double>&              u_bias_as_k,
-		const double                            f_bias_k,
-		// Consensus distributions for F_k(x,y)
-		std::vector<std::vector<double>>& p_x_y_wham,
-		std::vector<std::vector<double>>& f_x_y_wham,
-		std::vector<std::vector<int>>&    sample_counts_x_y
 	) const;
 
 	// Compute the asymptotic covariance matrix, theta, for the consensus biasing free energies

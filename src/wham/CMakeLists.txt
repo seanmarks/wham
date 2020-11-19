@@ -9,6 +9,7 @@ target_sources(${LIB_WHAM}
 		BootstrapSubsampler.cpp
 		DataSummary.cpp
 		Estimator_F_x.cpp
+		Estimator_F_x_y.cpp
 		FileSystem.cpp
 		FreeEnergyDistribution.cpp
 		FreeEnergyDistribution2D.cpp

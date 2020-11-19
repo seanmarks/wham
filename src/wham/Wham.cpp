@@ -1,6 +1,7 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "Wham.h"
 #include "Estimator_F_x.hpp"
+#include "Estimator_F_x_y.hpp"
 
 
 Wham::Wham(
@@ -544,7 +545,7 @@ void Wham::manually_unbias_f_x(
 
 	// Reserve memory
 	int num_samples = x.size();
-	int num_bins_x = bins_x.get_num_bins();
+	int num_bins_x = bins_x.getNumBins();
 	minus_log_sigma_k_binned_.resize(num_bins_x);
 	for ( int b=0; b<num_bins_x; ++b ) {
 		minus_log_sigma_k_binned_[b].resize( 0 );
@@ -564,7 +565,7 @@ void Wham::manually_unbias_f_x(
 	f_x.resize(num_bins_x);
 	p_x.resize(num_bins_x);
 	sample_counts.resize(num_bins_x);
-	double bin_size_x = bins_x.get_bin_size();
+	double bin_size_x = bins_x.getBinSize();
 	double normalization = log(num_samples*bin_size_x);
 	 for ( int b=0; b<num_bins_x; ++b ) {
 		sample_counts[b] = minus_log_sigma_k_binned_[b].size();
@@ -621,116 +622,28 @@ FreeEnergyDistribution Wham::compute_consensus_f_x_rebiased(const std::string& o
 
 
 
-void Wham::compute_consensus_f_x_y_unbiased(
-	const std::string& x_name, const std::string& y_name,
+FreeEnergyDistribution2D Wham::compute_consensus_f_x_y_unbiased(
+	const std::string& x_name, const std::string& y_name
+	/*
 	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
 	std::vector<std::vector<int>>& sample_counts_x_y
+	*/
 ) const
 {
 	int p = op_registry_.nameToIndex(x_name);
 	int q = op_registry_.nameToIndex(y_name);
 
+	Estimator_F_x_y est_f_x_y( order_parameters_[p], order_parameters_[q] );
+	est_f_x_y.calculate(*this, u_bias_as_other_unbiased_, f_unbiased_);
+	return est_f_x_y.get_f_x_y();
+
+	/*
 	compute_consensus_f_x_y( order_parameters_[p], order_parameters_[q], u_bias_as_other_, f_bias_opt_,
 	                         u_bias_as_other_unbiased_, f_unbiased_, 
 	                         p_x_y_wham, f_x_y_wham, sample_counts_x_y );
+													 */
 }
 
-
-void Wham::compute_consensus_f_x_y(
-	const OrderParameter& x, const OrderParameter& y,
-	const std::vector<std::vector<double>>& u_bias_as_other, const std::vector<double>& f_bias_opt,
-	const std::vector<double>& u_bias_as_k, const double f_bias_k,
-	// Consensus distributions for F_k(x,y)
-	std::vector<std::vector<double>>& p_x_y_wham, std::vector<std::vector<double>>& f_x_y_wham,
-	std::vector<std::vector<int>>& sample_counts_x_y
-) const
-{
-	f_x_y_timer_.start();
-	/*
-	// Input checks TODO
-	if ( y.size() != x.size() or f_bias_opt.size() != x.size() or u_bias_as_other.size() != x.size() ) {
-		throw std::runtime_error("Error in Wham::compute_consensus_f_x_y - Array size inconsistency");
-	}
-	*/
-
-	// Compute weight factors
-	compute_log_sigma(u_bias_as_other, f_bias_opt, u_bias_as_k, f_bias_k, log_sigma_k_);
-
-	const auto& bins_x = x.getBins();
-	const auto& bins_y = y.getBins();
-	int num_bins_x = bins_x.get_num_bins();
-	int num_bins_y = bins_y.get_num_bins();
-	int num_bins_total = num_bins_x*num_bins_y;
-
-	// Allocate memory and set up grids
-	// - TODO: Wrap in a simple struct/class
-	p_x_y_wham.resize( num_bins_x );
-	f_x_y_wham.resize( num_bins_x );
-	sample_counts_x_y.resize( num_bins_x );
-	for ( int a=0; a<num_bins_x; ++a ) {
-		// Second dimension
-		p_x_y_wham[a].resize( num_bins_y );
-		f_x_y_wham[a].resize( num_bins_y );
-		sample_counts_x_y[a].resize( num_bins_y );
-	}
-
-	minus_log_sigma_k_binned_.resize(num_bins_total);
-	for ( int b=0; b<num_bins_total; ++b ) {
-		minus_log_sigma_k_binned_[b].resize( 0 );
-		minus_log_sigma_k_binned_[b].reserve( x.getTimeSeries(0).size()/10 );
-	}
-
-	// Sort log(sigma_k)-values by bin
-	//sample_bins_.resize(num_samples_total);
-	// TODO: parallelize sorting?
-	int sample_index, bin_x, bin_y;
-	int num_simulations = simulations_.size();
-	int bin_index;
-	f_x_y_sort_timer_.start();
-	for ( int j=0; j<num_simulations; ++j ) {
-		const auto& x_j = x.getTimeSeries(j);
-		const auto& y_j = y.getTimeSeries(j);
-		int num_samples = x_j.size();
-		for ( int i=0; i<num_samples; ++i ) {
-			bin_x = bins_x.find_bin(x_j[i]);
-			bin_y = bins_y.find_bin(y_j[i]);
-			if ( bin_x >= 0 and bin_y >= 0 ) {
-				// Sample is in the binned ranges
-				bin_index    = bin_x*num_bins_y + bin_y;
-				sample_index = simulation_data_ranges_[j].first + i;  
-				minus_log_sigma_k_binned_[bin_index].push_back( -log_sigma_k_[sample_index] );
-			}
-		}
-	}
-	f_x_y_sort_timer_.stop();
-
-	// Normalization
-	const double bin_area = bins_x.get_bin_size() * bins_y.get_bin_size();
-	const double normalization_factor = log( num_samples_total_ * bin_area );
-
-	// Compute F_k(x_a, y_b) for each bin (a,b)
-	#pragma omp parallel for collapse(2) //schedule(static,8)
-	for ( int a=0; a<num_bins_x; ++a ) {
-		for ( int b=0; b<num_bins_y; ++b ) {
-			int bin_index = a*num_bins_y + b;
-
-			int num_samples_in_bin = minus_log_sigma_k_binned_[bin_index].size();
-			if ( num_samples_in_bin > 0 ) {
-				double log_sum = log_sum_exp( minus_log_sigma_k_binned_[bin_index] );
-				f_x_y_wham[a][b] = normalization_factor - log_sum;
-				p_x_y_wham[a][b] = exp( -f_x_y_wham[a][b] );
-			}
-			
-			else {
-				f_x_y_wham[a][b] = 0.0;
-				p_x_y_wham[a][b] = 0.0;
-			}
-			sample_counts_x_y[a][b] = num_samples_in_bin;
-		}
-	}
-
-	f_x_y_timer_.stop();
-}
 
 
 void Wham::compute_error_avg_x_k(

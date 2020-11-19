@@ -1,6 +1,9 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "WhamDriver.h"
 
+#include "Estimator_F_x.hpp"
+#include "Estimator_F_x_y.hpp"
+
 
 WhamDriver::WhamDriver(const std::string& options_file):
 	options_file_(options_file)
@@ -224,7 +227,7 @@ void WhamDriver::run_driver()
 		for ( int i=0; i<num_output_f_x; ++i ) {
 			OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 
-			int num_bins_x = x.getBins().get_num_bins();
+			int num_bins_x = x.getBins().getNumBins();
 			bootstrap_samples_f_x[i].resize(num_bins_x);
 
 			for ( int b=0; b<num_bins_x; ++b ) {
@@ -283,7 +286,7 @@ void WhamDriver::run_driver()
 				OrderParameter& x = order_parameters_[ output_f_x_[i] ];
 				auto bootstrap_f_x = bootstrap_wham.compute_consensus_f_x_unbiased( x.getName() );
 
-				int num_bins_x = x.getBins().get_num_bins();
+				int num_bins_x = x.getBins().getNumBins();
 				for ( int b=0; b<num_bins_x; ++b ) {
 					// Only save this sample for if F(x) if its value is finite (i.e. bin has samples in it)
 					// - Otherwise, statistics over the samples will be corrupted
@@ -357,7 +360,7 @@ void WhamDriver::run_driver()
 		// F_WHAM(x)
 		auto wham_distribution = wham.compute_consensus_f_x_unbiased( x.getName() );
 		if ( calc_error and error_method_ == ErrorMethod::Bootstrap ) {
-			int num_bins_x = x.getBins().get_num_bins();
+			int num_bins_x = x.getBins().getNumBins();
 			std::vector<double> err_f_x(num_bins_x);
 			for ( int b=0; b<num_bins_x; ++b ) {
 				if ( bootstrap_samples_f_x[i][b].get_num_samples() >= 2 ) {
@@ -394,16 +397,19 @@ void WhamDriver::run_driver()
 			std::cout << "Computing F_WHAM(" << x.getName() << ", " << y.getName() << ")\n" << std::flush;
 		}
 
-		std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
-		std::vector<std::vector<int>> sample_counts_x_y;
+		//std::vector<std::vector<double>> p_x_y_wham, f_x_y_wham; 
+		//std::vector<std::vector<int>> sample_counts_x_y;
 
+		auto f_x_y_wham = wham.compute_consensus_f_x_y_unbiased(x.getName(), y.getName());
+		/*
 		wham.compute_consensus_f_x_y_unbiased(
 			x.getName(), y.getName(),
 			p_x_y_wham, f_x_y_wham, sample_counts_x_y
 		);
+		*/
 
 		// Print results
-		print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
+		//print_f_x_y( x, y, p_x_y_wham, f_x_y_wham, sample_counts_x_y );
 	}
 
 	print_output_timer_.stop();
@@ -423,8 +429,8 @@ void WhamDriver::print_f_x_y(
 	// Working variables
 	const Bins& bins_x = x.getBins();
 	const Bins& bins_y = y.getBins();
-	int num_bins_x = bins_x.get_num_bins();
-	int num_bins_y = bins_y.get_num_bins();
+	int num_bins_x = bins_x.getNumBins();
+	int num_bins_y = bins_y.getNumBins();
 	std::string file_name, sep;
 	std::ofstream ofs;
 
@@ -436,7 +442,7 @@ void WhamDriver::print_f_x_y(
 		ofs << "# Bins for " << op_ptrs[i]->getName() << " for F_WHAM(" << x.getName() << "," << y.getName() << ")\n"
 				<< "# " << op_ptrs[i]->getName() << "\n";
 		const auto& bins = op_ptrs[i]->getBins();
-		int num_bins = bins.get_num_bins();
+		int num_bins = bins.getNumBins();
 		for ( int j=0; j<num_bins; ++j ) {
 			ofs << bins[j]  << "\n";
 		}

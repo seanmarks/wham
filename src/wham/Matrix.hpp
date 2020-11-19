@@ -45,8 +45,8 @@ class Matrix
   using const_pointer   = const value_type*;
   using difference_type = std::ptrdiff_t;
 
-  using iterator               = value_type*;
-  using const_iterator         = const value_type*;
+  using iterator               = typename Vector::iterator;  //value_type*;
+  using const_iterator         = typename Vector::const_iterator;  //const value_type*;
   using reverse_iterator       = std::reverse_iterator<iterator>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -183,10 +183,10 @@ class Matrix
     return data_.end();
   }
   const_iterator begin() const noexcept {
-    return data_.begin();
+    return data_.cbegin();
   }
   const_iterator end() const noexcept {
-    return data_.end();
+    return data_.cend();
   }
   const_iterator cbegin() const noexcept {
     return data_.cbegin();

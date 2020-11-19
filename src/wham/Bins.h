@@ -36,8 +36,8 @@ class Bins
 
 	Bins(const ParameterPack& input_pack);
 
-	int    get_num_bins() const { return num_bins_; };
-	double get_bin_size() const { return bin_size_; };
+	int    getNumBins() const { return num_bins_; };
+	double getBinSize() const { return bin_size_; };
 	//std::vector<double> getBins() const { return bins_; };
 	const std::vector<double>& getBins() const { return bins_; };
 

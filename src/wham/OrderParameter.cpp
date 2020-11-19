@@ -42,7 +42,7 @@ void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
 	}
 
 	// Number of samples in each bin, across all data sets
-	int num_bins = bins_.get_num_bins();
+	int num_bins = bins_.getNumBins();
 	global_sample_counts_.assign(num_bins, 0);
 	for ( int j=0; j<num_simulations; ++j ) {
 		for ( int b=0; b<num_bins; ++b ) {
@@ -144,7 +144,7 @@ void OrderParameter::printWhamResults(std::string file_name) const
 	ofs << "\n";
 
 	// Print F_0(x)
-	const int num_bins  = bins_.get_num_bins();
+	const int num_bins  = bins_.getNumBins();
 	for ( int b=0; b<num_bins; ++b ) {
 		ofs << std::setw(8) << std::setprecision(5) << bins_[b];
 		ofs << "  " << std::setw(8) << std::setprecision(5);
@@ -219,7 +219,7 @@ void OrderParameter::printDistributions(
 		}
 	}
 
-	int num_bins = bins_.get_num_bins();  // All simulations are binned the same way
+	int num_bins = bins_.getNumBins();  // All simulations are binned the same way
 	for ( int b=0; b<num_bins; ++b ) {
 		ofs << bins_[b];
 		for ( int k=0; k<num_distributions; ++k ) {

@@ -32,7 +32,7 @@ void Estimator_F_x::calculate(
 
 	// Sort samples by bin
   const auto& bins_x = x_.getBins();
-  const int   num_bins_x = bins_x.get_num_bins();
+  const int   num_bins_x = bins_x.getNumBins();
   const int   num_to_reserve = 2*(num_samples_total/num_bins_x);
   binned_weights_.resize(num_bins_x);
   for ( int b=0; b<num_bins_x; ++b ) {
@@ -54,7 +54,7 @@ void Estimator_F_x::calculate(
   std::vector<double> p_x_tmp(num_bins_x);
   std::vector<double> f_x_tmp(num_bins_x);
   std::vector<int>    samples(num_bins_x);
-	const double bin_size_x = bins_x.get_bin_size();
+	const double bin_size_x = bins_x.getBinSize();
   const double fac = 1.0/bin_size_x;  // normalize by bin size
   for ( int b=0; b<num_bins_x; ++b ) {
     double sum = std::accumulate( binned_weights_[b].begin(), binned_weights_[b].end(), 0.0 );
