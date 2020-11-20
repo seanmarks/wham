@@ -1,3 +1,4 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "Statistics.h"
 
 // Constructor/destructor
@@ -23,12 +24,7 @@ Statistics::~Statistics()
 double Statistics::average(const std::vector<double>& x)
 {
 	int num_samples = x.size();
-	if ( num_samples < 1 ) {
-		std::stringstream err_ss;
-		err_ss << "Error in " << FANCY_FUNCTION << "\n"
-		       << "  Insufficient number of samples\n";
-		throw std::runtime_error( err_ss.str() );
-	}
+	FANCY_ASSERT( num_samples > 0, "insufficient number of samples: " << num_samples );
 
 	// TODO: This implementation is subject to roundoff error if num_samples is large
 	double avg_x = 0.0;
@@ -45,12 +41,7 @@ double Statistics::variance(const std::vector<double>& x, const int delta_dof)
 {
 	int num_samples = x.size();
 	int num_samples_final = num_samples - delta_dof;  // adjusted number of samples
-	if ( num_samples_final < 1 ) {
-		std::stringstream err_ss;
-		err_ss << "Error in " << FANCY_FUNCTION << "\n"
-		       << "  Insufficient number of samples\n";
-		throw std::runtime_error( err_ss.str() );
-	}
+	FANCY_ASSERT( num_samples_final > 0, "insufficient number of samples: " << num_samples_final );
 
 	double avg_x = Statistics::average(x);
 	double var_x = 0.0;
@@ -154,7 +145,7 @@ double Statistics::std_err_mean(const std::vector<double>& x)
 
 // Use the moving block bootstrap (MBB) method to estimate the std. error of a point statistic
 void Statistics::movingBlockBootstrap_stdError_PointStatistic(
-		const std::string& statistic, const std::vector<double>& x, const int num_samplesPerBlock, 
+		const std::string& statistic, const std::vector<double>& x, const int num_samples_per_block, 
 		const int numBootstrapSamples, 
 		// Output
 		double& bootstrapAverage, double& stdError, double& std_dev_stdError)
@@ -170,7 +161,7 @@ void Statistics::movingBlockBootstrap_stdError_PointStatistic(
 	std::vector<double> bootstrapEstimates(numBootstrapSamples);
 
 	for ( int i=0; i<numBootstrapSamples; ++i ) {
-		this->getMovingBlockBootstrapSample(x, num_samplesPerBlock, x_bootstrap);
+		this->getMovingBlockBootstrapSample(x, num_samples_per_block, x_bootstrap);
 
 		bootstrapEstimates[i] = estimator_fxn(x_bootstrap);
 	}
@@ -190,7 +181,7 @@ void Statistics::movingBlockBootstrap_stdError_PointStatistic(
 
 // Use the moving block bootstrap (MBB) to estimate the std. errors of a probability histogram
 void Statistics::movingBlockBootstrap_stdError_p_x(
-		const std::vector<double>& x, const std::vector<double>& bins, const int num_samplesPerBlock, 
+		const std::vector<double>& x, const std::vector<double>& bins, const int num_samples_per_block, 
 		const int numBootstrapSamples, const bool doNegativeLog,
 		// Output
 		std::vector<double>& bootstrapAverages, std::vector<double>& std_devs) 
@@ -216,7 +207,7 @@ void Statistics::movingBlockBootstrap_stdError_p_x(
 	bool isNormalized = true;
 	double sample;
 	for ( int i=0; i<numBootstrapSamples; ++i ) {
-		getMovingBlockBootstrapSample(x, num_samplesPerBlock, 
+		getMovingBlockBootstrapSample(x, num_samples_per_block, 
 		                              x_bootstrap);
 
 		constructHistogram(
@@ -266,34 +257,21 @@ void Statistics::movingBlockBootstrap_stdError_p_x(
 
 // Perform block averaging and return the standard error of the mean
 void Statistics::blockStatistics(
-		const std::vector<double>& x, const int num_samplesPerBlock, 
+		const std::vector<double>& x, const int num_samples_per_block, 
 		int& numBlocks, std::vector<double>& blockAverages, std::vector<double>& blockVariances,
  		double& stdError_avg, double& std_dev_stdError_avg)
 {
 	// Input checks
-	if ( num_samplesPerBlock < 1 )
-	{
-		std::cerr << "Statistics.blockStatistics: Can't do block averages with less "
-				  << "than 1 sample per block "
-				  << "(input: numBlocks=" << numBlocks << ")." << "\n";
-		exit(1);
-	}
+	FANCY_ASSERT( num_samples_per_block > 1, "insufficient samples per block" );
 
 	int    num_samples  		   = x.size();
 	double num_samples_d 		   = static_cast<double>(num_samples);
-	double num_samplesPerBlock_d = static_cast<double>(num_samplesPerBlock);
+	double num_samples_per_block_d = static_cast<double>(num_samples_per_block);
 
-	numBlocks         = static_cast<int>(num_samples_d/num_samplesPerBlock_d); // round down
+	numBlocks         = static_cast<int>(num_samples_d/num_samples_per_block_d); // round down
 	double numBlocks_d = static_cast<double>(numBlocks);
 
-	if ( numBlocks < 2 )
-	{
-		std::cerr << "Statistics.blockStatistics: Insufficient data for at least "
-				  << "two blocks of the same size. Decrease the block size " 
-				  << "(input: num_samplesPerBlock=" << num_samplesPerBlock << ")."
-				  << "\n";
-		exit(1);
-	}
+	FANCY_ASSERT(numBlocks > 1, "need at least 2 blocks: decrease block size");
 
 	// Compute averages for each block
 	blockAverages.assign(numBlocks, 0.0);
@@ -303,8 +281,8 @@ void Statistics::blockStatistics(
 
 	for ( int b=0; b<numBlocks; b++ )
 	{
-		blockStart = b*num_samplesPerBlock;
-		blockStop  = blockStart + num_samplesPerBlock;
+		blockStart = b*num_samples_per_block;
+		blockStop  = blockStart + num_samples_per_block;
 
 		avg_x   = 0.0;
 		avg_xSq = 0.0;
@@ -315,11 +293,11 @@ void Statistics::blockStatistics(
 			avg_xSq += x[i]*x[i];  // avg(x^2)
 		}
 
-		avg_x   /= num_samplesPerBlock_d;
-		avg_xSq /= num_samplesPerBlock_d;
+		avg_x   /= num_samples_per_block_d;
+		avg_xSq /= num_samples_per_block_d;
 
 		blockAverages[b]  = avg_x;
-		blockVariances[b] = num_samplesPerBlock_d/(num_samplesPerBlock_d - 1.0)
+		blockVariances[b] = num_samples_per_block_d/(num_samples_per_block_d - 1.0)
 								*(avg_xSq - avg_x*avg_x);
 	}
 
@@ -344,26 +322,14 @@ void Statistics::timeCorrelationBootstrap(
 {
 	// Input checks
 	int num_samples = x.size();
-	if ( correlationTime >= num_samples ) {
-		std::cerr << "Statistics.timeCorrelationBootstrap: Can't bootstrap a sample when the "
-				  << "correlation time is longer than the data set (input: num_samples = "
-				  << num_samples << ", correlation time = " << correlationTime << ")."
-				  << "\n";
-		exit(1);
-	}
-	if ( correlationTime == 0 ) { // FIXME Way to handle correlationTime = 0, 1 better?
-		std::cerr << "Statistics.timeCorrelationBootstrap: The correlation time for your "
-			<< "data is 0 [sample times]. Use a classical bootstrap method instead."
-			<< "\n";
-		exit(1);
-	}
+	FANCY_ASSERT( correlationTime < num_samples, "insufficient samples" );
+	FANCY_ASSERT( correlationTime > 0, "invalid correlation time for this function" );
 
 	if ( 10*bootstrap_sample_size < num_samples )
 	{
-		std::cerr << "Statistics.timeCorrelationBootstrap: The bootstrap sample size will be "
-			<< "more than 10 times smaller than the original data set. Results may be "
-			<< "inaccurate." 
-			<< "\n";
+		std::cerr << "Statistics.timeCorrelationBootstrap: The bootstrap sample size will be \n"
+		          << "more than 10 times smaller than the original data set. Results may be \n"
+		          << "inaccurate.\n";
 	}
 
 	// Point estimator
@@ -453,15 +419,8 @@ void Statistics::getBootstrapSampleFromTimeCorrelatedData(
 		const int correlationTime, const int bootstrap_sample_size,
 		std::vector<double>& bootstrap_sample)
 {
-	if ( (subsampleOrigin < 0) || (subsampleOrigin >= correlationTime) )
-	{
-		std::cerr << "Statistics.getBootstrapSampleFromTimeCorrelatedData: "
-				  << "the parameter \"subsampleOrigin\" must be >= 0 and < correlationTime "
-				  << "(input: subsampleOrigin = " << subsampleOrigin << ", " 
-				  << "correlationTime = " << correlationTime << ")." 
-				  << "\n";
-		exit(1);
-	}
+	FANCY_ASSERT( subsampleOrigin >= 0, "timeorigin may not be negative" );
+	FANCY_ASSERT( subsampleOrigin < correlationTime, "insufficient data" );
 
 	if ( static_cast<int>(bootstrap_sample.size()) != bootstrap_sample_size ) {
 		bootstrap_sample.resize(bootstrap_sample_size);
@@ -486,19 +445,19 @@ void Statistics::getBootstrapSampleFromTimeCorrelatedData(
 
 // (Private) Generate a moving block bootstrap sample from the data
 void Statistics::getMovingBlockBootstrapSample(
-		const std::vector<double>& x, const int num_samplesPerBlock, 
+		const std::vector<double>& x, const int num_samples_per_block, 
 		std::vector<double>& x_bootstrap)
 {
 	int num_samples = x.size(); // "n"
-	int numBlocks  = num_samples - num_samplesPerBlock + 1; // "N"
+	int numBlocks  = num_samples - num_samples_per_block + 1; // "N"
 
 	if ( static_cast<int>(x_bootstrap.size()) != num_samples ) {
 		x_bootstrap.resize(num_samples);
 	}
 
 	double num_samples_d 				       = static_cast<double>(num_samples);
-	double num_samplesPerBlock_d 		   = static_cast<double>(num_samplesPerBlock); // "l"
-	int    numBlocksPerBootstrapSample = static_cast<int>(num_samples_d/num_samplesPerBlock_d); // "b"
+	double num_samples_per_block_d 		 = static_cast<double>(num_samples_per_block); // "l"
+	int    numBlocksPerBootstrapSample = static_cast<int>(num_samples_d/num_samples_per_block_d); // "b"
 
 	// Random int generator for choosing blocks
 	std::uniform_int_distribution<int> gen_int(0, numBlocks-1);	// Interface to generate ints
@@ -511,8 +470,8 @@ void Statistics::getMovingBlockBootstrapSample(
 		blockStart = gen_int(*rng_ptr_);
 
 		// Build the bootstrap sample set
-		offset = j*num_samplesPerBlock;	// where to start placing data in bootstrap sample
-		for ( int k=0; k<num_samplesPerBlock; ++k ) {
+		offset = j*num_samples_per_block;	// where to start placing data in bootstrap sample
+		for ( int k=0; k<num_samples_per_block; ++k ) {
 			x_bootstrap[offset + k] = x[blockStart + k];
 		}
 	}
@@ -531,7 +490,8 @@ Statistics::PointEstmator Statistics::getPointEstimatorMethod(
 	if ( (statistic == "average") || (statistic == "avg") )  		
 	{ 
 		//estimator_fxn = [=](const std::vector<double>& x) { return Statistics::average(x); };
-		estimator_fxn = &Statistics::average;
+		estimator_fxn = [=](const std::vector<double>& x) -> double { return Statistics::average(x); };
+		//&Statistics::average;
 	}
 	else if ( (statistic == "variance") || (statistic == "var") ) 
 	{ 
@@ -545,8 +505,9 @@ Statistics::PointEstmator Statistics::getPointEstimatorMethod(
 				|| (statistic == "standardDeviation") 	
 				|| (statistic == "std_dev") )
 	{
-		//estimator_fxn = &Statistics::std_dev;
-		throw std::runtime_error("FIXME");
+		estimator_fxn = [=](const std::vector<double>& x) -> double {
+			return Statistics::std_dev(x);
+		};
 	}
 	else if ( statistic == "kurtosis" ) 
 	{ 
@@ -558,9 +519,7 @@ Statistics::PointEstmator Statistics::getPointEstimatorMethod(
 	}
 	else
 	{
-		std::cerr << "Statistics.getPointEstimatorMethod: Statistic not recognized/supported "
-				  << "(input: statistic = " << statistic << ")." << "\n";
-		exit(1);
+		throw std::runtime_error("unrecognized input: " + statistic);
 	}
 
 	return estimator_fxn;

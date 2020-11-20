@@ -154,17 +154,17 @@ endif()
 ######################
 
 # Basic flags
-add_compile_options(-g -Wall)
+#add_compile_options(-g -Wall)
 
 # Optimizations
-set(WHAM_OPT_DEBUG_FLAGS   -O0)
-set(WHAM_OPT_RELEASE_FLAGS -O3 -ffast-math -march=native)
-if(GNU)
-	string(APPEND WHAM_OPT_RELEASE_FLAGS -ftree-vectorize)
-endif()
-add_compile_options("$<$<CONFIG:DEBUG>:${WHAM_OPT_DEBUG_FLAGS}>")
-add_compile_options("$<$<CONFIG:RELEASE>:${WHAM_OPT_RELEASE_FLAGS}>")
-
+set(OPT_DEBUG_FLAGS   -O0                           CACHE STRING "Optimizations used in Debug build configurations")
+set(OPT_RELEASE_FLAGS -O3 -ffast-math -march=native CACHE STRING "Optimizations used in Release build configurations")
+set(IS_RELEASE_CONFIG $<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>)
+set(OPT_FLAGS
+	$<$<CONFIG:Debug>:${OPT_DEBUG_FLAGS}> 
+	$<${IS_RELEASE_CONFIG}:${OPT_RELEASE_FLAGS}>
+	CACHE STRING "Optimizations used"
+	)
 
 ### Build ###
 

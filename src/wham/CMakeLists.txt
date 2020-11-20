@@ -41,6 +41,8 @@ target_sources(${LIB_WHAM}
 		WhamStatistics.cpp
 	)
 
+target_compile_options(${LIB_WHAM} PRIVATE -Wall ${OPT_FLAGS})
+
 # dlib
 target_include_directories(${LIB_WHAM} PUBLIC dlib::dlib)
 target_link_libraries(${LIB_WHAM} PUBLIC dlib::dlib)

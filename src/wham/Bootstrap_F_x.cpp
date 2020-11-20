@@ -40,7 +40,12 @@ void Bootstrap_F_x::finalizeImpl()
   const int num_bins = estimates_.size();
   std::vector<double> err_f_x( num_bins );
   for ( int b=0; b<num_bins; ++b ) {
-    err_f_x[b] = estimates_[b].std_dev();
+    if ( estimates_[b].get_num_samples() >= 2 ) {
+      err_f_x[b] = estimates_[b].std_dev();
+    }
+    else {
+      err_f_x[b] = -1.0;
+    }
   }
 
   f_x_out_.setErrors_F_x(err_f_x);

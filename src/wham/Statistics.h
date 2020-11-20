@@ -1,12 +1,5 @@
-/* Statistics.h
- *
- * ABOUT: Object with statistics routines
- * DEVELOPMENT: TODO
- *  - Swich to throwing exceptions
- *  - Rename variables to be consistent with prevailing style
- */
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
-// Standard headers
 #include <cmath>
 #include <cstdlib>
 #include <exception>
@@ -22,9 +15,16 @@
 
 #include "Assert.hpp"
 
+#pragma once
 #ifndef STATISTICS_H
 #define STATISTICS_H
 
+
+// Object with basic statistics functions
+//
+// TODO:
+// - Rename variables to be consistent with prevailing style
+// - Standard error for different measurements
 class Statistics
 {
   public:
@@ -45,12 +45,21 @@ class Statistics
 
 	static double covariance(const std::vector<double>& x, const std::vector<double>& y); // TODO
 
-	// Constructs a histogram of the data TODO
+	template<typename InputIt>
+	static double average(InputIt begin, InputIt end);
+
+	template<typename InputIt>
+	static double variance(InputIt begin, InputIt end, const int ddof=1);
+
+	template<typename InputIt>
+	static double std_err_mean(InputIt begin, InputIt end, const int ddof=1);
+
+	// Constructs a histogram of the data (TODO)
 	// - Note: data bins must be evenly spaced
 	void constructHistogram(
-			const std::vector<double>& x,       // Data
-			const std::vector<double>& bins,		// Bin centers
-			const bool 				   isNormalized,  // Option to normalize the histogram
+			const std::vector<double>& x,            // Data
+			const std::vector<double>& bins,		     // Bin centers
+			const bool 				         isNormalized, // Option to normalize the histogram
 			// Output
 			std::vector<double>& histogram,
 			int&                 numOutliers         // # data pts. which didn't fit in the bins
@@ -196,5 +205,62 @@ class Statistics
 	// Returns a ptr to the member function which estimates the indicated point statistic
 	PointEstmator getPointEstimatorMethod(const std::string& statistic);
 };
+
+
+template<typename InputIt>
+double Statistics::average(InputIt begin, InputIt end)
+{
+	static_assert(
+		std::is_convertible<typename std::iterator_traits<InputIt>::value_type, double>::value,
+			"unable to convert input type to double"
+	);
+
+	int num_samples = std::distance(begin, end);
+	FANCY_ASSERT( num_samples > 0, "insufficient number of samples: " << num_samples );
+
+	double avg = std::accumulate(begin, end, 0.0)/static_cast<double>(num_samples);
+	return avg;
+}
+
+
+template<typename InputIt>
+double Statistics::variance(InputIt begin, InputIt end, const int ddof)
+{
+	using value_type = typename std::iterator_traits<InputIt>::value_type;
+	static_assert( std::is_convertible<value_type, double>::value,
+	               "unable to convert input type to double" );
+
+	int num_samples = std::distance(begin, end);
+	FANCY_ASSERT( num_samples - ddof > 0,
+	"insufficient number of samples: " << num_samples << " with ddof=" << ddof );
+
+	double avg = average(begin, end);
+
+	// Compute sum_i^N (x_i - avg)^2
+	value_type init = 0.0;  // ensure the correct type is used
+	double var = std::accumulate( begin, end, init,
+		[&](value_type sum, value_type x) {
+			return std::move(sum) + (x - avg)*(x - avg);
+		}
+	);
+
+	var /= static_cast<double>(num_samples - ddof);
+	return var;
+}
+
+
+template<typename InputIt>
+double Statistics::std_err_mean(InputIt begin, InputIt end, const int ddof)
+{
+	using value_type = typename std::iterator_traits<InputIt>::value_type;
+	static_assert( std::is_convertible<value_type, double>::value,
+																"unable to convert input type to double" );
+
+	int num_samples = std::distance(begin, end);
+	FANCY_ASSERT( num_samples > 0, "insufficient number of samples: " << num_samples );
+
+	double var = variance(begin, end);
+	return std::sqrt(var/static_cast<double>(num_samples));
+}
 
 #endif // STATISTICS_H
