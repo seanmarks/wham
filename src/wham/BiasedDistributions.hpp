@@ -3,28 +3,18 @@
 #ifndef BIASED_DISTRIBUTIONS_HPP
 #define BIASED_DISTRIBUTIONS_HPP
 
-#include "OrderParameter.h"
-#include "Simulation.h"
+#include "FreeEnergyDistributionSet.hpp"
 
 
-// TODO: ?
-class BiasedDistributions
+// TODO:
+class BiasedDistributions : public FreeEnergyDistributionSet
 {
  public:
   BiasedDistributions(const OrderParameter& x, const std::vector<Simulation>& data);
 
-  
-  // Returns the distributions (one for each simulation/sampled ensemble)
-  const std::vector<FreeEnergyDistribution>& getDistributions() const noexcept {
-    return distributions_;
-  }
-
-
- private:
-  const OrderParameter& x_;
-
-  std::vector<FreeEnergyDistribution> distributions_;
-  std::vector<std::string> data_set_labels_;
+ protected:
+  virtual
+  std::string getHeader() const override;
 };
 
 #endif // ifndef BIASED_DISTRIBUTIONS_HPP

@@ -57,27 +57,9 @@ class OrderParameter
 	// Sets the handle to the simulations to use
 	void setSimulations(std::vector<Simulation>& simulations);
 
-	// FIXME: cludgy to set this way
-
-	void setUnbiasedDistributions(const std::vector<FreeEnergyDistribution>& unbiased_distributions) {
-		unbiased_distributions_ = unbiased_distributions;
-	}
-
-	void setShiftedDistributions(const std::vector<FreeEnergyDistribution>& shifted_distributions) {
-		shifted_distributions_ = shifted_distributions;
-	}
-
-	void setRebiasedDistributions(const std::vector<FreeEnergyDistribution>& rebiased_distributions) {
-		rebiased_distributions_ = rebiased_distributions;
-
-		// Entropy between biased and rebiased distributions
-		int num_simulations = simulation_ptrs_.size();
-		info_entropy_.resize(num_simulations);
-		for ( int j=0; j<num_simulations; ++j ) {
-			info_entropy_[j] = FreeEnergyDistribution::computeInformationEntropy(
-				rebiased_distributions_[j], biased_distributions_[j]
-			);
-		}
+	// FIXME:
+	void setInfoEntropy(const std::vector<double>& eta) {
+		info_entropy_ = eta;
 	}
 
 	void setWhamDistribution(const FreeEnergyDistribution& wham_distribution) {
@@ -86,11 +68,6 @@ class OrderParameter
 
 
 	//----- Printing Output -----//
-
-	// TODO: rename
-	void printRawDistributions() const;
-
-	void printRebiasedDistributions(std::string file_name = "") const;
 
 	void printWhamResults(std::string file_name = "") const;
 
@@ -107,9 +84,6 @@ class OrderParameter
 	// Time series data from each simulation
 	std::vector<const TimeSeries*> time_series_ptrs_;
 
-	std::vector<FreeEnergyDistribution> biased_distributions_;
-	std::vector<FreeEnergyDistribution> unbiased_distributions_;
-	std::vector<FreeEnergyDistribution> shifted_distributions_;   // unbiased and shifted
 	std::vector<FreeEnergyDistribution> rebiased_distributions_;  // rebias consensus distribution
 
 	// WHAM results

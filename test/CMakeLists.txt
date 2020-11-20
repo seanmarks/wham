@@ -1,4 +1,7 @@
 # Testing
+#
+# AUTHOR: Sean M. Marks (https://github.com/seanmarks)
+#
 # - All tests run the program for a set of sample input, and compare the resulting output files to 
 #   "gold standard" output files stored in the repo
 #   - Simplistic, but easy to implement and modify

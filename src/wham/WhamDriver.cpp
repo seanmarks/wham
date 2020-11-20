@@ -1,7 +1,9 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "WhamDriver.h"
 
+#include "BiasedDistributions.hpp"
 #include "ManuallyUnbiasedDistributions.hpp"
+#include "RebiasedDistributions.hpp"
 
 
 WhamDriver::WhamDriver(const std::string& options_file):
@@ -349,15 +351,18 @@ void WhamDriver::run_driver()
 		}
 
 		// "Manually" unbiased distributions (non-consensus, unshifted)
-		// - FIXME: MOVE
 		ManuallyUnbiasedDistributions f_x_unb(x, wham);
-		x.setUnbiasedDistributions( f_x_unb.getDistributions() );
+		f_x_unb.print("F_" + x.getName() + "_unbiased.out");
 
 		// "Raw" distributions (i.e. using only data from each individual simulation)
-		// - FIXME: MOVE
-		x.printRawDistributions();
-		f_x_unb.print("F_" + x.getName() + "_unbiased.out");
-		// TODO: "shifted" distributions
+		BiasedDistributions f_x_biased(x, simulations_);
+		f_x_biased.print("F_" + x.getName() + "_biased.out");
+
+		// "Rebiased" consensus histograms (for validation)
+		RebiasedDistributions f_x_rebiased(x, wham);
+		f_x_rebiased.print("F_" + x.getName() + "_rebiased.out");
+
+		// TODO: "shifted" distributions?
 
 		// F_WHAM(x)
 		output_f_x_[i].calculate(wham);
@@ -378,16 +383,14 @@ void WhamDriver::run_driver()
 		x.setWhamDistribution( wham_distribution );
 		x.printWhamResults();
 
-		// "Rebias" consensus histograms (for validation)
-		std::vector<FreeEnergyDistribution> f_x_rebiased;
-		for ( int j=0; j<num_simulations; ++j ) {
-			const auto& label = data_summary_.indexToDataSetLabel(j);
-			output_f_x_[i].calculate(wham, label);
-			f_x_rebiased.push_back( output_f_x_[i].get_f_x() );
+		// FIXME:
+		std::vector<double> info_entropy(num_simulations);
+		for ( int i=0; i<num_simulations; ++i ) {
+			const auto& f_rebiased_i = f_x_rebiased.getDistributions()[i];
+			const auto& f_biased_i = f_x_biased.getDistributions()[i];
+			info_entropy[i] = FreeEnergyDistribution::computeInformationEntropy(f_rebiased_i, f_biased_i);
 		}
-		x.setRebiasedDistributions( f_x_rebiased );
-		x.printRebiasedDistributions();
-
+		x.setInfoEntropy(info_entropy);
 		x.printStats();
 	}
 

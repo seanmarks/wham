@@ -1,4 +1,15 @@
 # Biased free energy distributions:  F_i(Ntilde) [k_B*T]
+# Data sets (by column)
+# 2: nstar_30.0
+# 3: nstar_25.0
+# 4: nstar_20.0
+# 5: nstar_15.0
+# 6: nstar_10.0
+# 7: nstar_5.0
+# 8: nstar_0.0
+# 9: nstar_-5.0
+#
+# Ntilde | F(Ntilde) [kBT]
 0	     nan	     nan	     nan	     nan	     nan	     nan	  6.2046	 0.67838
 1	     nan	     nan	     nan	     nan	     nan	     nan	  3.0691	       0
 2	     nan	     nan	     nan	     nan	     nan	     nan	  1.4339	 0.24116

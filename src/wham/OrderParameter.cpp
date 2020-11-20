@@ -26,7 +26,6 @@ void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
 	int num_simulations = simulations.size();
 	simulation_ptrs_.assign(num_simulations, nullptr);
 	time_series_ptrs_.resize(num_simulations);
-	biased_distributions_.clear();
 
 	// TODO: Move everything besides setting of simulation_ptrs to a separate fxn
 
@@ -35,76 +34,9 @@ void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
 
 		// Share time series read by Simulation objects
 		time_series_ptrs_[i] = simulations[i].copyTimeSeriesPtr(name_);
-		
-		// Make raw biased distributions
-		// - TODO: Make optional?
-		biased_distributions_.emplace_back( FreeEnergyDistribution(bins_, *(time_series_ptrs_[i])) );
 	}
 }
 
-
-void OrderParameter::printRawDistributions() const
-{
-	int num_simulations = time_series_ptrs_.size();
-	FANCY_ASSERT(num_simulations > 0, "no simulations present");
-
-	// Common header
-	std::stringstream table_header_stream;
-	table_header_stream << "# Data sets (by column)\n";
-	for ( int i=0; i<num_simulations; ++i ) {
-		table_header_stream << "# " << i+2 << ": " << simulation_ptrs_[i]->getDataSetLabel() << "\n";
-	}
-	table_header_stream << "#\n"
-	                    << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
-
-	// Working variables
-	std::stringstream header_stream;
-	std::string file_name;
-	std::ofstream ofs;
-
-	// Print biased free energy distributions
-	file_name = "F_" + name_ + "_biased.out";
-	header_stream.str("");  header_stream.clear();
-	header_stream << "# Biased free energy distributions: "
-                << " F_i(" << name_ << ") [k_B*T]\n";
-	              table_header_stream.str();
-	FreeEnergyDistribution::printSet( biased_distributions_, file_name, header_stream.str() );
-
-
-	// Print unbiased free energy distributions (non-consensus)
-	file_name = "F_" + name_ + "_unbiased.out";
-	header_stream.str("");  header_stream.clear();
-	header_stream << "# Unbiased free energy distributions: "
-                << " F_{0,i}(" << name_ << ") [k_B*T]\n"
-	              << table_header_stream.str();
-	FreeEnergyDistribution::printSet( unbiased_distributions_, file_name, header_stream.str() );
-}
-
-
-void OrderParameter::printRebiasedDistributions(std::string file_name) const
-{
-	FANCY_ASSERT(simulation_ptrs_.size() == rebiased_distributions_.size(), "length mismatch");
-
-	if ( file_name.empty() ) {
-		file_name = "F_" + name_ + "_rebiased.out";
-	}
-	std::ofstream ofs(file_name);
-
-	// Header
-	std::stringstream header_stream;
-	header_stream << "# \"Rebiased\" free energy distributions: "
-                << " F_{rebias,i}(" << name_ << ") [k_B*T]\n";
-	header_stream << "# Data sets (by column)\n";
-	const int num_simulations = simulation_ptrs_.size();
-	for ( int j=0; j<num_simulations; ++j ) {
-		header_stream << "# " << j+2 << ": " << simulation_ptrs_[j]->getDataSetLabel() << "\n";
-	}
-	header_stream << "#\n"
-	              << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
-
-	// Print
-	FreeEnergyDistribution::printSet( rebiased_distributions_, file_name, header_stream.str() );
-}
 
 
 void OrderParameter::printWhamResults(std::string file_name) const

@@ -1,3 +1,4 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #pragma once
 #ifndef FREE_ENERGY_DISTRIBUTION_HPP

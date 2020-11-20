@@ -1,3 +1,4 @@
+# AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 # Declare library
 add_library(${LIB_WHAM} "")
@@ -6,6 +7,7 @@ target_sources(${LIB_WHAM}
 	PRIVATE
 		Bias.cpp
 		Bins.cpp
+		BiasedDistributions.cpp
 		BootstrapSubsampler.cpp
 		DataSummary.cpp
 		Estimator_F_x.cpp
@@ -21,6 +23,7 @@ target_sources(${LIB_WHAM}
 		OrderParameter.cpp
 		OrderParameterRegistry.cpp
 		Random.cpp
+		RebiasedDistributions.cpp
 		Simulation.cpp
 		Stacktrace.cpp
 		Statistics.cpp
