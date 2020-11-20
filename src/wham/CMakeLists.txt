@@ -34,6 +34,7 @@ target_sources(${LIB_WHAM}
 		WhamEstimator.cpp
 		WhamDlibWrappers.cpp
 		WhamDriver.cpp
+		WhamStatistics.cpp
 	)
 
 # dlib

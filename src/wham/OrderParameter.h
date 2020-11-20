@@ -25,16 +25,14 @@
 #include "TimeSeries.h"
 #include "Assert.hpp"
 
-// Organizes data and variables for a single order parameter 
-// across multiple simulations
-// - TODO: remove storage of time series data?
+// Organizes settings for a single order parameter, especially
+// its name and how its values should be binned
 class OrderParameter
 {
  public:
 	OrderParameter(
 		const std::string& name,
-		const ParameterPack& input_pack,
-		std::vector<Simulation>& simulations
+		const ParameterPack& input_pack
 	);
 
 	// Returns a string representing the name of the OP
@@ -42,24 +40,8 @@ class OrderParameter
 		return name_;
 	}
 
-	// FIXME: REMOVE
-	const TimeSeries& getTimeSeries(const int j) const {
-#ifdef DEBUG
-		assert( time_series_ptrs_[j] != nullptr );
-#endif // ifdef DEBUG
-		return *(time_series_ptrs_[j]);
-	}
-
 	const Bins& getBins() const {
 		return bins_;
-	}
-
-	// Sets the handle to the simulations to use
-	void setSimulations(std::vector<Simulation>& simulations);
-
-	// FIXME:
-	void setInfoEntropy(const std::vector<double>& eta) {
-		info_entropy_ = eta;
 	}
 
 	void setWhamDistribution(const FreeEnergyDistribution& wham_distribution) {
@@ -69,26 +51,16 @@ class OrderParameter
 
 	//----- Printing Output -----//
 
-	void printWhamResults(std::string file_name = "") const;
-
-	void printStats(std::string file_name = "") const;
+	void printWhamResults(std::string file_name, const double temp) const;
 
 
  private:
 	std::string name_;
 
-	std::vector<Simulation*> simulation_ptrs_;
-
 	Bins bins_;
-
-	// Time series data from each simulation
-	std::vector<const TimeSeries*> time_series_ptrs_;
-
-	std::vector<FreeEnergyDistribution> rebiased_distributions_;  // rebias consensus distribution
 
 	// WHAM results
 	FreeEnergyDistribution wham_distribution_;
-	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
 };
 
 #endif /* ORDER_PARAMETER_H */

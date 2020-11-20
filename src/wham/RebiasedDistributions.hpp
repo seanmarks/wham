@@ -6,7 +6,9 @@
 #include "FreeEnergyDistributionSet.hpp"
 #include "Wham.h"
 
-// TODO:
+
+// Calculates consensus biased free energy distributions using WHAM results
+// - These are useful for checking the internal consistency of WHAM output
 class RebiasedDistributions : public FreeEnergyDistributionSet
 {
  public:

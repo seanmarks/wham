@@ -22,11 +22,13 @@ class Bias
 	// Returns the total bias at x, in kBT
 	double evaluate(const std::vector<double>& x) const;
 
-	const std::vector<std::string>& get_order_parameter_names() const {
+	// Returns the list of names of order parameters required to
+	// evaluate the bias
+	const std::vector<std::string>& getOrderParameterNames() const {
 		return order_parameter_names_;
 	}
 
-	const std::string& get_data_set_label() const { 
+	const std::string& getDataSetLabel() const { 
 		return data_set_label_; 
 	}
 

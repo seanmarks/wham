@@ -33,8 +33,14 @@ class FreeEnergyDistributionSet
     return x_;
   }
 
+  // Returns the list of data sets used to construct the distributions
+  const std::vector<std::string>& getDataSetLabels() const noexcept {
+    return data_set_labels_;
+  }
+
   // Prints the set of distributions to the file
   void print(const std::string& file_name) const;
+
 
 
 protected:

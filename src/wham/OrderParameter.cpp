@@ -4,11 +4,9 @@
 
 OrderParameter::OrderParameter(
 	const std::string& name,
-	const ParameterPack& input_pack,
-	std::vector<Simulation>& simulations
+	const ParameterPack& input_pack
 ):
 	name_(name),
-	simulation_ptrs_(simulations.size(), nullptr),
 	bins_()
 {
 	using KeyType = ParameterPack::KeyType;
@@ -16,30 +14,10 @@ OrderParameter::OrderParameter(
 	// Histogram settings
 	const ParameterPack* bins_pack_ptr = input_pack.findParameterPack("Bins", KeyType::Required);
 	bins_.setBins( *bins_pack_ptr );
-
-	setSimulations(simulations);
 }
 
 
-void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
-{
-	int num_simulations = simulations.size();
-	simulation_ptrs_.assign(num_simulations, nullptr);
-	time_series_ptrs_.resize(num_simulations);
-
-	// TODO: Move everything besides setting of simulation_ptrs to a separate fxn
-
-	for ( int i=0; i<num_simulations; ++i ) {
-		simulation_ptrs_[i] = &simulations[i];
-
-		// Share time series read by Simulation objects
-		time_series_ptrs_[i] = simulations[i].copyTimeSeriesPtr(name_);
-	}
-}
-
-
-
-void OrderParameter::printWhamResults(std::string file_name) const
+void OrderParameter::printWhamResults(std::string file_name, const double temp) const
 {
 	// TODO: consistency check for presence of output
 	//const int num_simulations = simulation_ptrs_.size();
@@ -59,7 +37,7 @@ void OrderParameter::printWhamResults(std::string file_name) const
 
 	// Header
 	ofs << "# Consensus free energy distributions from WHAM: \n"
-      << "#   F(" << name_ << ") [in k_B*T] with T = " << simulation_ptrs_[0]->getTemperature() << " K\n";  // FIXME temperature
+      << "#   F(" << name_ << ") [in k_B*T] with T = " << temp << " K\n";  // FIXME: temperature
 	ofs << "# " << name_ << "\tF[kBT]  NumSamples";
 	if ( have_error ) {
 		ofs << "\tstderr(F)[kBT]";
@@ -79,38 +57,4 @@ void OrderParameter::printWhamResults(std::string file_name) const
 		ofs << "\n";
 	}
 	ofs.close(); ofs.clear();
-}
-
-
-
-void OrderParameter::printStats(std::string file_name) const
-{
-	if ( file_name.empty() ) {
-		file_name = "stats_" + name_ + ".out";
-	}
-
-	// Check for presence of info entropy (TODO: private flag?)
-	int  num_simulations   = simulation_ptrs_.size();
-	int  num_info_entropy  = info_entropy_.size();
-	bool have_info_entropy = ( num_info_entropy == num_simulations );
-
-	std::ofstream ofs(file_name);
-
-	// Header
-	ofs << "# data_set   avg(" << name_ << ")   var(" << name_ << ")";
-	if ( have_info_entropy ) {
-		ofs << "   info_entropy(biased/rebiased)";
-	}
-	ofs << "\n";
-
-	// Body
-	for ( int j=0; j<num_simulations; ++j ) {
-		ofs << simulation_ptrs_[j]->getDataSetLabel() << "\t"
-		    << time_series_ptrs_[j]->average() << "\t"
-		    << time_series_ptrs_[j]->variance();
-		if ( have_info_entropy ) {
- 			ofs << "\t" << info_entropy_[j] << "\n";
-		}
-	}
-	ofs.close();
 }

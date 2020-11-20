@@ -4,6 +4,7 @@
 #include "BiasedDistributions.hpp"
 #include "ManuallyUnbiasedDistributions.hpp"
 #include "RebiasedDistributions.hpp"
+#include "WhamStatistics.hpp"
 
 
 WhamDriver::WhamDriver(const std::string& options_file):
@@ -84,7 +85,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 		// - Use data set labels to match everything
 		// TODO: variable T between simulations
 		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), wham_options_.kBT) );
-		const auto& label = biases_.back().get_data_set_label();
+		const auto& label = biases_.back().getDataSetLabel();
 		FANCY_ASSERT(label == data_set_labels[i],
 			"encountered bias with data label " << label << ", expected " << data_set_labels[i]);
 	}
@@ -111,7 +112,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 			input_parameter_pack_.findParameterPacks("OrderParameter", KeyType::Required);
 	order_parameters_.clear();
 	for ( int p=0; p<num_ops; ++p ) {
-		order_parameters_.emplace_back( op_names[p], *(op_pack_ptrs[p]), simulations_ );
+		order_parameters_.emplace_back( op_names[p], *(op_pack_ptrs[p]) );
 	}
 
 
@@ -126,16 +127,6 @@ WhamDriver::WhamDriver(const std::string& options_file):
 
 
 	//----- Output Options -----//
-
-	// Default: Print all permutations of F(x) and F(x,y)
-	/*
-	for ( int p=0; p<num_ops; ++p ) {
-		output_f_x_.push_back( p );
-		for ( int q=p+1; q<num_ops; ++q ) {
-			output_f_x_y_.push_back( {{p, q}} );
-		}
-	}
-	*/
 
 	// Check whether the user requested only certain distributions
 	// TODO: move to function, generalize to n-dimensional outputs, and (ideally)
@@ -262,11 +253,6 @@ void WhamDriver::run_driver()
 			}
 			subsample_timer_.stop();
 
-			int num_ops = order_parameters_.size();
-			for ( int p=0; p<num_ops; ++p ) {
-				bootstrap_ops[p].setSimulations(bootstrap_simulations);
-			}
-
 			// Re-solve WHAM equations
 			solve_wham_timer_.start();
 			Wham bootstrap_wham( op_registry_, bootstrap_simulations, bootstrap_ops, 
@@ -364,7 +350,11 @@ void WhamDriver::run_driver()
 
 		// TODO: "shifted" distributions?
 
+		WhamStatistics wham_stats(wham, f_x_biased, f_x_rebiased);
+		wham_stats.print();
+
 		// F_WHAM(x)
+		// FIXME:
 		output_f_x_[i].calculate(wham);
 		auto wham_distribution = output_f_x_[i].get_f_x();
 		if ( calc_error && error_method_ == ErrorMethod::Bootstrap ) {
@@ -381,17 +371,7 @@ void WhamDriver::run_driver()
 			wham_distribution.error_f_x = err_f_x;  // TODO set fxn
 		}
 		x.setWhamDistribution( wham_distribution );
-		x.printWhamResults();
-
-		// FIXME:
-		std::vector<double> info_entropy(num_simulations);
-		for ( int i=0; i<num_simulations; ++i ) {
-			const auto& f_rebiased_i = f_x_rebiased.getDistributions()[i];
-			const auto& f_biased_i = f_x_biased.getDistributions()[i];
-			info_entropy[i] = FreeEnergyDistribution::computeInformationEntropy(f_rebiased_i, f_biased_i);
-		}
-		x.setInfoEntropy(info_entropy);
-		x.printStats();
+		x.printWhamResults("F_" + x.getName() + "_WHAM.out", simulations_.front().getTemperature());
 	}
 
 	// 2-variable outputs
@@ -450,7 +430,6 @@ void WhamDriver::parseOutputs(const ParameterPack& input_pack)
 				const auto& x = order_parameters_[op_indices.front()];
 				const auto& y = order_parameters_[op_indices.back()];
 				output_f_x_y_.emplace_back(x,y);
-				//output_f_x_y_.push_back( {{ op_indices[0], op_indices[1] }} );
 			}
 			else {
 				throw std::runtime_error("F_WHAM calcualtions only support up to 2 order parameters");

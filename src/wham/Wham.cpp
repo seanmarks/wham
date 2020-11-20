@@ -75,52 +75,40 @@ void Wham::evaluateBiases()
 {
 	biases_timer_.start();
 
-	// First, figure out which order parameters are needed for each bias
-	int num_simulations = simulations_.size();
-	int num_biases      = biases_.size();
-	std::vector<std::vector<int>> op_indices(num_simulations);
-	for ( int r=0; r<num_biases; ++r ) {
-		// Names of order parameters needed
-		const std::vector<std::string>& op_names = biases_[r].get_order_parameter_names();
-		int num_ops = op_names.size();
-
-		// Search order parameter registry for matches
-		op_indices[r].resize(num_ops);
-		for ( int p=0; p<num_ops; ++p ) {
-			op_indices[r][p] = op_registry_.nameToIndex(op_names[p]);
-		}
-	}
-
 	// Allocate memory
+	int num_biases = biases_.size();
 	u_bias_as_other_.resize( num_biases );
 	for ( int r=0; r<num_biases; ++r ) {
 		u_bias_as_other_[r].resize( num_samples_total_ );
 	}
 	u_bias_as_other_unbiased_.assign( num_samples_total_, 0.0 );
 
-	// Now, for each biasing potential, evaluate the value of the bias that *would*
-	// result if that sample were obtained from that biased simulation
+
+	// For each biasing potential (ensemble), evaluate the value of the bias that *would*
+	// result if all samples were obtained from that ensemble
 	#pragma omp parallel for
 	for ( int r=0; r<num_biases; ++r ) {
-		// Number of OPs involved in this bias
-		int num_ops_for_bias = op_indices[r].size();
+		// OPs required for the 'r'th ensemble's bias
+		const auto& op_names = biases_[r].getOrderParameterNames();
+		const int num_ops_for_bias = op_names.size();
+
+		// Buffer
 		std::vector<double> args(num_ops_for_bias);
 
 		// Evaluate bias for each sample
+		// - TODO: Array version would be simpler
 		int sample_index = 0;
+		int num_simulations = simulations_.size();
 		for ( int j=0; j<num_simulations; ++j ) {
 			int num_samples = num_samples_per_simulation_[j];
-			for ( int i=0; i<num_samples; ++i ) {
+			for ( int i=0; i<num_samples; ++i, ++sample_index ) {
 				// Pull together the order parameter values needed for this bias
-				int p;
 				for ( int s=0; s<num_ops_for_bias; ++s ) {
-					p = op_indices[r][s];
-					args[s] = order_parameters_[p].getTimeSeries(j)[i];
-					// FIXME cludgy
+					const auto& x_j = simulations_[j].getTimeSeriesForOrderParameter(op_names[s]);
+					args[s] = x_j[i];  //order_parameters_[p].getTimeSeries(j)[i];
 				}
 
 				u_bias_as_other_[r][sample_index] = biases_[r].evaluate( args );
-				++sample_index;
 			}
 		}
 	}

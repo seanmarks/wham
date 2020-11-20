@@ -221,6 +221,8 @@ class Wham
 
   // For each sample (across all simulations), evaluate the bias that would be
   // felt under each simulation's potential
+  // - TODO: move to a completely separate class that manages biases, and simply pass in
+  //   the resulting values to this object
   void evaluateBiases();
 
   // Solve for f_bias_opt
