@@ -15,12 +15,11 @@ Bins::Bins(
 }
 
 
-Bins::Bins(const ParameterPack& input_pack)
- : bin_style_(BinStyle::Left)
+Bins::Bins(const ParameterPack& input_pack):
+	bin_style_(BinStyle::Left)
 {
 	setBins(input_pack);
 }
-
 
 
 void Bins::setBins(

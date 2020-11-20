@@ -60,6 +60,10 @@ class Wham
   template<typename T>
   using Matrix = numeric::Matrix<T>;
 
+	template<typename T>
+	using Vector = std::vector<T>;
+
+
   Wham() = delete;
 
   // Performs all necessary setup, then solves the WHAM equations
@@ -137,12 +141,11 @@ class Wham
   // "Manually" unbias the distributions for the given OrderParameter (i.e. using only
   // each individual simulation's data, not the consensus estimates)
 	// - TODO: move to separate class
-  std::vector<FreeEnergyDistribution> manuallyUnbiasDistributions(const std::string& op_name) const;
+  //std::vector<FreeEnergyDistribution> manuallyUnbiasDistributions(const std::string& op_name) const;
 
-	// Size: (K, N_j) = (num_simulations x num_samples)
-	//Matrix<double>
-	template<typename T>
-	using Vector = std::vector<T>;
+	// Computes the logarithm of the weights assigned to each data point in the
+	// unbiased ensemble, using only data from a single simulation
+	// - Size: (K, N_j) = (num_simulations x num_samples)
 	Vector<Vector<double>> computeUnbiasedNonConsensusLogWeights() const;
 
  private:
@@ -210,7 +213,6 @@ class Wham
   // Misc. buffers
   mutable std::vector<std::vector<double>> minus_log_sigma_k_binned_;  // for binning samples
   mutable std::vector<std::vector<double>> args_buffers_;  // for log_sum_exp during optimization
-  //mutable Matrix wT_w_;
 
 
   //----- Solve WHAM Equations -----//
@@ -255,19 +257,6 @@ class Wham
   // *differences* between windows (df), assuming f[0] = f0 = 0.0
   void convert_f_to_df(const std::vector<double>& f, ColumnVector& df) const;
   void convert_df_to_f(const ColumnVector& df, std::vector<double>& f) const;
-
-
-  //----- Individual-Simulation Estimates -----//
-
-  // TODO: way to merge with compute_consensus_f_x?
-  void manually_unbias_f_x(
-    const TimeSeries&          x,
-    const std::vector<double>& u_bias,
-    const double               f,
-    const Bins&                bins_x,
-    // Output
-    FreeEnergyDistribution&    unbiased_distribution_x
-  ) const;
 
 
   //----- Consensus Estimates -----//

@@ -1,5 +1,3 @@
-// Bins.h - Class for managing histogram bins
-// - Currently only supports bins of equal size
 
 #ifndef BINS_H
 #define BINS_H
@@ -15,6 +13,9 @@
 
 #include "InputParser.h"
 
+
+// A set of histogram bins
+// - Currently only supports bins of equal size
 class Bins
 {
  public:
@@ -36,10 +37,17 @@ class Bins
 
 	Bins(const ParameterPack& input_pack);
 
-	int    getNumBins() const { return num_bins_; };
-	double getBinSize() const { return bin_size_; };
-	//std::vector<double> getBins() const { return bins_; };
-	const std::vector<double>& getBins() const { return bins_; };
+	int getNumBins() const {
+		return num_bins_;
+	}
+
+	double getBinSize() const {
+		return bin_size_;
+	}
+
+	const std::vector<double>& getBins() const {
+		return bins_;
+	}
 
 	void setBins(
 		const double min, 
@@ -61,14 +69,6 @@ class Bins
 		return bins_[b];
 	}
 
-	/* 
-	// TODO Is this copy operation possible, for convenience?
-	//friend class std::vector<double>;
-	std::vector<double> operator=(const Bins& bins) {
-		std::vector<double> bins_tmp = bins.bins_;
-		return bins_tmp;
-	}
-	*/
 
  private:
 	double min_, max_, bin_size_;

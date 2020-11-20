@@ -96,13 +96,6 @@ class OrderParameter
 
 	void printStats(std::string file_name = "") const;
 
-	// Prints a series of distributions, F_i(x), side-by-side
-	void printDistributions(
-		const std::vector<FreeEnergyDistribution>& distributions,
-		const std::string& file_name, 
-		const std::string& header,
-		const bool shift_to_zero = true
-	) const;
 
  private:
 	std::string name_;
@@ -122,9 +115,6 @@ class OrderParameter
 	// WHAM results
 	FreeEnergyDistribution wham_distribution_;
 	std::vector<double> info_entropy_;  // entropy between f_biased and f_rebiased
-
-	// Number of samples in each bin, across all simulations
-	std::vector<int> global_sample_counts_;
 };
 
 #endif /* ORDER_PARAMETER_H */

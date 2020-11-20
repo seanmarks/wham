@@ -12,6 +12,7 @@ target_sources(${LIB_WHAM}
 		Estimator_F_x_y.cpp
 		FileSystem.cpp
 		FreeEnergyDistribution.cpp
+		FreeEnergyDistributionSet.cpp
 		FreeEnergyDistribution2D.cpp
 		GptlWrappers.cpp
 		InputParser.cpp

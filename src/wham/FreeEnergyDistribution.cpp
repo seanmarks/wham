@@ -1,16 +1,16 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
+
 #include "FreeEnergyDistribution.hpp"
 
 
 FreeEnergyDistribution::FreeEnergyDistribution():
 	bins_x()
-{
-}
+{}
 
 
 FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in):
 	bins_x(bins_x_in)
-{
-}
+{}
 
 
 FreeEnergyDistribution::FreeEnergyDistribution(const Bins& bins_x_in, const TimeSeries& time_series_x):
@@ -73,4 +73,41 @@ double FreeEnergyDistribution::computeInformationEntropy(const FreeEnergyDistrib
 	}
 
 	return info_entropy;
+}
+
+
+
+void FreeEnergyDistribution::printSet(
+	const std::vector<FreeEnergyDistribution>& distributions,
+	const std::string& file_name, const std::string& header, const bool shift_to_zero
+)
+{
+	std::ofstream ofs( file_name );
+	ofs << header;
+
+	int num_distributions = distributions.size();
+	std::vector<std::vector<double>> f_x_to_print(num_distributions);
+	for ( int k=0; k<num_distributions; ++k ) {
+		if ( shift_to_zero ) {
+			// Shift distributions so that F=0 at the minimum
+			f_x_to_print[k] = shift_f_x_to_zero(
+				distributions[k].f_x, distributions[k].getSampleCounts() );
+		}
+		else {
+			f_x_to_print[k] = distributions[k].f_x;
+		}
+	}
+
+	const auto& bins = distributions.front().getBins();
+	int num_bins = bins.getNumBins();  // All simulations are binned the same way
+	for ( int b=0; b<num_bins; ++b ) {
+		ofs << bins[b];
+		for ( int k=0; k<num_distributions; ++k ) {
+			ofs << "\t";
+			ofs << std::setw(8) << std::setprecision(5);
+			printFreeEnergyValue(ofs, f_x_to_print[k][b], distributions[k].sample_counts[b]);
+		}
+		ofs << "\n";
+	}
+	ofs.close();
 }

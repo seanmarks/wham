@@ -1,25 +1,23 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #ifndef MANUALLY_UNBIASED_FREE_ENERGY_HPP
 #define MANUALLY_UNBIASED_FREE_ENERGY_HPP
 
-#include "FreeEnergyDistribution.hpp"
+#include "FreeEnergyDistributionSet.hpp"
 #include "OrderParameter.h"
 #include "Wham.h"
 
-
-class ManuallyUnbiasedDistributions
+// "Manually unbiased" free energy distributions, F(x),
+// obtained using only data from a single simulation (non-consensus)
+class ManuallyUnbiasedDistributions : public FreeEnergyDistributionSet
 {
  public:
-  template<typename T>
-  using Vector = Wham::Vector<T>;
-
+  // Constructs the set using the same simulation data used for the given the WHAM instance
   ManuallyUnbiasedDistributions(const OrderParameter& x, const Wham& wham);
 
-
- private:
-  const OrderParameter& x_;
-
-  std::vector<FreeEnergyDistribution> distributions_;
+ protected:
+  virtual
+  std::string getHeader() const override;
 };
 
 #endif // ifndef MANUALLY_UNBIASED_FREE_ENERGY_HPP

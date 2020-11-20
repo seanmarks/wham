@@ -1,6 +1,7 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "WhamDriver.h"
 
+#include "ManuallyUnbiasedDistributions.hpp"
 
 
 WhamDriver::WhamDriver(const std::string& options_file):
@@ -349,12 +350,13 @@ void WhamDriver::run_driver()
 
 		// "Manually" unbiased distributions (non-consensus, unshifted)
 		// - FIXME: MOVE
-		x.setUnbiasedDistributions( wham.manuallyUnbiasDistributions( x.getName() ) );
+		ManuallyUnbiasedDistributions f_x_unb(x, wham);
+		x.setUnbiasedDistributions( f_x_unb.getDistributions() );
 
 		// "Raw" distributions (i.e. using only data from each individual simulation)
 		// - FIXME: MOVE
 		x.printRawDistributions();
-
+		f_x_unb.print("F_" + x.getName() + "_unbiased.out");
 		// TODO: "shifted" distributions
 
 		// F_WHAM(x)

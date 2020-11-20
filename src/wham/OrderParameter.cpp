@@ -40,15 +40,6 @@ void OrderParameter::setSimulations(std::vector<Simulation>& simulations)
 		// - TODO: Make optional?
 		biased_distributions_.emplace_back( FreeEnergyDistribution(bins_, *(time_series_ptrs_[i])) );
 	}
-
-	// Number of samples in each bin, across all data sets
-	int num_bins = bins_.getNumBins();
-	global_sample_counts_.assign(num_bins, 0);
-	for ( int j=0; j<num_simulations; ++j ) {
-		for ( int b=0; b<num_bins; ++b ) {
-			global_sample_counts_[b] += biased_distributions_[j].sample_counts[b];
-		}
-	}
 }
 
 
@@ -77,7 +68,7 @@ void OrderParameter::printRawDistributions() const
 	header_stream << "# Biased free energy distributions: "
                 << " F_i(" << name_ << ") [k_B*T]\n";
 	              table_header_stream.str();
-	printDistributions( biased_distributions_, file_name, header_stream.str() );
+	FreeEnergyDistribution::printSet( biased_distributions_, file_name, header_stream.str() );
 
 
 	// Print unbiased free energy distributions (non-consensus)
@@ -86,7 +77,7 @@ void OrderParameter::printRawDistributions() const
 	header_stream << "# Unbiased free energy distributions: "
                 << " F_{0,i}(" << name_ << ") [k_B*T]\n"
 	              << table_header_stream.str();
-	printDistributions( unbiased_distributions_, file_name, header_stream.str() );
+	FreeEnergyDistribution::printSet( unbiased_distributions_, file_name, header_stream.str() );
 }
 
 
@@ -112,7 +103,7 @@ void OrderParameter::printRebiasedDistributions(std::string file_name) const
 	              << "# " << name_ << " | F(" << name_ << ") [kBT]\n";
 
 	// Print
-	printDistributions( rebiased_distributions_, file_name, header_stream.str() );
+	FreeEnergyDistribution::printSet( rebiased_distributions_, file_name, header_stream.str() );
 }
 
 
@@ -153,11 +144,6 @@ void OrderParameter::printWhamResults(std::string file_name) const
 		if ( have_error ) {
 			ofs << "  " << std::setw(8) << std::setprecision(5) << wham_distribution_.error_f_x[b];
 		}
-		/*
-		else {
-			ofs << "nan";
-		}
-		*/
 		ofs << "\n";
 	}
 	ofs.close(); ofs.clear();
@@ -193,41 +179,6 @@ void OrderParameter::printStats(std::string file_name) const
 		if ( have_info_entropy ) {
  			ofs << "\t" << info_entropy_[j] << "\n";
 		}
-	}
-	ofs.close();
-}
-
-
-void OrderParameter::printDistributions(
-	const std::vector<FreeEnergyDistribution>& distributions,
-	const std::string& file_name, const std::string& header, const bool shift_to_zero
-) const
-{
-	std::ofstream ofs( file_name );
-	ofs << header;
-
-	int num_distributions = distributions.size();
-	std::vector<std::vector<double>> f_x_to_print(num_distributions);
-	for ( int k=0; k<num_distributions; ++k ) {
-		if ( shift_to_zero ) {
-			// Shift distributions so that F=0 at the minimum
-			f_x_to_print[k] = FreeEnergyDistribution::shift_f_x_to_zero(
-			                     distributions[k].f_x, distributions[k].sample_counts );
-		}
-		else {
-			f_x_to_print[k] = distributions[k].f_x;
-		}
-	}
-
-	int num_bins = bins_.getNumBins();  // All simulations are binned the same way
-	for ( int b=0; b<num_bins; ++b ) {
-		ofs << bins_[b];
-		for ( int k=0; k<num_distributions; ++k ) {
-			ofs << "\t";
-			ofs << std::setw(8) << std::setprecision(5);
-			  FreeEnergyDistribution::printFreeEnergyValue(ofs, f_x_to_print[k][b], distributions[k].sample_counts[b]);
-		}
-		ofs << "\n";
 	}
 	ofs.close();
 }

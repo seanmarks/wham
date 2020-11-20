@@ -106,6 +106,7 @@ class WhamDriver
 	std::vector<double> f_bias_opt_, error_f_bias_opt_;
 
 	// Organizes time series data and distributions for each OP
+	// - TODO: UPDATE
 	std::vector<OrderParameter> order_parameters_;
 
 	// Objects that read in and evaluate the bias used in each simulation

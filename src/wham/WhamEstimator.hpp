@@ -8,7 +8,12 @@
 
 #include "Wham.h"
 
+
 // Calculates a consensus estimate using WHAM results
+// TODO:
+// - More 'calculate' implementations 
+//   - Using a generic set of bias values (with consistent size)
+//   - An arbitrary bias on the stored OPs
 class WhamEstimator
 {
  public:
@@ -21,8 +26,6 @@ class WhamEstimator
   // Calculates the estimate in the unbiased ensemble
   void calculate(const Wham& wham);
 
-  // TODO: calculate using generic set of bias values?
-  //       an arbitrary bias
 
  protected:
   // Estimates the desired quantity using weights computed and stored by
