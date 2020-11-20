@@ -5,6 +5,7 @@ Bootstrap_F_x::Bootstrap_F_x(
   const OrderParameter& x, FreeEnergyDistribution& f_x,
   const int num_samples_to_reserve
 ):
+  BootstrapHandler(),
   x_(x),
   f_x_out_(f_x),
   est_f_x_(x)

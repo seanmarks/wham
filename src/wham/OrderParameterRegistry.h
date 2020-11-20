@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "Assert.hpp"
 #include "DataSummary.h"
 #include "FileSystem.h"
 #include "InputParser.h"
@@ -26,6 +27,7 @@ class OrderParameterRegistry
 
 	OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary);
 
+	// Returns the index
 	int nameToIndex(const std::string& name) const {
 		auto pair_it = map_op_names_to_indices_.find( name );
 		if ( pair_it != map_op_names_to_indices_.end() ) {
@@ -36,7 +38,20 @@ class OrderParameterRegistry
 		}
 	}
 
-	std::size_t getNumberOfOrderParameters() const {
+	std::vector<int> namesToIndices(const std::vector<std::string>& names) const {
+		const int num_ops = names.size();
+		std::vector<int> indices(num_ops);
+
+		std::transform( names.begin(), names.end(), indices.begin(),
+			[=](const std::string& name) -> int {
+				return nameToIndex(name);
+			}
+		);
+
+		return indices;
+	}
+
+	std::size_t getNumRegistered() const {
 		return names_.size();
 	}
 	const std::vector<std::string>& getNames() const { 
@@ -48,7 +63,7 @@ class OrderParameterRegistry
 		return names_[p]; 
 	}
 
-	const std::vector<std::string>& get_time_series_files(const int p) const {
+	const std::vector<std::string>& getTimeSeriesFiles(const int p) const {
 		return time_series_files_[p];
 	}
 
@@ -62,7 +77,7 @@ class OrderParameterRegistry
 
 	// Access registry info by OP name
 	const std::vector<std::string>& getTimeSeriesFiles(const std::string& name) const {
-		return get_time_series_files( nameToIndex(name) );
+		return getTimeSeriesFiles( nameToIndex(name) );
 	}
 
 	int getTimeSeriesDataCol(const std::string& name) const {

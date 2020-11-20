@@ -44,15 +44,12 @@ void Simulation::checkTimeSeries() const
 	FANCY_ASSERT(op_registry_ptr_ != nullptr, "order parameter registry is missing");
 
 	// Check number present
-	int num_time_series = time_series_.size();
-	int num_ops         = op_registry_ptr_->getNumberOfOrderParameters();
-	if ( num_time_series != num_ops ) {
-		std::stringstream err_ss;
-		err_ss << "Error setting up Simulation with data set label " << data_set_label_ << "\n"
-		       << "  Mismatch between number of time series files parsed (" << num_time_series
-		         << ") and number of order parameters (" << num_ops << "\n";
-		throw std::runtime_error( err_ss.str() );
-	}
+	const int num_time_series = time_series_.size();
+	const int num_ops         = op_registry_ptr_->getNumRegistered();
+	FANCY_ASSERT( num_time_series == num_ops,
+		"Error setting up Simulation with data set label " << data_set_label_ << "\n"
+		<< "  Mismatch between number of time series files parsed (" << num_time_series
+		<< ") and number of order parameters (" << num_ops << "\n" );
 
 	if ( num_time_series == 0 ) {
 		return;  // nothing to do

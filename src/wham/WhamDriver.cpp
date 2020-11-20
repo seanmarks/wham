@@ -1,7 +1,11 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "WhamDriver.h"
 
+#include <functional>
+
 #include "Bootstrap_F_x.hpp"
+#include "Bootstrap_BiasingFreeEnergies.hpp"
+
 #include "BiasedDistributions.hpp"
 #include "ManuallyUnbiasedDistributions.hpp"
 #include "RebiasedDistributions.hpp"
@@ -47,7 +51,7 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	// Register all order parameters and associated time series files
 	op_registry_ = OrderParameterRegistry(input_parameter_pack_, data_summary_);
 	const auto& op_names = op_registry_.getNames();
-	const int num_ops    = op_registry_.getNumberOfOrderParameters();
+	const int num_ops    = op_registry_.getNumRegistered();
 
 	// Load simulation data
 	if ( ! be_quiet_ ) {
@@ -209,6 +213,8 @@ void WhamDriver::run_driver()
 	driver_timer_.stop();
 }
 
+
+
 void WhamDriver::calculateBootstrapErrors(const Wham& wham)
 {
 	bootstrap_timer_.start();
@@ -217,11 +223,13 @@ void WhamDriver::calculateBootstrapErrors(const Wham& wham)
 		std::cout << "  Estimate errors using bootstrap subsampling ...\n" << std::flush;
 	}
 
-	const int num_simulations = simulations_.size();
-	std::vector<PointEstimator<double>> bootstrap_samples_f_bias(num_simulations);
-
 	// Set up bootstrap handlers
-	// (1) F(x)
+	std::vector<BootstrapHandler*> handlers_;
+	// (1) Biasing free energies
+	const int num_simulations = simulations_.size();
+	Bootstrap_BiasingFreeEnergies bootstrap_f_bias(error_f_bias_opt_, num_simulations, num_bootstrap_samples_);
+	handlers_.push_back( &bootstrap_f_bias );
+	// (2) F(x)
 	const int num_output_f_x = est_f_x_.size();
 	std::vector<Bootstrap_F_x> bootstrap_f_x;
 	bootstrap_f_x.reserve(num_output_f_x);
@@ -229,6 +237,7 @@ void WhamDriver::calculateBootstrapErrors(const Wham& wham)
 		// Bind the output objects to where errors should ultimately be stored
 		bootstrap_f_x.emplace_back( est_f_x_[k].getOrderParameter(),
 			output_f_x_[k],	num_bootstrap_samples_);
+		handlers_.push_back( &bootstrap_f_x.back() );
 	}
 
 	// Prepare time series subsamplers
@@ -265,35 +274,22 @@ void WhamDriver::calculateBootstrapErrors(const Wham& wham)
 												 biases_, f_bias_opt_, wham_options_.tol );
 		solve_wham_timer_.stop();
 
-		// Save bootstrap estimates for f_bias_opt
-		// - TODO: generalize
-		const auto& bootstrap_f_bias_opt = bootstrap_wham.get_f_bias_opt();
-		for ( int j=0; j<num_simulations; ++j ) {
-			bootstrap_samples_f_bias[j].addSample( bootstrap_f_bias_opt[j] );
-		}
-
 		// Compute and store boostrap estimates of each output
-		// - TODO: generalize
-		for ( auto& estimator : bootstrap_f_x ) {
-			estimator.addSample(bootstrap_wham);
+		for ( auto& estimator : handlers_ ) {
+			estimator->addSample(bootstrap_wham);
 		}
 	};
 
 	// Finalize errors
-	// - TODO: generalize
-	error_f_bias_opt_.resize(num_simulations);
-	for ( int j=0; j<num_simulations; ++j ) {
-		error_f_bias_opt_[j] = bootstrap_samples_f_bias[j].std_dev();
-	}
-	for ( auto& estimator : bootstrap_f_x ) {
-		estimator.finalize();
+	for ( auto& estimator : handlers_ ) {
+		estimator->finalize();
 	}
 
 	// TODO: move to separate function?
 	std::ofstream ofs("bootstrap_convergence.out");
 	ofs << "# Convergence of bootstrap subsampling\n"
 			<< "# n_B[samples]  F_bias(last_window)[kBT]\n";
-	const auto& all_samples = bootstrap_samples_f_bias.back().get_samples();
+	const auto& all_samples = bootstrap_f_bias.getSamples(num_simulations-1);
 	std::vector<double> samples(1, all_samples[0]);
 	for ( int s=1; s<num_bootstrap_samples_; ++s ) {
 		samples.push_back( all_samples[s] );
@@ -310,42 +306,57 @@ void WhamDriver::parseOutputs(const ParameterPack& input_pack)
 {
 	using KeyType = ParameterPack::KeyType;
 
+	// TODO:
 	bool print_everything = true;
 	input_pack.readFlag("PrintAll", KeyType::Optional, print_everything);
+
+	// F(x) and F(x,y)
+	est_f_x_.clear();
+	est_f_x_y_.clear();
 	auto vecs = input_pack.findVectors("F_WHAM", KeyType::Optional);
-
 	if ( (! print_everything) || (vecs.size() > 0) ) {
-		est_f_x_.clear();
-		est_f_x_y_.clear();
-
-		int num_outputs = vecs.size();
+		const int num_outputs = vecs.size();
 		for ( int i=0; i<num_outputs; ++i ) {
-			const auto& vec = *(vecs[i]);
-			int num_ops_for_output = vec.size();
-
 			// Map names to indices
-			// - TODO: direct map to OPs themselves?
-			std::vector<int> op_indices(num_ops_for_output);
-			for ( int j=0; j<num_ops_for_output; ++j ) {
-				op_indices[j] = op_registry_.nameToIndex(vec[j]);
-			}
+			const auto& names = *(vecs[i]);
+			const int num_ops_for_output = names.size();
+			FANCY_ASSERT(num_ops_for_output > 0, "output has no order parameters listed");
+			const auto op_indices = op_registry_.namesToIndices(names);
 
-			// Store indices
-			if ( num_ops_for_output == 0 ) {
-				throw std::runtime_error("F_WHAM with no order parameters is undefined");
-			}
-			else if ( num_ops_for_output == 1 ) {
-				const auto& x = order_parameters_[op_indices[0]];
+			// Set up estimators
+			if ( num_ops_for_output == 1 ) {
+				// F(x)
+				const auto& x = order_parameters_[op_indices.front()];
 				est_f_x_.emplace_back(x);
 			}
 			else if ( num_ops_for_output == 2 ) {
+				// F(x,y)
 				const auto& x = order_parameters_[op_indices.front()];
 				const auto& y = order_parameters_[op_indices.back()];
 				est_f_x_y_.emplace_back(x,y);
 			}
 			else {
-				throw std::runtime_error("F_WHAM calcualtions only support up to 2 order parameters");
+				throw std::runtime_error("F_WHAM calculations only support up to 2 order parameters");
 			}
+		}
+	}
+
+	// Averages
+	auto avg_vecs = input_pack.findVectors("averages", KeyType::Optional);
+	if ( avg_vecs.size() > 0 ) {
+		const int num_outputs = avg_vecs.size();
+		for ( int i=0; i<num_outputs; ++i ) {
+			// Map names to indices
+			const auto& names = *(avg_vecs[i]);
+			const int num_ops_for_output = names.size();
+			FANCY_ASSERT(num_ops_for_output > 0, "output has no order parameters listed");
+			const auto op_indices = op_registry_.namesToIndices(names);
+			
+			// Set up estimators
+			FANCY_ASSERT(num_ops_for_output == 2, "unsupported number of inputs for averages");
+			const auto& x = order_parameters_[op_indices.front()];
+			const auto& y = order_parameters_[op_indices.back()];
+			est_avg_x_given_y_.emplace_back(x,y);
 		}
 	}
 }
@@ -405,15 +416,27 @@ void WhamDriver::printDistributions(const Wham& wham) const
 	// 2-variable outputs
 	for ( auto est_f_x_y : est_f_x_y_ ) {
 		// F_WHAM(x,y)
-		const OrderParameter& x = est_f_x_y.get_x();
-		const OrderParameter& y = est_f_x_y.get_y();
 		if ( ! be_quiet_ ) {
+			const auto& x = est_f_x_y.get_x();
+			const auto& y = est_f_x_y.get_y();
 			std::cout << "Computing F_WHAM(" << x.getName() << ", " << y.getName() << ")\n" << std::flush;
 		}
 		est_f_x_y.calculate(wham);
 
 		// Print output files
 		est_f_x_y.saveResults();
+	}
+	for ( auto est_avg_x_y : est_avg_x_given_y_ ) {
+		// <x|y>_0
+		if ( ! be_quiet_ ) {
+			const auto& x = est_avg_x_y.get_x();
+			const auto& y = est_avg_x_y.get_y();
+			std::cout << "Computing <" << x.getName() << " | " << y.getName() << ">\n" << std::flush;
+		}
+		est_avg_x_y.calculate(wham);
+
+		// Print output files
+		est_avg_x_y.saveResults();
 	}
 
 	print_output_timer_.stop();

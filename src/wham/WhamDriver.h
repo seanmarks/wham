@@ -40,6 +40,7 @@
 #include "Simulation.h"
 #include "Wham.h"
 
+#include "Estimator_Avg_x_Given_y.hpp"
 #include "Estimator_F_x.hpp"
 #include "Estimator_F_x_y.hpp"
 
@@ -133,6 +134,9 @@ class WhamDriver
 
 	// F(x,y) to compute
 	std::vector<Estimator_F_x_y> est_f_x_y_;
+
+	// <x>_{0,y} to compute
+	std::vector<Estimator_Avg_x_Given_y> est_avg_x_given_y_;
 
 	// Determine which outputs to compute and print
 	// - ex. F(x) and F(x,y) for different OPs x and/or y

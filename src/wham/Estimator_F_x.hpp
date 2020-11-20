@@ -7,7 +7,6 @@
 
 #include "FreeEnergyDistribution.hpp"
 #include "OrderParameter.h"
-#include "OrderParameterRegistry.h"
 #include "WhamEstimator.hpp"
 
 

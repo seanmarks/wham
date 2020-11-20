@@ -8,10 +8,12 @@ target_sources(${LIB_WHAM}
 		Bias.cpp
 		Bins.cpp
 		BiasedDistributions.cpp
+		Bootstrap_BiasingFreeEnergies.cpp
 		Bootstrap_F_x.cpp
 		BootstrapHandler.cpp
 		BootstrapSubsampler.cpp
 		DataSummary.cpp
+		Estimator_Avg_x_Given_y.cpp
 		Estimator_F_x.cpp
 		Estimator_F_x_y.cpp
 		FileSystem.cpp

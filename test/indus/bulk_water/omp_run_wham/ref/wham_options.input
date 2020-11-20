@@ -6,6 +6,9 @@ DataSummaryFile = ../data/data_summary.log
 
 SolverTolerance = 1.0e-7
 
+# Bootstrap error estimation
+num_bootstrap_samples = 100
+
 # Record of biases used
 BiasesLogFile = biases.log
 
@@ -43,11 +46,12 @@ OrderParameter = {
 
 # Output options
 Output = {
-	#PrintAll = yes
-
 	# Print F_WHAM(...) and associated output files for each 
-	# combination of order parameters
+	# combination of order parameters indicated
 	F_WHAM = [ Ntilde ]
 	F_WHAM = [ N ]
 	F_WHAM = [ Ntilde  N ]
+
+	# <N|Ntilde>
+	averages = [ N  Ntilde ]
 }

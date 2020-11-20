@@ -51,4 +51,7 @@ Output = {
 	F_WHAM = [ Ntilde ]
 	F_WHAM = [ N ]
 	F_WHAM = [ Ntilde  N ]
+
+	# <N|Ntilde>
+	averages = [ N  Ntilde ]
 }
