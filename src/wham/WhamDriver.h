@@ -136,6 +136,12 @@ class WhamDriver
 	// - ex. F(x) and F(x,y) for different OPs x and/or y
 	void parseOutputs(const ParameterPack& input_pack);
 
+	void printWhamDistribution(
+		const OrderParameter& x,
+		const FreeEnergyDistribution& f,
+		std::string file_name = ""
+	) const;
+
 
 	//----- GPTL -----//
 

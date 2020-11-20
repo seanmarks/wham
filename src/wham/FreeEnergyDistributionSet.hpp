@@ -5,6 +5,7 @@
 
 #include "FreeEnergyDistribution.hpp"
 #include "OrderParameter.h"
+#include "Simulation.h"
 
 
 // Represents a set of single-variable free energy distributions, F_j(x),

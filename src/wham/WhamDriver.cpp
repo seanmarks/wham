@@ -321,14 +321,13 @@ void WhamDriver::run_driver()
 
 	// 1-variable outputs
 	for ( unsigned i=0; i<est_f_x_.size(); ++i ) {
-		OrderParameter x = est_f_x_[i].getOrderParameter();
+		const auto& x = est_f_x_[i].getOrderParameter();
 		if ( ! be_quiet_ ) {
 			std::cout << "Computing F_WHAM(" << x.getName() << ")\n" << std::flush;
 		}
 
 		// F_WHAM(x)
-		x.setWhamDistribution( output_f_x_[i] );
-		x.printWhamResults("F_" + x.getName() + "_WHAM.out", simulations_.front().getTemperature());
+		printWhamDistribution(x, output_f_x_[i]);
 
 		// "Manually" unbiased distributions (non-consensus, unshifted)
 		ManuallyUnbiasedDistributions f_x_unb(x, wham);
@@ -410,4 +409,34 @@ void WhamDriver::parseOutputs(const ParameterPack& input_pack)
 			}
 		}
 	}
+}
+
+
+void WhamDriver::printWhamDistribution(
+	const OrderParameter& x, const FreeEnergyDistribution& f, std::string file_name) const
+{
+	// TODO: consistency check for presence of output
+	const auto& name = x.getName();
+	if ( file_name.empty() ) {
+		file_name = "F_" + name + "_WHAM.out";
+	}
+	std::ofstream ofs(file_name);
+
+	const double temp = simulations_.front().getTemperature();
+
+	// Header
+	ofs << "# Consensus free energy distributions from WHAM: \n"
+      << "#   F(" << name << ") [in k_B*T] with T = " << temp << " K\n";
+
+	// Table header
+	// FIXME: this should really be a part of the FreeEnergyDistribution class, since
+	//        it controls how the distribution is printed
+	ofs << "# " << name << "\tF[kBT]  NumSamples";
+	if ( f.hasErrors() ) {
+		ofs << "\tstderr(F)[kBT]";
+	}
+	ofs << "\n";
+
+	ofs << f;
+	ofs.close();
 }

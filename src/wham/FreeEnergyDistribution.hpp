@@ -129,11 +129,11 @@ class FreeEnergyDistribution {
   // Else print 'nan'
   // - Standardizes what is printed when a number becomes non-finite
   //   across different systems (otherwise, regtests with NaNs fail)
-  // TODO Make an object and overload operator<< to make usage less clunky
+  // TODO: Make an object and overload operator<< to make usage less clunky
   template<typename T, typename I>
-  static void printFreeEnergyValue(std::ofstream& ofs, const T f_x, const I num_samples) {
-    if ( is_f_x_finite(f_x, num_samples) ) { ofs << f_x;   }
-    else                                   { ofs << "nan"; }    
+  static void printFreeEnergyValue(std::ostream& os, const T f_x, const I num_samples) {
+    if ( is_f_x_finite(f_x, num_samples) ) { os << f_x;   }
+    else                                   { os << "nan"; }
   };
 
 
@@ -145,5 +145,9 @@ class FreeEnergyDistribution {
 
   bool has_errors_ = false;
 };
+
+
+std::ostream& operator<<(std::ostream& os, const FreeEnergyDistribution& f);
+
 
 #endif // ifndef FREE_ENERGY_DISTRIBUTION_HPP

@@ -111,3 +111,30 @@ void FreeEnergyDistribution::printSet(
 	}
 	ofs.close();
 }
+
+
+
+std::ostream& operator<<(std::ostream& os, const FreeEnergyDistribution& f)
+{
+
+	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
+	const auto& f_x           = f.get_F_x();
+	const auto& sample_counts = f.getSampleCounts();
+	const auto f_x_shifted = FreeEnergyDistribution::shift_f_x_to_zero(f_x, sample_counts);
+
+	// Print F_0(x)
+	const auto& bins = f.getBins();
+	const int num_bins = bins.getNumBins();
+	for ( int b=0; b<num_bins; ++b ) {
+		os << std::setw(8) << std::setprecision(5) << bins[b];
+		os << "  " << std::setw(8) << std::setprecision(5);
+		FreeEnergyDistribution::printFreeEnergyValue(os, f_x_shifted[b], sample_counts[b]);
+		os << "  " << std::setw(8) << std::setprecision(5) << sample_counts[b];
+		if ( f.hasErrors() ) {
+			os << "  " << std::setw(8) << std::setprecision(5) << f.get_err_F_x()[b];
+		}
+		os << "\n";
+	}
+
+	return os;
+}

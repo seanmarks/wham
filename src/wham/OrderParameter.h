@@ -3,27 +3,10 @@
 #ifndef ORDER_PARAMETER_H
 #define ORDER_PARAMETER_H
 
-// Standard headers
-#include <cassert>
-#include <cmath>
-#include <cstdlib>
-#include <exception>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
 #include <string>
-#include <vector>
 
-// Project headers
 #include "Bins.h"
-#include "FileSystem.h"
-#include "FreeEnergyDistribution.hpp"
 #include "InputParser.h"
-#include "Simulation.h"
-#include "TimeSeries.h"
-#include "Assert.hpp"
 
 // Organizes settings for a single order parameter, especially
 // its name and how its values should be binned
@@ -44,23 +27,11 @@ class OrderParameter
 		return bins_;
 	}
 
-	void setWhamDistribution(const FreeEnergyDistribution& wham_distribution) {
-		wham_distribution_ = wham_distribution;
-	}
-
-
-	//----- Printing Output -----//
-
-	void printWhamResults(std::string file_name, const double temp) const;
-
 
  private:
 	std::string name_;
 
 	Bins bins_;
-
-	// WHAM results
-	FreeEnergyDistribution wham_distribution_;
 };
 
 #endif /* ORDER_PARAMETER_H */
