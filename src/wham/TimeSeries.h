@@ -50,7 +50,7 @@ class TimeSeries
 
 	// Access underlying data
 	const double& operator[](const int i) const;
-	const std::vector<double>& get_data() const { return data_; }
+	const std::vector<double>& getData() const { return data_; }
 	std::vector<double>& access_data() { return data_; }
 
 	const std::vector<double>& get_times() const { return times_; }

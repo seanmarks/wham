@@ -1,8 +1,7 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "Wham.h"
 
-#include "Estimator_F_x.hpp"
-#include "Estimator_F_x_y.hpp"
+#include "Bias.h"
 #include "LogSumExp.hpp"
 
 
@@ -92,24 +91,17 @@ void Wham::evaluateBiases()
 		const auto& op_names = biases_[r].getOrderParameterNames();
 		const int num_ops_for_bias = op_names.size();
 
-		// Buffer
-		std::vector<double> args(num_ops_for_bias);
-
-		// Evaluate bias for each sample
-		// - TODO: Array version would be simpler
-		int sample_index = 0;
 		int num_simulations = simulations_.size();
 		for ( int j=0; j<num_simulations; ++j ) {
-			int num_samples = num_samples_per_simulation_[j];
-			for ( int i=0; i<num_samples; ++i, ++sample_index ) {
-				// Pull together the order parameter values needed for this bias
-				for ( int s=0; s<num_ops_for_bias; ++s ) {
-					const auto& x_j = simulations_[j].getTimeSeriesForOrderParameter(op_names[s]);
-					args[s] = x_j[i];  //order_parameters_[p].getTimeSeries(j)[i];
-				}
-
-				u_bias_as_other_[r][sample_index] = biases_[r].evaluate( args );
+			using DataPtr = const std::vector<double>*;
+			std::vector<DataPtr> data_ptrs(num_ops_for_bias);
+			for ( int p=0; p<num_ops_for_bias; ++p ) {
+				auto& data = simulations_[j].getTimeSeriesForOrderParameter(op_names[p]);
+				data_ptrs[p] = &data.getData();
 			}
+
+			auto first = std::next( u_bias_as_other_[r].begin(), simulation_data_ranges_[j].first );
+			biases_[r].evaluate( data_ptrs.begin(), data_ptrs.end(), first );
 		}
 	}
 	biases_timer_.stop();

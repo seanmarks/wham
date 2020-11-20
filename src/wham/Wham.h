@@ -25,7 +25,6 @@
 #include "dlib/matrix.h"
 #include "dlib/optimization.h"
 
-#include "Bias.h"
 #include "Bins.h"
 #include "FreeEnergyDistribution.hpp"
 #include "FreeEnergyDistribution2D.hpp"
@@ -38,6 +37,8 @@
 #include "OrderParameterRegistry.h"
 #include "Simulation.h"
 #include "WhamDlibWrappers.h"
+
+class Bias;
 
 
 // Solves binless WHAM equations via log-likelihood maximization

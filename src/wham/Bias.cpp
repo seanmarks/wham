@@ -2,6 +2,7 @@
 
 #include "GenericFactory.h"
 
+
 namespace PotentialRegistry {
 
 // Register Potentials using a GenericFactory
@@ -22,6 +23,7 @@ using PotentialFactory = GenericFactory< Potential, std::string, const Parameter
 static PotentialFactory& factory = PotentialFactory::factory();
 
 } // end namespace PotentialRegistry
+
 
 
 Bias::Bias(const ParameterPack& input_pack, const double kBT):
@@ -59,7 +61,7 @@ Bias::Bias(const ParameterPack& input_pack, const double kBT):
 }
 
 
-// Evaluate the bias
+
 double Bias::evaluate(const std::vector<double>& x) const
 {
 	// Check input
@@ -78,7 +80,7 @@ double Bias::evaluate(const std::vector<double>& x) const
 }
 
 
-// Harmonic potential
+
 HarmonicPotential::HarmonicPotential(
 		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
@@ -89,14 +91,8 @@ HarmonicPotential::HarmonicPotential(
 	kappa_ *= beta_;
 }
 
-double HarmonicPotential::evaluate(const double x) const 
-{
-	double delta_x = x - x_star_;
-	return 0.5*kappa_*delta_x*delta_x;
-}
 
 
-// Linear potential
 LinearPotential::LinearPotential(
 		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
@@ -107,13 +103,9 @@ LinearPotential::LinearPotential(
 	phi_ *= beta_;
 	c_   *= beta_;
 }
-double LinearPotential::evaluate(const double x) const 
-{
-	return phi_*x + c_;
-}
 
 
-// Left one-sided harmonic potential
+
 LeftHarmonicPotential::LeftHarmonicPotential(
 		const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
@@ -123,19 +115,9 @@ LeftHarmonicPotential::LeftHarmonicPotential(
 	input_pack.readNumber("k_left", KeyType::Required, k_left_);
 	k_left_ *= beta_;  // convert to kBT
 }
-double LeftHarmonicPotential::evaluate(const double x) const
-{
-	if ( x < x_left_ ) {
-		double delta_x = x - x_left_;
-		return 0.5*k_left_*delta_x*delta_x;
-	}
-	else {
-		return 0.0;
-	}
-}
 
 
-// Right one-sided harmonic potential
+
 RightHarmonicPotential::RightHarmonicPotential(const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {
@@ -144,23 +126,9 @@ RightHarmonicPotential::RightHarmonicPotential(const ParameterPack& input_pack, 
 	input_pack.readNumber("k_right", KeyType::Required, k_right_);
 	k_right_ *= beta_;  // convert to kBT
 }
-double RightHarmonicPotential::evaluate(const double x) const
-{
-	if ( x > x_right_ ) {
-		double delta_x = x - x_right_;
-		return 0.5*k_right_*delta_x*delta_x;
-	}
-	else {
-		return 0.0;
-	}
-}
 
 
-// Dummy potential
+
 ZeroPotential::ZeroPotential(const ParameterPack& input_pack, const double kBT):
 	Potential(kBT)
 {}
-double ZeroPotential::evaluate(const double x) const 
-{
-	return 0.0;
-}
