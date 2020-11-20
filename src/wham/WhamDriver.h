@@ -117,6 +117,8 @@ class WhamDriver
 	ErrorMethod error_method_ = ErrorMethod::None;
 	int num_bootstrap_samples_ = 100;
 
+	void calculateBootstrapErrors(const Wham& wham);
+
 
 	//----- Output -----//
 
@@ -126,7 +128,7 @@ class WhamDriver
 	// Output F(x)
 	std::vector<FreeEnergyDistribution> output_f_x_;
 
-	// These compute the output F(x)
+	// F(x) to compute
 	std::vector<Estimator_F_x> est_f_x_;
 
 	// F(x,y) to compute
@@ -135,6 +137,8 @@ class WhamDriver
 	// Determine which outputs to compute and print
 	// - ex. F(x) and F(x,y) for different OPs x and/or y
 	void parseOutputs(const ParameterPack& input_pack);
+
+	void printDistributions(const Wham& wham) const;
 
 	void printWhamDistribution(
 		const OrderParameter& x,

@@ -80,12 +80,14 @@ WhamDriver::WhamDriver(const std::string& options_file):
 	int num_biases = bias_input_pack_ptrs.size();
 	FANCY_ASSERT( num_biases == num_simulations, "got " << num_biases << " biases, expected " << num_simulations );
 
+	// Parse biases
 	for ( int i=0; i<num_biases; ++i ) {
 		// TODO: allow bias log and data summary to report simulations in different orders,
 		//      or allow one to be a subset of the others
 		// - Use data set labels to match everything
 		// TODO: variable T between simulations
-		biases_.push_back( Bias(*(bias_input_pack_ptrs[i]), wham_options_.kBT) );
+		const auto& pack = *(bias_input_pack_ptrs[i]);
+		biases_.push_back( Bias(pack, wham_options_.kBT) );
 		const auto& label = biases_.back().getDataSetLabel();
 		FANCY_ASSERT(label == data_set_labels[i],
 			"encountered bias with data label " << label << ", expected " << data_set_labels[i]);
@@ -196,175 +198,112 @@ void WhamDriver::run_driver()
 		output_f_x_.emplace_back( estimator.get_f_x() );
 	}
 
-
-	//----- Estimate Errors -----//
-
-	// TODO: Move this section to a different function?
-
-	const bool calc_error = ( error_method_ != ErrorMethod::None );
-
-	// TODO: MATRIX?
-	std::vector<PointEstimator<double>> bootstrap_samples_f_bias;
-
+	// Estimate errors
 	if ( error_method_ == ErrorMethod::Bootstrap ) {
-		bootstrap_timer_.start();
-
-		if ( ! be_quiet_ ) {
-			std::cout << "  Estimate errors using bootstrap subsampling ...\n" << std::flush;
-		}
-
-		// Set up bootstrap handlers
-		bootstrap_samples_f_bias.resize(num_simulations);
-		const int num_output_f_x = est_f_x_.size();
-		std::vector<Bootstrap_F_x> bootstrap_f_x;
-		bootstrap_f_x.reserve(num_output_f_x);
-		for ( int k=0; k<num_output_f_x; ++k ) {
-			// Bind the output objects to where errors should ultimately be stored
-			bootstrap_f_x.emplace_back( est_f_x_[k].getOrderParameter(),
-				output_f_x_[k],	num_bootstrap_samples_);
-		}
-
-		// Prepare subsamplers
-		std::vector<BootstrapSubsampler> subsamplers;
-		std::vector<std::vector<int>> resample_indices(num_simulations);
-		for ( int j=0; j<num_simulations; ++j ) {
-			int num_samples_j = simulations_[j].getNumSamples();
-			// TODO: different seeds depending on debug mode flag
-			subsamplers.emplace_back( num_samples_j, Random::getDebugSequence() );
-			resample_indices[j].reserve( num_samples_j );
-		}
-
-		std::vector<Simulation> bootstrap_simulations(num_simulations);
-		std::vector<OrderParameter> bootstrap_ops = order_parameters_;
-		for ( int s=0; s<num_bootstrap_samples_; ++s ) {
-			// User feedback
-			const int stride = 25;
-			if ( (! be_quiet_) && ((s == 0) || (((s+1) % stride) == 0)) ) {
-				std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n" << std::flush;
-			}
-
-			// Subsample each simulation
-			// - TODO: OpenMP worth it?
-			subsample_timer_.start();
-			#pragma omp parallel for
-			for ( int j=0; j<num_simulations; ++j ) {
-				subsamplers[j].generate( resample_indices[j] );
-				bootstrap_simulations[j].setShuffledFromOther( simulations_[j], resample_indices[j] );
-			}
-			subsample_timer_.stop();
-
-			// Re-solve WHAM equations
-			solve_wham_timer_.start();
-			Wham bootstrap_wham( op_registry_, bootstrap_simulations, bootstrap_ops, 
-													 biases_, f_bias_opt_, wham_options_.tol );
-			solve_wham_timer_.stop();
-
-			// Save bootstrap estimates for f_bias_opt
-			const auto& bootstrap_f_bias_opt = bootstrap_wham.get_f_bias_opt();
-			for ( int j=0; j<num_simulations; ++j ) {
-				bootstrap_samples_f_bias[j].addSample( bootstrap_f_bias_opt[j] );
-			}
-
-			// Compute and store boostrap estimates of each output
-			// - TODO: loop over different estimators
-			for ( auto& estimator : bootstrap_f_x ) {
-				estimator.addSample(bootstrap_wham);
-			}
-		};
-
-		// Finalize errors
-		error_f_bias_opt_.resize(num_simulations);
-		for ( int j=0; j<num_simulations; ++j ) {
-			error_f_bias_opt_[j] = bootstrap_samples_f_bias[j].std_dev();
-		}
-		for ( auto& estimator : bootstrap_f_x ) {
-			estimator.finalize();
-		}
-
-		bootstrap_timer_.stop();
-	} // end bootstrap resampling
-
-
-	//----- Output -----//
-
-	print_output_timer_.start();
-
-	// Print optimal biasing free energies to file
-	std::string file_name("f_bias_WHAM.out");
-	std::ofstream ofs(file_name);
-	ofs << "# F_bias [k_B*T]";
-	if ( calc_error ) { ofs << " +/- error"; }
-	ofs << " for each window after minimization\n";
-	for ( int j=0; j<num_simulations; ++j ) {
-		ofs << std::setprecision(7) << f_bias_opt_[j];
-		if ( calc_error ) {
-			ofs << "  " << std::setprecision(7) << error_f_bias_opt_[j];
-		}
-		ofs << "\n";
-	}
-	ofs.close(); ofs.clear();
-
-	if ( error_method_ == ErrorMethod::Bootstrap ) {
-		// TODO: move to function
-		ofs.open("bootstrap_convergence.out");
-		ofs << "# Convergence of bootstrap subsampling\n"
-		    << "# n_B[samples]  F_bias(last_window)[kBT]\n";
-
-		const auto& all_samples = bootstrap_samples_f_bias.back().get_samples();
-		std::vector<double> samples(1, all_samples[0]);
-		for ( int s=1; s<num_bootstrap_samples_; ++s ) {
-			samples.push_back( all_samples[s] );
-			ofs << s+1 << "  " << std::setprecision(7) << Statistics::std_dev(samples) << "\n";
-		}
-		ofs.close(); ofs.clear();
+		calculateBootstrapErrors(wham);
 	}
 
-	// 1-variable outputs
-	for ( unsigned i=0; i<est_f_x_.size(); ++i ) {
-		const auto& x = est_f_x_[i].getOrderParameter();
-		if ( ! be_quiet_ ) {
-			std::cout << "Computing F_WHAM(" << x.getName() << ")\n" << std::flush;
-		}
-
-		// F_WHAM(x)
-		printWhamDistribution(x, output_f_x_[i]);
-
-		// "Manually" unbiased distributions (non-consensus, unshifted)
-		ManuallyUnbiasedDistributions f_x_unb(x, wham);
-		f_x_unb.print("F_" + x.getName() + "_unbiased.out");
-
-		// "Raw" distributions (i.e. using only data from each individual simulation)
-		BiasedDistributions f_x_biased(x, simulations_);
-		f_x_biased.print("F_" + x.getName() + "_biased.out");
-
-		// "Rebiased" consensus histograms (for validation)
-		RebiasedDistributions f_x_rebiased(x, wham);
-		f_x_rebiased.print("F_" + x.getName() + "_rebiased.out");
-
-		// TODO: "shifted" distributions?
-
-		WhamStatistics wham_stats(wham, f_x_biased, f_x_rebiased);
-		wham_stats.print();
-	}
-
-	// 2-variable outputs
-	for ( auto& est_f_x_y : est_f_x_y_ ) {
-		// F_WHAM(x,y)
-		const OrderParameter& x = est_f_x_y.get_x();
-		const OrderParameter& y = est_f_x_y.get_y();
-		if ( ! be_quiet_ ) {
-			std::cout << "Computing F_WHAM(" << x.getName() << ", " << y.getName() << ")\n" << std::flush;
-		}
-		est_f_x_y.calculate(wham);
-
-		// Print output files
-		est_f_x_y.saveResults();
-	}
-
-	print_output_timer_.stop();
+	// Handle output
+	printDistributions(wham);
 
 	driver_timer_.stop();
 }
+
+void WhamDriver::calculateBootstrapErrors(const Wham& wham)
+{
+	bootstrap_timer_.start();
+
+	if ( ! be_quiet_ ) {
+		std::cout << "  Estimate errors using bootstrap subsampling ...\n" << std::flush;
+	}
+
+	const int num_simulations = simulations_.size();
+	std::vector<PointEstimator<double>> bootstrap_samples_f_bias(num_simulations);
+
+	// Set up bootstrap handlers
+	// (1) F(x)
+	const int num_output_f_x = est_f_x_.size();
+	std::vector<Bootstrap_F_x> bootstrap_f_x;
+	bootstrap_f_x.reserve(num_output_f_x);
+	for ( int k=0; k<num_output_f_x; ++k ) {
+		// Bind the output objects to where errors should ultimately be stored
+		bootstrap_f_x.emplace_back( est_f_x_[k].getOrderParameter(),
+			output_f_x_[k],	num_bootstrap_samples_);
+	}
+
+	// Prepare time series subsamplers
+	std::vector<BootstrapSubsampler> subsamplers;
+	std::vector<std::vector<int>> resample_indices(num_simulations);
+	for ( int j=0; j<num_simulations; ++j ) {
+		int num_samples_j = simulations_[j].getNumSamples();
+		// TODO: different seeds depending on debug mode flag
+		subsamplers.emplace_back( num_samples_j, Random::getDebugSequence() );
+		resample_indices[j].reserve( num_samples_j );
+	}
+
+	std::vector<Simulation> bootstrap_simulations(num_simulations);
+	for ( int s=0; s<num_bootstrap_samples_; ++s ) {
+		// User feedback
+		const int stride = 25;
+		if ( (! be_quiet_) && ((s == 0) || (((s+1) % stride) == 0)) ) {
+			std::cout << "    sample " << s+1 << " of " << num_bootstrap_samples_ << "\n" << std::flush;
+		}
+
+		// Subsample each simulation
+		// - TODO: OpenMP worth it?
+		subsample_timer_.start();
+		#pragma omp parallel for
+		for ( int j=0; j<num_simulations; ++j ) {
+			subsamplers[j].generate( resample_indices[j] );
+			bootstrap_simulations[j].setShuffledFromOther( simulations_[j], resample_indices[j] );
+		}
+		subsample_timer_.stop();
+
+		// Re-solve WHAM equations
+		solve_wham_timer_.start();
+		Wham bootstrap_wham( op_registry_, bootstrap_simulations, order_parameters_,
+												 biases_, f_bias_opt_, wham_options_.tol );
+		solve_wham_timer_.stop();
+
+		// Save bootstrap estimates for f_bias_opt
+		// - TODO: generalize
+		const auto& bootstrap_f_bias_opt = bootstrap_wham.get_f_bias_opt();
+		for ( int j=0; j<num_simulations; ++j ) {
+			bootstrap_samples_f_bias[j].addSample( bootstrap_f_bias_opt[j] );
+		}
+
+		// Compute and store boostrap estimates of each output
+		// - TODO: generalize
+		for ( auto& estimator : bootstrap_f_x ) {
+			estimator.addSample(bootstrap_wham);
+		}
+	};
+
+	// Finalize errors
+	// - TODO: generalize
+	error_f_bias_opt_.resize(num_simulations);
+	for ( int j=0; j<num_simulations; ++j ) {
+		error_f_bias_opt_[j] = bootstrap_samples_f_bias[j].std_dev();
+	}
+	for ( auto& estimator : bootstrap_f_x ) {
+		estimator.finalize();
+	}
+
+	// TODO: move to separate function?
+	std::ofstream ofs("bootstrap_convergence.out");
+	ofs << "# Convergence of bootstrap subsampling\n"
+			<< "# n_B[samples]  F_bias(last_window)[kBT]\n";
+	const auto& all_samples = bootstrap_samples_f_bias.back().get_samples();
+	std::vector<double> samples(1, all_samples[0]);
+	for ( int s=1; s<num_bootstrap_samples_; ++s ) {
+		samples.push_back( all_samples[s] );
+		ofs << s+1 << "  " << std::setprecision(7) << Statistics::std_dev(samples) << "\n";
+	}
+	ofs.close(); ofs.clear();
+
+	bootstrap_timer_.stop();
+}
+
 
 
 void WhamDriver::parseOutputs(const ParameterPack& input_pack)
@@ -410,6 +349,76 @@ void WhamDriver::parseOutputs(const ParameterPack& input_pack)
 		}
 	}
 }
+
+
+
+void WhamDriver::printDistributions(const Wham& wham) const
+{
+	print_output_timer_.start();
+
+	const bool calc_error = ( error_method_ != ErrorMethod::None );
+	const int num_simulations = simulations_.size();
+
+	// Print optimal biasing free energies to file
+	std::string file_name("f_bias_WHAM.out");
+	std::ofstream ofs(file_name);
+	ofs << "# F_bias [k_B*T]";
+	if ( calc_error ) { ofs << " +/- error"; }
+	ofs << " for each window after minimization\n";
+	for ( int j=0; j<num_simulations; ++j ) {
+		ofs << std::setprecision(7) << f_bias_opt_[j];
+		if ( calc_error ) {
+			ofs << "  " << std::setprecision(7) << error_f_bias_opt_[j];
+		}
+		ofs << "\n";
+	}
+	ofs.close(); ofs.clear();
+
+	// 1-variable outputs
+	for ( unsigned i=0; i<est_f_x_.size(); ++i ) {
+		const auto& x = est_f_x_[i].getOrderParameter();
+		if ( ! be_quiet_ ) {
+			std::cout << "Computing F_WHAM(" << x.getName() << ")\n" << std::flush;
+		}
+
+		// F_WHAM(x)
+		printWhamDistribution(x, output_f_x_[i]);
+
+		// "Manually" unbiased distributions (non-consensus, unshifted)
+		ManuallyUnbiasedDistributions f_x_unb(x, wham);
+		f_x_unb.print("F_" + x.getName() + "_unbiased.out");
+
+		// "Raw" distributions (i.e. using only data from each individual simulation)
+		BiasedDistributions f_x_biased(x, simulations_);
+		f_x_biased.print("F_" + x.getName() + "_biased.out");
+
+		// "Rebiased" consensus histograms (for validation)
+		RebiasedDistributions f_x_rebiased(x, wham);
+		f_x_rebiased.print("F_" + x.getName() + "_rebiased.out");
+
+		// TODO: "shifted" distributions?
+
+		WhamStatistics wham_stats(wham, f_x_biased, f_x_rebiased);
+		wham_stats.print();
+	}
+
+	// 2-variable outputs
+	for ( auto est_f_x_y : est_f_x_y_ ) {
+		// F_WHAM(x,y)
+		const OrderParameter& x = est_f_x_y.get_x();
+		const OrderParameter& y = est_f_x_y.get_y();
+		if ( ! be_quiet_ ) {
+			std::cout << "Computing F_WHAM(" << x.getName() << ", " << y.getName() << ")\n" << std::flush;
+		}
+		est_f_x_y.calculate(wham);
+
+		// Print output files
+		est_f_x_y.saveResults();
+	}
+
+	print_output_timer_.stop();
+}
+
 
 
 void WhamDriver::printWhamDistribution(
