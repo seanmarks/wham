@@ -1,6 +1,7 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "WhamDriver.h"
 
+#include "Bootstrap_F_x.hpp"
 #include "BiasedDistributions.hpp"
 #include "ManuallyUnbiasedDistributions.hpp"
 #include "RebiasedDistributions.hpp"
@@ -188,6 +189,13 @@ void WhamDriver::run_driver()
 		std::cout << std::flush;
 	}
 
+	// Calculate single-variable outputs
+	output_f_x_.reserve( est_f_x_.size() );
+	for ( auto& estimator : est_f_x_ ) {
+		estimator.calculate(wham);
+		output_f_x_.emplace_back( estimator.get_f_x() );
+	}
+
 
 	//----- Estimate Errors -----//
 
@@ -195,9 +203,8 @@ void WhamDriver::run_driver()
 
 	const bool calc_error = ( error_method_ != ErrorMethod::None );
 
-	// TODO: MATRIX
+	// TODO: MATRIX?
 	std::vector<PointEstimator<double>> bootstrap_samples_f_bias;
-	std::vector< std::vector<PointEstimator<double>> > bootstrap_samples_f_x;
 
 	if ( error_method_ == ErrorMethod::Bootstrap ) {
 		bootstrap_timer_.start();
@@ -206,22 +213,15 @@ void WhamDriver::run_driver()
 			std::cout << "  Estimate errors using bootstrap subsampling ...\n" << std::flush;
 		}
 
-		// Allocate memory for bootstrap samples
-		// - Dimensions: #outputs x #bins/output
+		// Set up bootstrap handlers
 		bootstrap_samples_f_bias.resize(num_simulations);
-		int num_output_f_x = output_f_x_.size();
-		bootstrap_samples_f_x.resize(num_output_f_x);
-		for ( int i=0; i<num_output_f_x; ++i ) {
-
-			const auto& x = output_f_x_[i].getOrderParameter();
-
-			int num_bins_x = x.getBins().getNumBins();
-			bootstrap_samples_f_x[i].resize(num_bins_x);
-
-			for ( int b=0; b<num_bins_x; ++b ) {
-				bootstrap_samples_f_x[i][b].clear();
-				bootstrap_samples_f_x[i][b].reserve(num_bootstrap_samples_);
-			}
+		const int num_output_f_x = est_f_x_.size();
+		std::vector<Bootstrap_F_x> bootstrap_f_x;
+		bootstrap_f_x.reserve(num_output_f_x);
+		for ( int k=0; k<num_output_f_x; ++k ) {
+			// Bind the output objects to where errors should ultimately be stored
+			bootstrap_f_x.emplace_back( est_f_x_[k].getOrderParameter(),
+				output_f_x_[k],	num_bootstrap_samples_);
 		}
 
 		// Prepare subsamplers
@@ -265,22 +265,10 @@ void WhamDriver::run_driver()
 				bootstrap_samples_f_bias[j].addSample( bootstrap_f_bias_opt[j] );
 			}
 
-			// Compute boostrap estimates of each F(x)
-			// - TODO: generic interface
-			for ( int i=0; i<num_output_f_x; ++i ) {
-				auto& est_f_x = output_f_x_[i];
-				est_f_x.calculate(bootstrap_wham);
-				const auto& bootstrap_f_x = est_f_x.get_f_x();
-
-				const auto& x = output_f_x_[i].getOrderParameter();
-				int num_bins_x = x.getBins().getNumBins();
-				for ( int b=0; b<num_bins_x; ++b ) {
-					// Only save this sample for if F(x) if its value is finite (i.e. bin has samples in it)
-					// - Otherwise, statistics over the samples will be corrupted
-					if ( bootstrap_f_x.sample_counts[b] > 0 ) {
-						bootstrap_samples_f_x[i][b].addSample( bootstrap_f_x.f_x[b] );
-					}
-				}
+			// Compute and store boostrap estimates of each output
+			// - TODO: loop over different estimators
+			for ( auto& estimator : bootstrap_f_x ) {
+				estimator.addSample(bootstrap_wham);
 			}
 		};
 
@@ -289,8 +277,9 @@ void WhamDriver::run_driver()
 		for ( int j=0; j<num_simulations; ++j ) {
 			error_f_bias_opt_[j] = bootstrap_samples_f_bias[j].std_dev();
 		}
-
-		// TODO: Compute errors for F(x) here instead of below
+		for ( auto& estimator : bootstrap_f_x ) {
+			estimator.finalize();
+		}
 
 		bootstrap_timer_.stop();
 	} // end bootstrap resampling
@@ -316,6 +305,7 @@ void WhamDriver::run_driver()
 	ofs.close(); ofs.clear();
 
 	if ( error_method_ == ErrorMethod::Bootstrap ) {
+		// TODO: move to function
 		ofs.open("bootstrap_convergence.out");
 		ofs << "# Convergence of bootstrap subsampling\n"
 		    << "# n_B[samples]  F_bias(last_window)[kBT]\n";
@@ -330,11 +320,15 @@ void WhamDriver::run_driver()
 	}
 
 	// 1-variable outputs
-	for ( unsigned i=0; i<output_f_x_.size(); ++i ) {
-		OrderParameter x = output_f_x_[i].getOrderParameter();
+	for ( unsigned i=0; i<est_f_x_.size(); ++i ) {
+		OrderParameter x = est_f_x_[i].getOrderParameter();
 		if ( ! be_quiet_ ) {
 			std::cout << "Computing F_WHAM(" << x.getName() << ")\n" << std::flush;
 		}
+
+		// F_WHAM(x)
+		x.setWhamDistribution( output_f_x_[i] );
+		x.printWhamResults("F_" + x.getName() + "_WHAM.out", simulations_.front().getTemperature());
 
 		// "Manually" unbiased distributions (non-consensus, unshifted)
 		ManuallyUnbiasedDistributions f_x_unb(x, wham);
@@ -352,30 +346,10 @@ void WhamDriver::run_driver()
 
 		WhamStatistics wham_stats(wham, f_x_biased, f_x_rebiased);
 		wham_stats.print();
-
-		// F_WHAM(x)
-		// FIXME:
-		output_f_x_[i].calculate(wham);
-		auto wham_distribution = output_f_x_[i].get_f_x();
-		if ( calc_error && error_method_ == ErrorMethod::Bootstrap ) {
-			int num_bins_x = x.getBins().getNumBins();
-			std::vector<double> err_f_x(num_bins_x);
-			for ( int b=0; b<num_bins_x; ++b ) {
-				if ( bootstrap_samples_f_x[i][b].get_num_samples() >= 2 ) {
-					err_f_x[b] = bootstrap_samples_f_x[i][b].std_dev();
-				}
-				else {
-					err_f_x[b] = -1.0;  // junk value (TODO: print as nan instead?)
-				}
-			}
-			wham_distribution.error_f_x = err_f_x;  // TODO set fxn
-		}
-		x.setWhamDistribution( wham_distribution );
-		x.printWhamResults("F_" + x.getName() + "_WHAM.out", simulations_.front().getTemperature());
 	}
 
 	// 2-variable outputs
-	for ( auto& est_f_x_y : output_f_x_y_ ) {
+	for ( auto& est_f_x_y : est_f_x_y_ ) {
 		// F_WHAM(x,y)
 		const OrderParameter& x = est_f_x_y.get_x();
 		const OrderParameter& y = est_f_x_y.get_y();
@@ -403,8 +377,8 @@ void WhamDriver::parseOutputs(const ParameterPack& input_pack)
 	auto vecs = input_pack.findVectors("F_WHAM", KeyType::Optional);
 
 	if ( (! print_everything) || (vecs.size() > 0) ) {
-		output_f_x_.clear();
-		output_f_x_y_.clear();
+		est_f_x_.clear();
+		est_f_x_y_.clear();
 
 		int num_outputs = vecs.size();
 		for ( int i=0; i<num_outputs; ++i ) {
@@ -424,12 +398,12 @@ void WhamDriver::parseOutputs(const ParameterPack& input_pack)
 			}
 			else if ( num_ops_for_output == 1 ) {
 				const auto& x = order_parameters_[op_indices[0]];
-				output_f_x_.emplace_back(x);
+				est_f_x_.emplace_back(x);
 			}
 			else if ( num_ops_for_output == 2 ) {
 				const auto& x = order_parameters_[op_indices.front()];
 				const auto& y = order_parameters_[op_indices.back()];
-				output_f_x_y_.emplace_back(x,y);
+				est_f_x_y_.emplace_back(x,y);
 			}
 			else {
 				throw std::runtime_error("F_WHAM calcualtions only support up to 2 order parameters");

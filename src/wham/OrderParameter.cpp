@@ -28,12 +28,11 @@ void OrderParameter::printWhamResults(std::string file_name, const double temp) 
 	std::ofstream ofs(file_name);
 
 	// For convenience of visualizing output, shift F(x) so that F=0 at the minimum
-	const auto& f_x           = wham_distribution_.f_x;
-	const auto& sample_counts = wham_distribution_.sample_counts;
+	const auto& f_x           = wham_distribution_.get_F_x();
+	const auto& sample_counts = wham_distribution_.getSampleCounts();
 	auto f_x_shifted = FreeEnergyDistribution::shift_f_x_to_zero(f_x, sample_counts);
 
-	// TODO: safer check?
-	bool have_error = ( wham_distribution_.error_f_x.size() == f_x.size() );
+	const bool have_error = wham_distribution_.hasErrors();
 
 	// Header
 	ofs << "# Consensus free energy distributions from WHAM: \n"
@@ -52,7 +51,7 @@ void OrderParameter::printWhamResults(std::string file_name, const double temp) 
 			FreeEnergyDistribution::printFreeEnergyValue(ofs, f_x_shifted[b], sample_counts[b]);
 		ofs << "  " << std::setw(8) << std::setprecision(5) << sample_counts[b];
 		if ( have_error ) {
-			ofs << "  " << std::setw(8) << std::setprecision(5) << wham_distribution_.error_f_x[b];
+			ofs << "  " << std::setw(8) << std::setprecision(5) << wham_distribution_.get_err_F_x()[b];
 		}
 		ofs << "\n";
 	}

@@ -1,3 +1,4 @@
+// AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 
 #ifndef BIAS_H
 #define BIAS_H

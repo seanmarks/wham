@@ -123,11 +123,14 @@ class WhamDriver
 	bool be_verbose_ = false;  // extra feedback
 	bool be_quiet_   = false;  // minimal/no feedback
 
-	// F(x) to compute
-	std::vector<Estimator_F_x> output_f_x_;
+	// Output F(x)
+	std::vector<FreeEnergyDistribution> output_f_x_;
+
+	// These compute the output F(x)
+	std::vector<Estimator_F_x> est_f_x_;
 
 	// F(x,y) to compute
-	std::vector<Estimator_F_x_y> output_f_x_y_;
+	std::vector<Estimator_F_x_y> est_f_x_y_;
 
 	// Determine which outputs to compute and print
 	// - ex. F(x) and F(x,y) for different OPs x and/or y

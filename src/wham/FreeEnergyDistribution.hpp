@@ -13,21 +13,10 @@
 #include "Bins.h"
 #include "TimeSeries.h"
 
-// 1-D free energy distribution, F(x)
-// TODO:
-// - Better interface
+// A one-dimensional free energy distribution, F(x)
+// - TODO: include handle to an OP as a member variable?
 class FreeEnergyDistribution {
  public:
-  //----- Data -----//
-
-  using VectorReal = std::vector<double>;
-
-  Bins                bins_x;
-  std::vector<double> f_x, error_f_x;
-  std::vector<double> p_x;
-  std::vector<int>    sample_counts;
-
-
   //----- Setup ----//
 
   FreeEnergyDistribution();
@@ -38,10 +27,11 @@ class FreeEnergyDistribution {
   
   
   FreeEnergyDistribution(
-    const Bins& bins_x_in,  
-    const VectorReal& f_x_in, const VectorReal& p_x_in, const std::vector<int>& samples
+    const Bins& bins_x,  
+    const std::vector<double>& f_x, const std::vector<double>& p_x,
+    const std::vector<int>& samples
   ):
-    bins_x(bins_x_in), f_x(f_x_in), p_x(p_x_in), sample_counts(samples)
+    bins_x_(bins_x), f_x_(f_x), p_x_(p_x), sample_counts_(samples)
   {
     // TODO: check for consistency of lengths
   }
@@ -52,8 +42,9 @@ class FreeEnergyDistribution {
   ) const;
 
   void setErrors_F_x(const std::vector<double>& err) {
-    FANCY_ASSERT(err.size() == f_x.size(), "length mismatch");
-    error_f_x = err;
+    FANCY_ASSERT(err.size() == f_x_.size(), "length mismatch");
+    error_f_x_ = err;
+    has_errors_ = true;
   }
 
 
@@ -69,12 +60,29 @@ class FreeEnergyDistribution {
   );
 
   const Bins& getBins() const noexcept {
-    return bins_x;
+    return bins_x_;
+  }
+
+  const std::vector<double>& get_F_x() const noexcept {
+    return f_x_;
+  }
+
+  const std::vector<double>& get_P_x() const noexcept {
+    return p_x_;
   }
 
   const std::vector<int>& getSampleCounts() const noexcept {
-    return sample_counts;
+    return sample_counts_;
   }
+
+  bool hasErrors() const noexcept {
+    return has_errors_;
+  }
+
+  const std::vector<double>& get_err_F_x() const noexcept {
+    return error_f_x_;
+  }
+
 
   //----- Analysis -----//
 
@@ -127,6 +135,15 @@ class FreeEnergyDistribution {
     if ( is_f_x_finite(f_x, num_samples) ) { ofs << f_x;   }
     else                                   { ofs << "nan"; }    
   };
+
+
+ private:
+  Bins                bins_x_;
+  std::vector<double> f_x_, error_f_x_;
+  std::vector<double> p_x_;
+  std::vector<int>    sample_counts_;
+
+  bool has_errors_ = false;
 };
 
 #endif // ifndef FREE_ENERGY_DISTRIBUTION_HPP
