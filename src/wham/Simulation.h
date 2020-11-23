@@ -9,9 +9,11 @@
 
 #include "Constants.h"
 #include "DataSummary.h"
-#include "OrderParameterRegistry.h"
 #include "TimeSeries.h"
 #include "Assert.hpp"
+
+class OrderParameterRegistry;
+
 
 // Stores time series data and settings corresponding to a single simulation (ensemble)
 class Simulation 
@@ -55,11 +57,7 @@ class Simulation
 
 	// Access the time series for the given OP
 	// - Throws if the OP does is not registered
-	const TimeSeries& getTimeSeriesForOrderParameter(const std::string& op_name) const {
-		FANCY_ASSERT(op_registry_ptr_ != nullptr, "order parameter registry is missing");
-		const int op_index = op_registry_ptr_->nameToIndex(op_name);
-		return time_series_[op_index];
-	}
+	const TimeSeries& getTimeSeriesForOrderParameter(const std::string& op_name) const;
 
 	// Returns a raw (non-owning) handle to the time series of the given OP
 	const TimeSeries* copyTimeSeriesPtr(const std::string& op_name) const {

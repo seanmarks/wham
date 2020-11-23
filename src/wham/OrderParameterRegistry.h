@@ -17,107 +17,104 @@
 #include "InputParser.h"
 
 
-// OrderParameterRegistry
-// - Tracks the order parameters (OPs) present, and the origin of their time series data
+// Tracks the order parameters (OPs) present, and the location of their time series data
+//
+// Terminology:
+// - "time series list" = file contining a list of time series files for the OP
+// - "file column"      = column in the time series list with the time series locations (default: 2nd column)
+// - "time series file" = contains the actual time series data
+// - "data column"      = column in the time series file with the OP data (default: 2nd column)
 class OrderParameterRegistry
 {
  public:
-	OrderParameterRegistry();
+  using Strings = std::vector<std::string>;
+  using const_iterator = typename Strings::const_iterator;
 
-	OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary);
+  OrderParameterRegistry() = default;
 
-	// Returns the index
-	int nameToIndex(const std::string& name) const {
-		auto pair_it = map_op_names_to_indices_.find( name );
-		if ( pair_it != map_op_names_to_indices_.end() ) {
-			return pair_it->second ;
-		}
-		else {
-			throw std::runtime_error("Error \'" + name + "\' is not registered");
-		}
-	}
+  OrderParameterRegistry(const ParameterPack& input_pack, const DataSummary& data_summary);
 
-	std::vector<int> namesToIndices(const std::vector<std::string>& names) const {
-		const int num_ops = names.size();
-		std::vector<int> indices(num_ops);
+  // Returns the index corresponding to the given OP name
+  int nameToIndex(const std::string& name) const;
 
-		std::transform( names.begin(), names.end(), indices.begin(),
-			[=](const std::string& name) -> int {
-				return nameToIndex(name);
-			}
-		);
+  // Returns the OP indices corresponding to the given OP names
+  std::vector<int> namesToIndices(const std::vector<std::string>& names) const;
 
-		return indices;
-	}
+  // Returns the number of OPs registered
+  std::size_t getNumRegistered() const noexcept {
+    return names_.size();
+  }
 
-	std::size_t getNumRegistered() const {
-		return names_.size();
-	}
-	const std::vector<std::string>& getNames() const { 
-		return names_; 
-	}
+  // Returns the number of OPs registered
+  std::size_t size() const noexcept {
+    return names_.size();
+  }
 
-	// Access registry info by OP index
-	const std::string& indexToName(const int p) const { 
-		return names_[p]; 
-	}
+  // Iterate over names
+  const_iterator begin() const noexcept {
+    return names_.begin();
+  }
+  const_iterator end() const noexcept {
+    return names_.end();
+  }
 
-	const std::vector<std::string>& getTimeSeriesFiles(const int p) const {
-		return time_series_files_[p];
-	}
+  // Returns a list of all OP names
+  const Strings& getNames() const noexcept {
+    return names_;
+  }
 
-	int getTimeSeriesDataCol(const int p) const {
-		return data_columns_[p];
-	}
+  // Access registry info by OP name
+  const Strings& getTimeSeriesFiles(const std::string& name) const {
+    return getTimeSeriesFiles( nameToIndex(name) );
+  }
+  int getTimeSeriesDataCol(const std::string& name) const {
+    return getTimeSeriesDataCol( nameToIndex(name) );
+  }
+  int getTimeSeriesFileCol(const std::string& name) const {
+    return getTimeSeriesFileCol( nameToIndex(name) );
+  }
 
-	int getTimeSeriesFileCol(const int p) const {
-		return file_columns_[p];
-	}
+  // Get list of files by simulation index/data set label
+  const Strings& getSimulationFiles(const int i) const {
+    return simulation_files_[i];
+  }
+  const Strings& getSimulationFiles(const std::string& data_set_label) const {
+    FANCY_ASSERT( data_summary_ptr_ != nullptr, "missing DataSummary" );
+    return getSimulationFiles( data_summary_ptr_->dataSetLabelToIndex(data_set_label) );
+  }
 
-	// Access registry info by OP name
-	const std::vector<std::string>& getTimeSeriesFiles(const std::string& name) const {
-		return getTimeSeriesFiles( nameToIndex(name) );
-	}
 
-	int getTimeSeriesDataCol(const std::string& name) const {
-		return getTimeSeriesDataCol( nameToIndex(name) );
-	}
-
-	int getTimeSeriesFileCol(const std::string& name) const {
-		return getTimeSeriesFileCol( nameToIndex(name) );
-	}
-
-	// Get list of files by simulation index/data set label
-	const std::vector<std::string>& getSimulationFiles(const int i) const {
-		return simulation_files_[i];
-	}
-
-	const std::vector<std::string>& getSimulationFiles(const std::string& data_set_label) const {
-		if ( data_summary_ptr_ != nullptr ) {
-			return getSimulationFiles( data_summary_ptr_->dataSetLabelToIndex(data_set_label) );
-		}
-		else {
-			throw std::runtime_error("Error: OrderParameterRegistry does not have access to a DataSummary.");
-		}
-	}
+  // Access registry info by OP index
+  const std::string& indexToName(const int p) const { 
+    return names_[p]; 
+  }
+  const Strings& getTimeSeriesFiles(const int p) const {
+    return time_series_files_[p];
+  }
+  int getTimeSeriesDataCol(const int p) const {
+    return data_columns_[p];
+  }
+  int getTimeSeriesFileCol(const int p) const {
+    return file_columns_[p];
+  }
 
 
  private:
-	const DataSummary* data_summary_ptr_ = nullptr;
+  const DataSummary* data_summary_ptr_ = nullptr;
 
-	std::vector<std::string> names_;
+  Strings names_;
 
-	std::vector<std::string> time_series_lists_;
-	std::vector<int> file_columns_;
+  Strings time_series_lists_;
+  std::vector<int> file_columns_;
 
-	std::vector<std::vector<std::string>> time_series_files_;  // outer = by OP, inner = by sim
-	std::vector<int> data_columns_;
+  std::vector<Strings> time_series_files_;  // outer = by OP, inner = by sim
+  std::vector<int> data_columns_;
 
-	// Files arranged by simulation
-	std::vector<std::vector<std::string>> simulation_files_;
+  // Files arranged by simulation
+  std::vector<Strings> simulation_files_;
 
-	// Maps names of OrderParameters top their indices in the order_parameters_ vector
-	std::map<std::string, int> map_op_names_to_indices_;
+  // Maps names of OrderParameters top their indices in the order_parameters_ vector
+  std::map<std::string, int> map_op_names_to_indices_;
 };
 
 #endif // ifndef ORDER_PARAMETER_REGISTRY_H

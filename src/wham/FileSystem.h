@@ -48,9 +48,9 @@ std::string resolveRelativePath(const std::string& rel_path, const std::string& 
 // - If a file is listed as a relative path (e.g. using '..'), then the
 //   path is evaluted relative to the location of files_list
 void readFilesList(
-	const std::string& files_list,
-	const int file_col,  // indexed from 0
-	std::vector<std::string>& files
+  const std::string& files_list,
+  const int file_col,  // indexed from 0
+  std::vector<std::string>& files
 );
 
 

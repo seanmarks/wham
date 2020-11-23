@@ -1,5 +1,7 @@
 #include "Simulation.h"
 
+#include "OrderParameterRegistry.h"
+
 
 Simulation::Simulation(
 	const std::string& data_set_label, const double t_min, const double t_max,
@@ -25,6 +27,11 @@ Simulation::Simulation(
 	checkTimeSeries();
 }
 
+	const TimeSeries& Simulation::getTimeSeriesForOrderParameter(const std::string& op_name) const {
+		FANCY_ASSERT(op_registry_ptr_ != nullptr, "order parameter registry is missing");
+		const int op_index = op_registry_ptr_->nameToIndex(op_name);
+		return time_series_[op_index];
+	}
 
 void Simulation::setShuffledFromOther(const Simulation& other, const std::vector<int>& indices)
 {
