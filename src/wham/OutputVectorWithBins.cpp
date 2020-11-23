@@ -60,11 +60,27 @@ void OutputVectorWithBins::save(const std::string& file_name) const
   const int num_bins = bins_.getNumBins();
   for ( int b=0; b<num_bins; ++b ) {
     ofs << bins_[b] << spacer << values_[b];
+
+    // Some outputs only make sense if there are samples in the bin
+    const bool has_min_samples = ( sample_counts_[b] > 0 );
+
     if ( hasErrors() ) {
-      ofs << spacer << errors_[b];
+      if ( has_min_samples ) {
+        ofs << spacer << errors_[b];
+      }
+      else {
+        ofs << spacer << "nan";
+      }
     }
-    ofs << spacer << sample_counts_[b]
-        << '\n';
+
+    if ( has_min_samples ) {
+      ofs << spacer << sample_counts_[b];
+    }
+    else {
+      ofs << spacer << "nan";
+    }
+
+    ofs << '\n';
   }
 
   ofs.close();
