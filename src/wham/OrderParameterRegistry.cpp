@@ -1,6 +1,8 @@
 // AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 #include "OrderParameterRegistry.h"
 
+#include "FileSystem.h"
+
 
 OrderParameterRegistry::OrderParameterRegistry()
 {}

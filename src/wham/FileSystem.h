@@ -1,5 +1,3 @@
-// FileSystem: static methods for evaluating file and directory paths
-// - TODO Support for Windows
 
 #ifndef FILE_SYSTEM_H
 #define FILE_SYSTEM_H
@@ -14,60 +12,48 @@
 #include <vector>
 #include <string>
 
+// Misc. functions related to manipulating files
+namespace FileSystem {
 
-class FileSystem {
- public:
-	// Directory separator
-#ifndef _WIN_32
-	static const char sep = '/';  // Unix
-#else
-	static const char sep = '\\';  // Windows
-#endif
+// Returns the directory separator
+// - Unix: '/'
+// - Windows: '\'
+char separator() noexcept;
 
-	// Reads a file, and extracts a list of file paths from column file_col
-	// - If a file is listed as a relative path (e.g. using '..'), then the
-	//   path is evaluted relative to the location of files_list
-	static void readFilesList(
-		const std::string& files_list,
-		const int file_col,  // indexed from 0
-		std::vector<std::string>& files
-	);
+// Returns the location of filesystem root
+std::string root();
 
-	// TODO windows
-#ifndef _WIN_32
-	static std::string get_realpath(const std::string& path)
-	{
-		if ( path.length() < 1 ) {
-			throw std::runtime_error("get_realpath() was given an empty path");
-		}
+// Concatenates the paths
+std::string join(const std::string& left, const std::string right);
 
-		// Use POSIX realpath()
-		char* buffer = realpath(&path[0], nullptr);
-		if ( buffer == nullptr ) {
-			throw std::runtime_error("Error resolving path \"" + path + "\"");
-		}
+// Given a path, returns the absolute path (behaves like Linux 'realpath')
+// TODO: Windows version
+std::string realpath(const std::string& path);
 
-		// Move the path to a std string and clean up
-		std::string resolved_path(buffer);
-		free(buffer); buffer = nullptr;
+// Get the directory which contains the given path
+// - Taken from
+//     C++ Cookbook by Jeff Cogswell, Jonathan Turkanis, Christopher Diggins, D. Ryan Stephens
+std::string dirname(const std::string& full_path);
 
-		return resolved_path;
-	}
-#endif /* _WIN_32 */
+// Returns true if the path is with respect to the filesystem root
+bool isAbsolutePath(const std::string& path);
 
-	// Get the directory which contains the given path
-	// - Taken from:
-	//     C++ Cookbook by Jeff Cogswell, Jonathan Turkanis, Christopher Diggins, D. Ryan Stephens
-	static std::string get_basename(const std::string& full_path)
-	{
-		size_t i = full_path.rfind(FileSystem::sep, full_path.length());
-		if ( i != std::string::npos ) {
-			return full_path.substr(0, i);
-		}
-		else {
-			return "."; // TODO Windows
-		}
-	}
-};
+/// Resolves a (possibly relative) path
+/// @param rel_path  path to resolve (may be *relative* to base_path)
+/// @param base_path used to resolve relative baths (acts like '.')
+// TODO: set the default value of 'base_path' to the PWD
+std::string resolveRelativePath(const std::string& rel_path, const std::string& base_path);
 
-#endif /* FILE_SYSTEM_H */
+// Reads a file, and extracts a list of file paths from column file_col
+// - If a file is listed as a relative path (e.g. using '..'), then the
+//   path is evaluted relative to the location of files_list
+void readFilesList(
+	const std::string& files_list,
+	const int file_col,  // indexed from 0
+	std::vector<std::string>& files
+);
+
+
+} // end namespace FileSystem
+
+#endif // ifndef FILE_SYSTEM_H

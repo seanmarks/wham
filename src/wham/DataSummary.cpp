@@ -1,5 +1,7 @@
 #include "DataSummary.h"
 
+#include "FileSystem.h"
+
 
 DataSummary::DataSummary()
 {}
@@ -10,7 +12,7 @@ DataSummary::DataSummary(
 	const ParameterPack& input_pack
 ):
 	data_summary_file_(data_summary_file),
-	data_summary_path_( FileSystem::get_basename(data_summary_file_) ),  // full path
+	data_summary_path_( FileSystem::dirname(data_summary_file_) ),  // full path
 	col_data_label_(0),
 	col_t_min_(3), col_t_max_(col_t_min_+1), col_T_(-1)
 {
