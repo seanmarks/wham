@@ -5,6 +5,7 @@ add_library(${LIB_WHAM} "")
 
 target_sources(${LIB_WHAM}
 	PRIVATE
+		Avg_x_Given_y.cpp
 		Bias.cpp
 		Bins.cpp
 		BiasedDistributions.cpp
@@ -26,6 +27,7 @@ target_sources(${LIB_WHAM}
 		OpenMP.cpp
 		OrderParameter.cpp
 		OrderParameterRegistry.cpp
+		OutputVectorWithBins.cpp
 		Random.cpp
 		RebiasedDistributions.cpp
 		Simulation.cpp

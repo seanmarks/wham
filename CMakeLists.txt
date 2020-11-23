@@ -1,3 +1,4 @@
+# AUTHOR: Sean M. Marks (https://github.com/seanmarks)
 cmake_minimum_required(VERSION 3.15)
 
 # Include directory with custom CMake modules
