@@ -53,7 +53,7 @@ void Estimator_Avg_x_Given_y::calculateUsingStoredWeights(
   sample_counts_.resize(num_bins_y);
   for ( int b=0; b<num_bins_y; ++b ) {
     sample_counts_[b] = binned_weights_[b].size();
-    if ( p_y[b] > 0.0 ) {
+    if ( p_y[b] > 0.0 && sample_counts_[b] >= 2 ) {
       avg_x_given_y_[b] = std::accumulate( binned_weights_[b].begin(), binned_weights_[b].end(), 0.0 );
       avg_x_given_y_[b] /= p_y[b] * bins_y.getBinSize();
     }
@@ -75,13 +75,19 @@ void Estimator_Avg_x_Given_y::saveResults(std::string file_name) const
 
   // Header
   const std::string spacer("  ");
-  ofs << "# " << y_.getName() << spacer << "<" << x_.getName() << "|" << y_.getName() << ">\n";
+  ofs << "# " << y_.getName() 
+      << spacer << "<" << x_.getName() << "|" << y_.getName() << ">"
+      << spacer << "samples"
+      << '\n';
 
   // Data
   const auto& bins_y = y_.getBins();
   const int num_bins = bins_y.getNumBins();
   for ( int b=0; b<num_bins; ++b ) {
-    ofs << bins_y[b] << spacer << avg_x_given_y_[b] << "\n";
+    ofs << bins_y[b]
+        << spacer << avg_x_given_y_[b]
+        << spacer << sample_counts_[b]
+        << '\n';
   }
 
   ofs.close();
